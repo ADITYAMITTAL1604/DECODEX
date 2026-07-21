@@ -1,0 +1,103 @@
+import fs from 'fs';
+import { audioQueue, AudioJobData, consentErasureQueue } from './index';
+import { eraseExpiredConsentData, scheduleConsentErasureJob } from './consentErasure';
+import { transcribeAudio } from '../services/openai';
+import { alignText } from '../services/alignment';
+import { classifyErrors } from '../services/classifier';
+import { saveClassifications, updateErrorProfile } from '../db/analytics';
+import { generateDrill } from '../services/drills';
+import { query } from '../db';
+import { getSSEClient } from '../routes/sessions';
+
+audioQueue.process(async (job) => {
+  const { sessionId, passageText, filePath } = job.data as AudioJobData;
+  const sseClient = getSSEClient(sessionId);
+
+  // Record wall-clock start time to compute duration_seconds accurately.
+  const processingStart = Date.now();
+
+  try {
+    // 1. Transcribe (STT)
+    sseClient?.sendEvent('status', { step: 'transcribing', message: 'Converting speech to text...' });
+    const transcript = await transcribeAudio(filePath, passageText);
+    
+    // 2. Align
+    sseClient?.sendEvent('status', { step: 'aligning', message: 'Aligning with original text...' });
+    const alignmentResult = alignText(passageText, transcript);
+
+    // 3. Classify Errors (LLM + Cache)
+    sseClient?.sendEvent('status', { step: 'classifying', message: 'Analyzing errors with AI...' });
+    const classifications = await classifyErrors(alignmentResult);
+    
+    // 4. DB Aggregation & Persistence
+    sseClient?.sendEvent('status', { step: 'saving', message: 'Saving results...' });
+    
+    const sessionRes = await query('SELECT student_id, started_at FROM reading_sessions WHERE id = $1', [sessionId]);
+    const studentId = sessionRes.rows[0].student_id;
+    const startedAt: Date = sessionRes.rows[0].started_at;
+
+    // Compute WPM: total matched/substituted words / (duration in minutes).
+    // Use the session's started_at for elapsed time, falling back to job processing time.
+    const completedAt = new Date();
+    const durationMs = startedAt
+      ? completedAt.getTime() - new Date(startedAt).getTime()
+      : Date.now() - processingStart;
+    const durationSeconds = Math.max(1, Math.round(durationMs / 1000));
+
+    // Count total words in the original passage as the denominator for WPM.
+    const totalPassageWords = passageText.trim().split(/\s+/).filter(w => w.length > 0).length;
+    const wordsPerMinute = parseFloat((totalPassageWords / (durationSeconds / 60)).toFixed(1));
+
+    await saveClassifications(sessionId, classifications);
+    const errorCounts = await updateErrorProfile(sessionId, studentId, alignmentResult, classifications);
+
+    // 5. Generate Drills
+    sseClient?.sendEvent('status', { step: 'generating', message: 'Generating personalized drills...' });
+    await generateDrill(sessionId, studentId, errorCounts);
+
+    // 6. Persist session completion with real WPM and duration
+    await query(
+      `UPDATE reading_sessions 
+       SET transcript = $1,
+           alignment_result = $2,
+           status = 'completed',
+           completed_at = $3,
+           duration_seconds = $4,
+           words_per_minute = $5
+       WHERE id = $6`,
+      [transcript, JSON.stringify(alignmentResult), completedAt, durationSeconds, wordsPerMinute, sessionId]
+    );
+
+    // 7. Complete
+    sseClient?.sendEvent('status', { step: 'complete', message: 'Processing complete!', wpm: wordsPerMinute });
+    
+    return { success: true, wpm: wordsPerMinute };
+  } catch (error: any) {
+    console.error(`Job failed for session ${sessionId}:`, error);
+    
+    await query(
+      `UPDATE reading_sessions SET status = 'error' WHERE id = $1`,
+      [sessionId]
+    );
+    sseClient?.sendEvent('error', { message: error.message || 'Processing failed' });
+    throw error;
+  } finally {
+    // Always clean up the temp audio file to prevent unbounded disk growth.
+    if (filePath && fs.existsSync(filePath)) {
+      fs.unlink(filePath, (err) => {
+        if (err) console.error(`Failed to delete temp file ${filePath}:`, err);
+        else console.log(`Cleaned up temp file: ${filePath}`);
+      });
+    }
+  }
+});
+
+consentErasureQueue.process(async () => {
+  return eraseExpiredConsentData();
+});
+
+scheduleConsentErasureJob().catch(() => {
+  console.error('Failed to schedule the daily consent erasure job.');
+});
+
+console.log('Audio processing worker started.');

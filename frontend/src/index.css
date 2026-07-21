@@ -1,0 +1,50 @@
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+@layer utilities {
+  .glass-card {
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    box-shadow: 0 8px 32px 0 rgba(45, 41, 38, 0.06), inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+  }
+
+  .glass-card-hover {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .glass-card-hover:hover {
+    transform: translateY(-4px);
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 16px 40px 0 rgba(0, 100, 116, 0.12), inset 0 1px 0 0 rgba(255, 255, 255, 1);
+    border-color: rgba(0, 100, 116, 0.25);
+  }
+
+  .glass-header {
+    background: rgba(255, 248, 245, 0.85);
+    backdrop-filter: blur(20px) saturate(190%);
+    -webkit-backdrop-filter: blur(20px) saturate(190%);
+    border-bottom: 1px solid rgba(233, 225, 220, 0.6);
+  }
+
+  .glass-input {
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1.5px solid rgba(225, 216, 212, 0.8);
+    transition: all 0.2s ease;
+  }
+  .glass-input:focus {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: #006474;
+    box-shadow: 0 0 0 4px rgba(0, 100, 116, 0.12);
+  }
+}
+
+body {
+  background: radial-gradient(circle at 10% 20%, rgba(227, 246, 250, 0.6) 0%, rgba(255, 248, 245, 1) 85%);
+  background-attachment: fixed;
+  color: #1e1b18;
+  font-family: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', sans-serif;
+  min-height: 100vh;
+}

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+uploads/
+*.log
+.DS_Store
+.venv/
+__pycache__/
+dump.rdb
+scratch/
