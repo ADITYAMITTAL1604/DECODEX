@@ -1,79 +1,86 @@
-# Decodex — AI Reading Diagnostic Companion 📖✨
+# Decodex — AI Reading Diagnostic & Dyslexia Clinic Companion 📖✨
 
-![Decodex Banner](https://via.placeholder.com/1200x400/4f46e5/ffffff?text=Decodex+AI+Reading+Companion)
+![OpenAI Build Week](https://img.shields.io/badge/OpenAI_Build_Week-Built_with_Codex-412991?style=for-the-badge&logo=openai&logoColor=white)
+![Build Status](https://img.shields.io/badge/Status-Hackathon_Submission_Ready-emerald?style=for-the-badge)
 
-**Decodex** is a production-ready, AI-powered diagnostic reading platform designed to move beyond traditional "assistive" EdTech (like text-to-speech) into true **diagnostic pedagogy**.
+> **Submitted for OpenAI Build Week Hackathon.**  
+> **Decodex** was built using **Codex** as an agentic AI pair programmer, leveraging **OpenAI Whisper** and **GPT-4o** to move beyond traditional assistive EdTech into true **diagnostic dyslexia pedagogy**.
+
+---
 
 ## 🏆 The Problem & Solution
-Currently, EdTech apps help students with dyslexia read text, but they don't tell teachers *why* a student is struggling. Without costly, time-consuming formal assessments, teachers can't easily see error patterns (e.g., visual reversals vs. phoneme blending breakdowns).
 
-**Decodex** solves this by:
-1. Having the student read aloud into the browser.
-2. Aligning their speech against the source text to detect insertions, omissions, and substitutions.
-3. Using GPT-4o with strict **Orton-Gillingham (O-G) prompting** to classify the exact reason for the error.
-4. Auto-generating personalized reading drills based on the student's unique error profile.
+EdTech tools help students read text aloud (Text-to-Speech), but they fail to explain **why** a student is struggling. Without costly, multi-month formal clinical assessments, educators and parents cannot detect actionable error patterns (such as visual letter/word reversals versus phoneme blending breakdowns).
 
-## ✨ Features
-- **Real-Time Asynchronous AI Pipeline**: Audio uploads are pushed to a Redis/Bull queue. The frontend listens to real-time Server-Sent Events (SSE) as the worker transcribes, aligns, classifies, and saves the data.
-- **Circuit Breaker Resilience**: Built with `opossum`, external OpenAI API calls (Whisper STT and GPT-4o) are wrapped in circuit breakers. If the AI goes down, the system gracefully falls back to mock data or 'Uncertain' classifications, ensuring the app never crashes in the classroom.
-- **LLM Caching**: Identical reading errors are cached in Redis, dropping AI classification latency from ~2000ms to ~5ms and saving API costs.
-- **Teacher "Human-in-the-Loop" Dashboard**: Teachers can view student charts (WPM and Error Rates via `recharts`) and **override** the AI's classifications. These corrections are saved non-destructively, preserving data to fine-tune future LLM prompts.
+**Decodex** solves this by creating an end-to-end diagnostic and remediation loop:
+1. **Student Speech Capture**: The student reads a diagnostic passage aloud in the browser with real-time Web Audio API voice clarity metering.
+2. **Needleman-Wunsch DP Speech Alignment**: Aligns Whisper speech transcripts against the source passage using Needleman-Wunsch matrix sequence alignment to eliminate false omissions caused by hesitations.
+3. **Orton-Gillingham (O-G) Taxonomy Classification**: Uses **GPT-4o** / **GPT-4o-mini** with strict Orton-Gillingham prompts to categorize error root causes (`REV` Reversals, `SUB` Substitutions, `BLD` Blend breakdowns, `OMI` Omissions, `INS` Insertions).
+4. **Interactive Sight Word Practice Clinic**: Auto-generates personalized sight word drills with letter-by-letter spelling, phonics sound breakdowns, TTS audio, and real-time Speech-to-Text pronunciation verification.
+5. **Teacher & Parent Portal**: Human-in-the-loop overrides, WPM and accuracy analytics, and in-app parent-student consent authorization.
+
+---
+
+## 🤖 Built with OpenAI & Codex
+
+Decodex was architected and built during **OpenAI Build Week** using **Codex**:
+- **Codex Agentic Pair Programming**: Autonomous full-stack code generation, Needleman-Wunsch matrix alignment, database schema design, and UI component engineering.
+- **OpenAI Whisper (`whisper-1` / `whisper-large-v3-turbo`)**: Ultra-fast speech recognition for multi-dialect student recordings.
+- **OpenAI GPT-4o & GPT-4o-mini**: Structured JSON classification enforcing Orton-Gillingham clinical taxonomy rules.
+
+---
+
+## ✨ Key Features
+
+- **Needleman-Wunsch Sequence Alignment**: Dynamic programming alignment matrix (`MATCH=0`, `SUB=0.8`, `GAP=1.0`) prevents false omissions when students pause or self-correct.
+- **Interactive Practice Clinic Page (`/sessions/:id/practice`)**: Full-screen dedicated practice page matching Decodex light mode theme (`#006474` primary teal, glassmorphism cards).
+- **Real-Time Speech Pronunciation Verification**: Uses live Speech-to-Text to evaluate student pronunciation in real time with strict word token verification, 6-second auto-reset safety timeouts, and TTS audio cancellation.
+- **Voice-Synced Mic Intensity & Clarity Meter**: Web Audio API frequency visualizer syncing microphone animation with voice volume.
+- **Parent Consent In-App Notification System**: Webpage invite code authorization eliminating email dependency.
+- **Resilient AI Pipeline**: Opossum circuit breakers fallback gracefully to an Orton-Gillingham rule engine if offline or rate-limited.
+- **Redis Caching Layer**: Caches repeat error classifications, reducing LLM latency from ~2000ms to ~5ms.
+
+---
 
 ## 🏗️ Architecture Stack
-- **Frontend**: React, Vite, TailwindCSS, React Router, Recharts, Lucide Icons.
-- **Backend**: Node.js, Express, TypeScript, Bull (Redis queue), Opossum (Circuit breakers).
-- **Database**: PostgreSQL (relational analytics & profiles), Redis (Caching & Job Queue).
-- **AI**: OpenAI Whisper (STT) and GPT-4o-mini (Classification).
-- **Deployment**: Dockerized multi-stage builds served by Nginx.
 
-## ⚡ Development Mode (One Command)
+- **AI Infrastructure**: Codex, OpenAI Whisper, OpenAI GPT-4o / GPT-4o-mini (with Groq API support).
+- **Frontend**: React 19, Vite, TypeScript, Tailwind CSS 4, React Router 7, Recharts, Lucide Icons.
+- **Backend**: Node.js, Express 5, TypeScript, Bull (Redis Queue), Opossum (Circuit Breaker).
+- **Database & Cache**: PostgreSQL (Analytics, Sessions, Classifications), Redis (Queue & LLM Cache).
+- **Orchestrator**: Single-command Python runner (`app.py`).
 
-> **Fastest way to run the full stack locally.** Requires Python 3.8+ and Node.js. Postgres and Redis must be running (locally or via Docker).
+---
+
+## ⚡ Quickstart — Run the Complete Project (One Command)
+
+> Requires Python 3.8+, Node.js, PostgreSQL (port `5433` or `5432`), and Redis (port `6379`).
 
 ```bash
 python app.py
 ```
 
-This single command will:
-1. Copy `backend/.env.example` → `backend/.env` if missing (and warn about placeholder secrets).
-2. Check that Postgres & Redis are reachable (warns if not, continues anyway).
-3. Run `npm install` in backend/ and frontend/ if `node_modules/` is missing.
-4. Launch both dev servers with colour-prefixed streaming output.
-5. Poll the backend health endpoint, then print URLs and a link to demo credentials.
-
-Press **Ctrl+C** to stop the dev servers.
-
-> The manual setup steps below still work if you prefer running services individually.
+`app.py` automatically:
+1. Verifies `backend/.env` environment configuration (`GROQ_API_KEY` / `OPENAI_API_KEY`).
+2. Checks PostgreSQL and Redis infrastructure connectivity.
+3. Installs missing npm dependencies for `backend/` and `frontend/`.
+4. Starts the Express API Server + Bull AI Background Worker (`http://localhost:3000`).
+5. Starts the Vite React Frontend App (`http://localhost:5173`).
 
 ---
 
-## 🚀 How to Run (Judges)
+## 🚀 Hackathon Judge Evaluation Credentials
 
-### 1. Prerequisites
-- Docker & Docker Compose
-- An OpenAI API Key (Required for full classification, though the app has a built-in mock fallback if missing).
+Access **`http://localhost:5173`** after running `python app.py`:
 
-### 2. Quickstart (Production Mode)
-```bash
-# Clone the repo
-git clone <repository-url>
-cd decodex
-
-# Export your OpenAI key
-export OPENAI_API_KEY="sk-your-real-key"
-
-# Build and start the production containers
-docker compose -f docker-compose.prod.yml up --build -d
-```
-
-### 3. Access the App
-- **Frontend App**: [http://localhost](http://localhost) (Served by Nginx)
-- **Backend API**: `http://localhost:3000/api/v1`
-
-### 4. Test Accounts
-The database automatically seeds with the following test accounts:
-- **Student Account**: `student@decodex.com` / `password123`
-- **Teacher Account**: `teacher@decodex.com` / `password123`
+| Role | Email | Password | Access / Flow |
+|------|-------|----------|---------------|
+| **Student** | `student@decodex.com` | `password123` | Passage selection, audio recording, interactive practice clinic |
+| **Teacher** | `teacher@decodex.com` | `password123` | Classroom analytics, student diagnostic view, error overrides |
+| **Parent** | `parent@decodex.com` | `password123` | In-app parent consent & invite code authorization |
 
 ---
-*Built with ❤️ for the Hackathon.*
+
+## 📜 License & Acknowledgments
+
+Submitted for **OpenAI Build Week Hackathon**. Built with ❤️ using **Codex** and **OpenAI**.
