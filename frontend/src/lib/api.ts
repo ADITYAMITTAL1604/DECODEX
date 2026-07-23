@@ -10,19 +10,30 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 export async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}/api/v1${endpoint}`;
   
+  const token = localStorage.getItem('decodex_token');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options?.headers as Record<string, string> || {}),
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const response = await fetch(url, {
     ...options,
-    credentials: 'include', // Automatically sends httpOnly cookies (JWT)
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
+    credentials: 'include',
+    headers,
   });
 
   const data = await response.json();
 
+  if (data?.token) {
+    localStorage.setItem('decodex_token', data.token);
+  }
+
   if (response.status === 401) {
-    // Optionally trigger a custom event or a callback to logout user
+    localStorage.removeItem('decodex_token');
     window.dispatchEvent(new Event('auth:expired'));
   }
 

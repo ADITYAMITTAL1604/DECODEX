@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
@@ -8,6 +8,17 @@ import { authenticate, AuthRequest } from '../middleware/auth';
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
 
+const getCookieOptions = () => {
+  const isProd = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
+    path: '/',
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+  };
+};
+
 interface ParentRegistrationBody {
   email?: unknown;
   password?: unknown;
@@ -15,8 +26,6 @@ interface ParentRegistrationBody {
 }
 
 // POST /api/v1/auth/register
-// Public registration is restricted to the 'student' role only.
-// Teachers and admins must be created by an existing admin (out-of-band).
 router.post('/register', async (req, res) => {
   const { email, password, display_name, grade_level } = req.body;
   
@@ -24,18 +33,15 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Missing required fields' } });
   }
 
-  // Basic email format validation
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid email format' } });
   }
 
-  // Minimum password length
   if (password.length < 8) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Password must be at least 8 characters' } });
   }
 
-  // Role is always 'student' for public registration — any caller-supplied role is ignored.
   const role = 'student';
 
   try {
@@ -48,13 +54,18 @@ router.post('/register', async (req, res) => {
       [email, password_hash, role, display_name, grade_level ?? null, invite_code]
     );
 
-    res.status(201).json({ user: result.rows[0] });
+    const user = result.rows[0];
+    const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+
+    res.cookie('token', token, getCookieOptions());
+
+    res.status(201).json({ user, token });
   } catch (error: any) {
-    if (error.code === '23505') { // unique violation
+    if (error.code === '23505') {
       return res.status(409).json({ error: { code: 'CONFLICT', message: 'Email already exists' } });
     }
-    console.error(error);
-    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Server error' } });
+    console.error('Auth register error:', error);
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: error.message || 'Server error' } });
   }
 });
 
@@ -66,18 +77,15 @@ router.post('/register/parent', async (req, res) => {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Missing required fields' } });
   }
 
-  // Basic email format validation
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid email format' } });
   }
 
-  // Minimum password length
   if (password.length < 8) {
     return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Password must be at least 8 characters' } });
   }
 
-  // Role is always 'parent' for parent registration — any caller-supplied role is ignored.
   const role = 'parent';
 
   try {
@@ -89,13 +97,18 @@ router.post('/register/parent', async (req, res) => {
       [email, password_hash, role, display_name]
     );
 
-    res.status(201).json({ user: result.rows[0] });
+    const user = result.rows[0];
+    const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+
+    res.cookie('token', token, getCookieOptions());
+
+    res.status(201).json({ user, token });
   } catch (error: unknown) {
     if (isPostgresUniqueViolation(error)) {
       return res.status(409).json({ error: { code: 'CONFLICT', message: 'Email already exists' } });
     }
-    console.error(error);
-    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Server error' } });
+    console.error('Auth register parent error:', error);
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: (error as Error).message || 'Server error' } });
   }
 });
 
@@ -122,13 +135,7 @@ router.post('/login', async (req, res) => {
 
     const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
 
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
+    res.cookie('token', token, getCookieOptions());
 
     res.json({
       user: {
@@ -136,22 +143,18 @@ router.post('/login', async (req, res) => {
         email: user.email,
         role: user.role,
         display_name: user.display_name
-      }
+      },
+      token
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Server error' } });
+  } catch (error: any) {
+    console.error('Auth login error:', error);
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: error.message || 'Server error' } });
   }
 });
 
 // POST /api/v1/auth/logout
 router.post('/logout', (req, res) => {
-  res.clearCookie('token', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    path: '/'
-  });
+  res.clearCookie('token', getCookieOptions());
   res.json({ success: true });
 });
 
@@ -163,8 +166,9 @@ router.get('/me', authenticate, async (req: AuthRequest, res) => {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'User not found' } });
     }
     res.json({ user: result.rows[0] });
-  } catch (error) {
-    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Server error' } });
+  } catch (error: any) {
+    console.error('Auth me error:', error);
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: error.message || 'Server error' } });
   }
 });
 
