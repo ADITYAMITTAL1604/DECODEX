@@ -9,14 +9,33 @@ interface LinkedChild {
   consent_date: string | null;
   withdrawn_at: string | null;
   hard_delete_at: string | null;
+  session_count?: number;
+  health_score?: number | null;
+  latest_wpm?: number | null;
 }
 
-interface LinkResponse {
-  student: Pick<LinkedChild, 'id' | 'display_name' | 'grade_level'>;
+interface RiskScreening {
+  risk: 'low' | 'medium' | 'high';
+  confidence: number;
+  indicators: string[];
+  evidence: Array<{ indicator: string; category: string; frequency: number; severity: string; details: string }>;
+  sessionsAnalyzed: number;
+  disclaimer: string;
+}
+
+interface ChildProgress {
+  student: { id: string; display_name: string; grade_level: number | null };
+  healthScore: { score: number; riskLevel: string; fluency: number; accuracy: number; wpmNormalized: number } | null;
+  recentSessions: any[];
+  strengthAreas: string[];
+  recommendations: string[];
 }
 
 export default function ParentHome() {
   const [children, setChildren] = useState<LinkedChild[]>([]);
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+  const [childProgress, setChildProgress] = useState<ChildProgress | null>(null);
+  const [screening, setScreening] = useState<RiskScreening | null>(null);
   const [inviteCode, setInviteCode] = useState('');
   const [loading, setLoading] = useState(true);
   const [linking, setLinking] = useState(false);
@@ -28,31 +47,38 @@ export default function ParentHome() {
 
   const loadChildren = useCallback(async () => {
     try {
-      const response = await apiFetch<{ children: LinkedChild[] }>('/consent/children');
+      const response = await apiFetch<{ children: LinkedChild[] }>('/parent/children');
       setChildren(response.children);
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Unable to load linked children.');
+      if (response.children.length > 0 && !selectedChildId) {
+        setSelectedChildId(response.children[0].id);
+      }
+    } catch {
+      try {
+        const response = await apiFetch<{ children: LinkedChild[] }>('/consent/children');
+        setChildren(response.children);
+      } catch (requestError) {
+        setError(requestError instanceof Error ? requestError.message : 'Unable to load linked children.');
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedChildId]);
 
   useEffect(() => {
     void loadChildren();
   }, [loadChildren]);
 
-  const resendConsentEmail = async (studentId: string, studentName: string) => {
-    setError('');
-    setResendingId(studentId);
-    try {
-      await apiFetch('/consent/request', { method: 'POST', body: JSON.stringify({ student_id: studentId }) });
-      setNotice({ studentId, message: `A new consent email was sent for ${studentName}.` });
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Unable to resend the consent email.');
-    } finally {
-      setResendingId(null);
+  useEffect(() => {
+    if (selectedChildId) {
+      apiFetch<ChildProgress>(`/parent/children/${selectedChildId}/progress`)
+        .then(setChildProgress)
+        .catch(() => setChildProgress(null));
+
+      apiFetch<{ screening: RiskScreening }>(`/risk-screening/${selectedChildId}`)
+        .then(res => setScreening(res.screening))
+        .catch(() => setScreening(null));
     }
-  };
+  }, [selectedChildId]);
 
   const grantConsentInApp = async (studentId: string, studentName: string) => {
     setError('');
@@ -77,20 +103,15 @@ export default function ParentHome() {
     setNotice(null);
     setLinking(true);
     try {
-      const response = await apiFetch<LinkResponse>('/consent/link', {
+      const response = await apiFetch<{ student: any }>('/consent/link', {
         method: 'POST',
         body: JSON.stringify({ invite_code: inviteCode.trim() }),
       });
       setInviteCode('');
-      setNotice({ studentId: response.student.id, message: `Account linked for ${response.student.display_name}! Consent request is active on their student dashboard.` });
+      setNotice({ studentId: response.student.id, message: `Account linked for ${response.student.display_name}!` });
       await loadChildren();
     } catch (requestError) {
-      const msg = requestError instanceof Error ? requestError.message : 'Unable to link this child.';
-      if (msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('forbidden')) {
-        setError('Your current active session is a Student account. Please click Logout at the top right and log in with your Parent account.');
-      } else {
-        setError(msg);
-      }
+      setError(requestError instanceof Error ? requestError.message : 'Unable to link this child.');
     } finally {
       setLinking(false);
     }
@@ -105,7 +126,7 @@ export default function ParentHome() {
         method: 'POST',
         body: JSON.stringify({ student_id: pendingWithdrawal.id }),
       });
-      setNotice({ studentId: pendingWithdrawal.id, message: `Consent was withdrawn for ${pendingWithdrawal.display_name}. Recording is now disabled.` });
+      setNotice({ studentId: pendingWithdrawal.id, message: `Consent was withdrawn for ${pendingWithdrawal.display_name}.` });
       setPendingWithdrawal(null);
       await loadChildren();
     } catch (requestError) {
@@ -115,107 +136,228 @@ export default function ParentHome() {
     }
   };
 
+  const riskBadgeMap: Record<string, string> = {
+    low: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+    medium: 'bg-amber-100 text-amber-800 border-amber-300',
+    high: 'bg-red-100 text-red-800 border-red-300',
+  };
+
   return (
     <main className="mx-auto w-full max-w-[960px] px-container-padding py-8 sm:py-12 text-on-surface">
-      <section className="mb-10 rounded-3xl glass-card border border-white/80 p-7 sm:p-9 shadow-sm relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-primary"></div>
-        <p className="font-display text-xs font-bold uppercase tracking-[0.12em] text-secondary">Parent space</p>
-        <h1 className="mt-2 font-display text-3xl sm:text-4xl font-bold text-primary">Manage reading consent</h1>
-        <p className="mt-3 max-w-2xl font-body text-base sm:text-lg text-on-surface-variant leading-relaxed">Link your child’s account, confirm consent, or withdraw it at any time.</p>
+      {/* Header */}
+      <section className="mb-8 rounded-3xl glass-card border border-white/80 p-7 sm:p-9 shadow-sm relative overflow-hidden">
+        <p className="font-display text-xs font-bold uppercase tracking-[0.12em] text-secondary">Parent Portal</p>
+        <h1 className="mt-2 font-display text-3xl sm:text-4xl font-extrabold text-primary">Child Reading & Screening Dashboard</h1>
+        <p className="mt-2 max-w-2xl font-body text-base text-on-surface-variant leading-relaxed">
+          Monitor your child's reading health score, preliminary dyslexia risk screening, practice sessions, and manage recording consent.
+        </p>
       </section>
 
-      <section className="rounded-3xl glass-card border border-white/80 p-6 sm:p-8 shadow-sm">
-        <h2 className="font-display text-2xl font-bold text-on-surface">Link a child</h2>
-        <p className="mt-2 font-body text-on-surface-variant text-base">Enter the invite code shown in your child’s Decodex dashboard.</p>
-        <form onSubmit={linkChild} className="mt-5 flex flex-col gap-3 sm:flex-row">
-          <label className="sr-only" htmlFor="invite-code">Child invite code</label>
-          <input 
-            id="invite-code" 
-            value={inviteCode} 
-            onChange={(event) => setInviteCode(event.target.value.toUpperCase())} 
-            placeholder="INVITE CODE (e.g. DEMO01)" 
-            className="h-14 flex-1 rounded-2xl glass-input px-4 font-display text-lg font-bold tracking-[0.12em] text-on-surface placeholder:text-outline/65 outline-none focus:outline-none" 
-            required 
+      {/* Child Selection Tabs */}
+      {children.length > 1 && (
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+          {children.map((child) => (
+            <button
+              key={child.id}
+              onClick={() => setSelectedChildId(child.id)}
+              className={`px-5 py-2.5 rounded-2xl font-display text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                selectedChildId === child.id ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-low text-on-surface-variant'
+              }`}
+            >
+              {child.display_name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Preliminary Dyslexia Risk Screening Report */}
+      {screening && (
+        <section className="mb-8 glass-card rounded-3xl p-6 sm:p-8 border border-white/80 shadow-md">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-surface-container-highest">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-secondary-container/20 flex items-center justify-center text-secondary shadow-inner">
+                <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>medical_services</span>
+              </div>
+              <div>
+                <h2 className="font-display text-xl font-bold text-on-surface">Preliminary Dyslexia Risk Screening Report</h2>
+                <p className="font-body text-xs text-on-surface-variant">Based on {screening.sessionsAnalyzed} diagnostic reading sessions</p>
+              </div>
+            </div>
+            <span className={`inline-block px-4 py-1.5 rounded-full font-display text-xs font-bold uppercase tracking-wider border ${riskBadgeMap[screening.risk] || ''}`}>
+              {screening.risk.toUpperCase()} RISK INDICATOR ({screening.confidence}% Confidence)
+            </span>
+          </div>
+
+          {/* Indicators & Evidence */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+            <div>
+              <h3 className="font-display text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2">Identified Speech & Error Patterns</h3>
+              <ul className="space-y-2">
+                {screening.indicators.map((ind, i) => (
+                  <li key={i} className="font-body text-xs text-on-surface flex items-start gap-2 p-2.5 rounded-xl bg-white/40 border border-surface-container-highest">
+                    <span className="material-symbols-outlined text-amber-600 text-sm mt-0.5 shrink-0">warning</span>
+                    {ind}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="font-display text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2">Required Parent Actions</h3>
+              <ul className="space-y-2">
+                {childProgress?.recommendations.map((rec, i) => (
+                  <li key={i} className="font-body text-xs text-on-surface flex items-start gap-2 p-2.5 rounded-xl bg-primary-container/10 border border-primary-container/20">
+                    <span className="material-symbols-outlined text-primary text-sm mt-0.5 shrink-0">check_circle</span>
+                    {rec}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Disclaimer */}
+          <p className="font-body text-[11px] text-on-surface-variant/80 bg-surface-container-low p-3 rounded-xl border border-surface-container-high leading-relaxed">
+            <strong className="font-semibold text-on-surface">Educational Disclaimer:</strong> {screening.disclaimer}
+          </p>
+        </section>
+      )}
+
+      {/* Child Progress Card */}
+      {childProgress && (
+        <div className="space-y-6 mb-10">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Health Score Box */}
+            <div className="glass-card rounded-3xl p-6 border border-white/80 flex flex-col items-center text-center shadow-sm">
+              <p className="font-display text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Reading Health Score</p>
+              {childProgress.healthScore ? (
+                <div>
+                  <p className="font-display text-5xl font-extrabold text-primary mb-1">{childProgress.healthScore.score}</p>
+                  <span className="inline-block px-3 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                    {childProgress.healthScore.riskLevel}
+                  </span>
+                </div>
+              ) : (
+                <p className="font-body text-sm text-on-surface-variant py-4">No health score computed yet</p>
+              )}
+            </div>
+
+            {/* Strengths */}
+            <div className="glass-card rounded-3xl p-6 border border-white/80 shadow-sm flex flex-col justify-between">
+              <p className="font-display text-[10px] font-bold uppercase tracking-widest text-emerald-700 mb-2">Strength Areas</p>
+              <ul className="space-y-1.5 flex-grow">
+                {childProgress.strengthAreas.map((area, i) => (
+                  <li key={i} className="font-body text-xs text-on-surface flex items-center gap-2">
+                    <span className="material-symbols-outlined text-emerald-600 text-sm">check_circle</span>
+                    {area}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Parent Action Steps */}
+            <div className="glass-card rounded-3xl p-6 border border-white/80 shadow-sm flex flex-col justify-between">
+              <p className="font-display text-[10px] font-bold uppercase tracking-widest text-secondary mb-2">Recommended Parent Actions</p>
+              <ul className="space-y-1.5 flex-grow">
+                {childProgress.recommendations.map((rec, i) => (
+                  <li key={i} className="font-body text-xs text-on-surface flex items-center gap-2">
+                    <span className="material-symbols-outlined text-secondary text-sm">lightbulb</span>
+                    {rec}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Recent Sessions */}
+          {childProgress.recentSessions?.length > 0 && (
+            <div className="glass-card rounded-3xl p-6 border border-white/80 shadow-sm">
+              <h3 className="font-display text-lg font-bold text-on-surface mb-3">Recent Diagnostic Sessions</h3>
+              <div className="space-y-2">
+                {childProgress.recentSessions.slice(0, 5).map((s: any) => (
+                  <div key={s.id} className="p-3 rounded-2xl bg-white/40 border border-surface-container-highest flex items-center justify-between">
+                    <div>
+                      <p className="font-display text-sm font-bold text-on-surface">{s.passage_title || 'Reading Session'}</p>
+                      <p className="font-body text-xs text-on-surface-variant">{new Date(s.started_at).toLocaleDateString()}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-display text-sm font-bold text-primary">{s.words_per_minute != null ? Math.round(s.words_per_minute) : '—'} WPM</p>
+                      <p className="font-body text-xs text-on-surface-variant">
+                        {s.error_rate != null ? `${100 - Math.round(s.error_rate * 100)}% accuracy` : ''}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Link Child Form */}
+      <section className="rounded-3xl glass-card border border-white/80 p-6 sm:p-8 shadow-sm mb-8">
+        <h2 className="font-display text-2xl font-bold text-on-surface">Link a Child Account</h2>
+        <p className="mt-1 font-body text-on-surface-variant text-sm">Enter the invite code shown in your child’s Decodex dashboard.</p>
+        <form onSubmit={linkChild} className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <input
+            value={inviteCode}
+            onChange={(event) => setInviteCode(event.target.value.toUpperCase())}
+            placeholder="INVITE CODE (e.g. DEMO01)"
+            className="h-12 flex-1 rounded-2xl glass-input px-4 font-display text-base font-bold tracking-[0.12em] text-on-surface placeholder:text-outline/65 outline-none"
+            required
           />
-          <button 
-            disabled={linking} 
-            className="h-14 rounded-2xl bg-primary px-6 font-display text-sm font-bold uppercase tracking-[0.08em] text-on-primary transition-all duration-200 hover:bg-on-primary-fixed-variant disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98] shadow-lg shadow-primary/20"
+          <button
+            disabled={linking}
+            className="h-12 rounded-2xl bg-primary px-6 font-display text-xs font-bold uppercase tracking-[0.08em] text-on-primary transition-all shadow-md hover:bg-primary-container hover:text-on-primary-container cursor-pointer"
           >
-            {linking ? 'Linking…' : 'Link child'}
+            {linking ? 'Linking…' : 'Link Child'}
           </button>
         </form>
       </section>
 
       {error ? (
-        <div role="alert" className="mt-6 rounded-2xl bg-error-container/80 backdrop-blur-md p-4 font-body text-sm text-on-error-container border border-error/20">
+        <div role="alert" className="mb-6 rounded-2xl bg-red-50 p-4 font-body text-sm text-red-800 border border-red-200">
           {error}
         </div>
       ) : null}
-      
+
       {notice ? (
-        <div role="status" className="mt-6 flex flex-col gap-3 rounded-2xl bg-primary-fixed/85 backdrop-blur-md border border-primary/20 p-4 text-on-primary-fixed sm:flex-row sm:items-center sm:justify-between">
-          <span className="font-body text-base">{notice.message}</span>
-          <button 
-            onClick={() => { const child = children.find((item) => item.id === notice.studentId); if (child) void grantConsentInApp(child.id, child.display_name); }} 
-            disabled={resendingId === notice.studentId} 
-            className="rounded-full bg-primary px-4 py-2 font-display text-xs font-bold uppercase tracking-[0.08em] text-on-primary hover:bg-on-primary-fixed-variant transition-all disabled:opacity-60 shadow-sm cursor-pointer"
-          >
-            {resendingId === notice.studentId ? 'Granting…' : 'Grant Consent'}
-          </button>
+        <div className="mb-6 p-4 rounded-2xl bg-primary-container/20 text-primary font-body text-sm flex items-center justify-between">
+          <span>{notice.message}</span>
         </div>
       ) : null}
 
-      <section className="mt-10">
-        <div className="mb-6 flex items-end justify-between gap-4">
-          <div>
-            <h2 className="font-display text-2xl font-bold text-on-surface">Linked children</h2>
-            <p className="mt-1 font-body text-on-surface-variant text-base">Consent is required before recording can begin.</p>
-          </div>
-        </div>
-        {loading ? (
-          <p className="font-body text-on-surface-variant">Loading linked children…</p>
-        ) : null}
-        {!loading && children.length === 0 ? (
-          <div className="rounded-3xl border border-white/60 glass-card p-8 text-center font-body text-on-surface-variant">
-            No children linked yet. Use an invite code to get started.
-          </div>
-        ) : null}
-        <div className="grid gap-4">
+      {/* Linked Children Consent Management */}
+      <section>
+        <h2 className="font-display text-2xl font-bold text-on-surface mb-4">Consent & Accounts</h2>
+        <div className="grid gap-3">
           {children.map((child) => {
-            const status = getConsentStatus(child);
+            const isGranted = child.consent_granted;
             return (
-              <article key={child.id} className="rounded-3xl glass-card border border-white/80 p-6 shadow-sm">
-                <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <h3 className="font-display text-xl font-bold text-on-surface">{child.display_name}</h3>
-                      <StatusPill status={status} />
-                    </div>
-                    <p className="mt-2 font-body text-base text-on-surface-variant">
-                      {child.grade_level ? `Grade ${child.grade_level}` : 'Grade not set'}
-                      {status === 'granted' && child.consent_date ? ` · Confirmed ${formatDate(child.consent_date)}` : ''}
-                      {status === 'withdrawn' && child.hard_delete_at ? ` · Data deletion scheduled ${formatDate(child.hard_delete_at)}` : ''}
-                    </p>
-                  </div>
-                  <div className="flex gap-3">
-                    {status === 'pending' ? (
-                      <button 
-                        onClick={() => void grantConsentInApp(child.id, child.display_name)} 
-                        disabled={resendingId === child.id} 
-                        className="rounded-full bg-primary px-5 py-2 font-display text-xs font-bold uppercase tracking-[0.08em] text-on-primary hover:bg-on-primary-fixed-variant transition-all disabled:opacity-60 shadow-sm cursor-pointer"
-                      >
-                        {resendingId === child.id ? 'Granting…' : 'Grant Consent'}
-                      </button>
-                    ) : null}
-                    {status === 'granted' ? (
-                      <button 
-                        onClick={() => setPendingWithdrawal(child)} 
-                        className="rounded-full border border-error px-4 py-2 font-display text-xs font-bold uppercase tracking-[0.08em] text-error hover:bg-error/10 transition-colors"
-                      >
-                        Withdraw consent
-                      </button>
-                    ) : null}
-                  </div>
+              <article key={child.id} className="rounded-2xl glass-card border border-white/80 p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-display text-lg font-bold text-on-surface">{child.display_name}</h3>
+                  <p className="font-body text-xs text-on-surface-variant">
+                    {child.grade_level ? `Grade ${child.grade_level}` : 'Grade not set'} • Consent: {isGranted ? 'Confirmed' : 'Pending'}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  {!isGranted && (
+                    <button
+                      onClick={() => void grantConsentInApp(child.id, child.display_name)}
+                      disabled={resendingId === child.id}
+                      className="rounded-xl bg-primary px-4 py-2 font-display text-xs font-bold uppercase tracking-wider text-on-primary cursor-pointer"
+                    >
+                      Grant Consent
+                    </button>
+                  )}
+                  {isGranted && (
+                    <button
+                      onClick={() => setPendingWithdrawal(child)}
+                      className="rounded-xl border border-red-400 px-4 py-2 font-display text-xs font-bold uppercase tracking-wider text-red-700 hover:bg-red-50 cursor-pointer"
+                    >
+                      Withdraw Consent
+                    </button>
+                  )}
                 </div>
               </article>
             );
@@ -223,27 +365,18 @@ export default function ParentHome() {
         </div>
       </section>
 
+      {/* Withdraw Modal */}
       {pendingWithdrawal ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/35 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-labelledby="withdraw-title">
-          <div className="w-full max-w-lg rounded-3xl glass-card border border-white/80 p-7 shadow-2xl relative overflow-hidden bg-white/95">
-            <h2 id="withdraw-title" className="font-display text-2xl font-bold text-on-surface">Withdraw consent?</h2>
-            <p className="mt-3 font-body text-base text-on-surface-variant leading-relaxed">
-              This disables recording for <strong className="text-on-surface font-semibold">{pendingWithdrawal.display_name}</strong> immediately. Their stored reading data is scheduled for deletion in 30 days unless another parent has active consent.
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/35 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-3xl glass-card border border-white/80 p-7 shadow-2xl bg-white/95">
+            <h2 className="font-display text-2xl font-bold text-on-surface">Withdraw consent?</h2>
+            <p className="mt-3 font-body text-sm text-on-surface-variant leading-relaxed">
+              This disables recording for <strong className="text-on-surface font-semibold">{pendingWithdrawal.display_name}</strong> immediately.
             </p>
-            <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button 
-                onClick={() => setPendingWithdrawal(null)} 
-                disabled={withdrawing} 
-                className="rounded-2xl px-5 py-3 font-display font-bold text-primary hover:bg-primary/5 transition-colors text-base"
-              >
-                Keep consent
-              </button>
-              <button 
-                onClick={() => void withdrawConsent()} 
-                disabled={withdrawing} 
-                className="rounded-2xl bg-error px-5 py-3 font-display font-bold uppercase text-sm tracking-[0.08em] text-on-error transition-all duration-200 hover:bg-error/90 active:scale-[0.98] shadow-lg shadow-error/20 disabled:opacity-60"
-              >
-                {withdrawing ? 'Withdrawing…' : 'Withdraw consent'}
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => setPendingWithdrawal(null)} className="px-4 py-2 font-display font-bold text-primary text-sm">Cancel</button>
+              <button onClick={() => void withdrawConsent()} disabled={withdrawing} className="px-5 py-2.5 rounded-xl bg-red-600 text-white font-display text-xs font-bold uppercase tracking-wider">
+                {withdrawing ? 'Withdrawing…' : 'Confirm Withdraw'}
               </button>
             </div>
           </div>
@@ -251,26 +384,4 @@ export default function ParentHome() {
       ) : null}
     </main>
   );
-}
-
-function getConsentStatus(child: LinkedChild): 'granted' | 'pending' | 'withdrawn' {
-  if (child.withdrawn_at) return 'withdrawn';
-  return child.consent_granted ? 'granted' : 'pending';
-}
-
-function StatusPill({ status }: { status: ReturnType<typeof getConsentStatus> }) {
-  const classes = status === 'granted' 
-    ? 'bg-primary/10 border-primary/20 text-primary' 
-    : status === 'withdrawn' 
-      ? 'bg-error-container/60 border-error/20 text-on-error-container' 
-      : 'bg-secondary/15 border-secondary/25 text-secondary';
-  return (
-    <span className={`rounded-full px-3 py-1 font-display text-[10px] font-bold uppercase tracking-[0.1em] border ${classes}`}>
-      {status}
-    </span>
-  );
-}
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(value));
 }

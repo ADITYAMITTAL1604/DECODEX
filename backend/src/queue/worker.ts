@@ -68,7 +68,24 @@ audioQueue.process(async (job) => {
       [transcript, JSON.stringify(alignmentResult), completedAt, durationSeconds, wordsPerMinute, sessionId]
     );
 
-    // 7. Complete
+    // 7. Compute Health Score (V2 — AI Intervention Platform)
+    sseClient?.sendEvent('status', { step: 'scoring', message: 'Computing Reading Health Score...' });
+    try {
+      const { computeHealthScore } = await import('../services/healthScore');
+      await computeHealthScore(sessionId, studentId);
+    } catch (hsError) {
+      console.error('Health score computation failed (non-fatal):', hsError);
+    }
+
+    // 8. Update Gamification (V2 — XP, streaks, achievements)
+    try {
+      const { recordSessionCompletion } = await import('../services/gamification');
+      await recordSessionCompletion(studentId);
+    } catch (gamError) {
+      console.error('Gamification update failed (non-fatal):', gamError);
+    }
+
+    // 9. Complete
     sseClient?.sendEvent('status', { step: 'complete', message: 'Processing complete!', wpm: wordsPerMinute });
     
     return { success: true, wpm: wordsPerMinute };

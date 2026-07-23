@@ -1,15 +1,73 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { apiFetch, useApiQuery } from '../lib/api';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
+// ---------------------------------------------------------------------------
+// Health Score Gauge Component — animated SVG radial gauge
+// ---------------------------------------------------------------------------
+function HealthScoreGauge({ score, riskLevel }: { score: number; riskLevel: string }) {
+  const radius = 64;
+  const circumference = 2 * Math.PI * radius;
+  const progress = (score / 100) * circumference;
+  const dashOffset = circumference - progress;
+
+  const colorMap: Record<string, string> = {
+    excellent: '#10b981',
+    good: '#22c55e',
+    medium: '#f59e0b',
+    high: '#f97316',
+    critical: '#ef4444',
+  };
+  const color = colorMap[riskLevel] || '#006474';
+
+  return (
+    <div className="relative w-40 h-40 mx-auto">
+      <svg className="w-full h-full -rotate-90" viewBox="0 0 144 144">
+        <circle cx="72" cy="72" r={radius} fill="none" stroke="currentColor" strokeWidth="10" className="text-surface-container-high opacity-30" />
+        <circle
+          cx="72" cy="72" r={radius} fill="none"
+          stroke={color} strokeWidth="10" strokeLinecap="round"
+          strokeDasharray={circumference} strokeDashoffset={dashOffset}
+          style={{ transition: 'stroke-dashoffset 1.5s ease-out' }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="font-display text-4xl font-extrabold" style={{ color }}>{score}</span>
+        <span className="font-display text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{riskLevel}</span>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main Dashboard
+// ---------------------------------------------------------------------------
 export default function Dashboard() {
   const { user } = useAuth();
+
+  // Role-based dashboard redirects
+  if (user?.role === 'parent') {
+    return <Navigate to="/parent/home" replace />;
+  }
+  if (user?.role === 'teacher') {
+    return <Navigate to="/teacher/dashboard" replace />;
+  }
   const [consentStatus, setConsentStatus] = useState<{ invite_code: string | null; consent_granted: boolean; consent_date: string | null; pending_parent_name?: string | null; pending_parent_email?: string | null } | null>(null);
   const [approving, setApproving] = useState(false);
 
   const { data: trendsData, loading } = useApiQuery<any>('/analytics/student/trends');
+  const { data: healthData } = useApiQuery<any>(user?.role === 'student' ? `/health-score/${user?.id}` : '/health-score/skip');
+  const { data: gamData } = useApiQuery<any>(user?.role === 'student' ? `/gamification/${user?.id}/profile` : '/gamification/skip');
+  const { data: pathData } = useApiQuery<any>(user?.role === 'student' ? `/learning-paths/${user?.id}` : '/learning-paths/skip');
+  const { data: achievementData } = useApiQuery<any>(user?.role === 'student' ? `/gamification/${user?.id}/achievements` : '/gamification/skip');
+
+  const healthScore = healthData?.healthScore;
+  const gamProfile = gamData?.profile;
+  const learningPath = pathData?.learningPath;
+  const achievements = achievementData?.achievements || [];
+  const earnedAchievements = achievements.filter((a: any) => a.earned);
 
   const fetchConsentStatus = () => {
     if (user?.role !== 'student') return;
@@ -41,12 +99,23 @@ export default function Dashboard() {
           <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-extrabold text-primary mb-2">Welcome back, {user?.display_name}!</h1>
           <p className="font-body text-base sm:text-xl text-on-surface-variant">Ready to grow your reading skills today?</p>
         </div>
-        <div className="inline-flex items-center gap-2 glass-badge px-4 py-2 rounded-full border border-primary/20 w-max">
-          <span className="material-symbols-outlined text-secondary text-sm">school</span>
-          <span className="font-display text-xs font-bold tracking-[0.08em] uppercase text-on-surface-variant">{user?.role}</span>
-        </div>
+        {gamProfile && (
+          <div className="inline-flex items-center gap-3 glass-badge px-4 py-2 rounded-full border border-primary/20 w-max">
+            <span className="material-symbols-outlined text-primary text-sm">star</span>
+            <span className="font-display text-xs font-bold tracking-[0.06em] text-on-surface">Level {gamProfile.level}</span>
+            <span className="text-on-surface-variant">•</span>
+            <span className="font-display text-xs font-bold tracking-[0.06em] text-primary">{gamProfile.xp} XP</span>
+            {gamProfile.currentStreak > 0 && (
+              <>
+                <span className="text-on-surface-variant">•</span>
+                <span className="font-display text-xs font-bold text-amber-600">🔥 {gamProfile.currentStreak} day streak</span>
+              </>
+            )}
+          </div>
+        )}
       </section>
 
+      {/* Consent banner (unchanged behavior) */}
       {user?.role === 'student' && consentStatus && !consentStatus.consent_granted && consentStatus.pending_parent_name ? (
         <section className="mb-8 rounded-3xl bg-amber-500/10 border-2 border-amber-500/30 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm animate-in fade-in">
           <div>
@@ -66,6 +135,107 @@ export default function Dashboard() {
         </section>
       ) : null}
 
+      {/* V2: Health Score + Gamification Hero Row */}
+      {(user?.role === 'student' || user?.role === 'admin') && healthScore && (
+        <section className="mb-10 grid gap-card-gap grid-cols-1 md:grid-cols-3">
+          {/* Health Score Card */}
+          <div className="glass-card rounded-3xl p-6 border border-white/80 flex flex-col items-center text-center shadow-sm">
+            <p className="font-display text-xs font-bold uppercase tracking-[0.08em] text-on-surface-variant mb-3">Reading Health Score</p>
+            <HealthScoreGauge score={healthScore.score} riskLevel={healthScore.riskLevel} />
+            <p className="font-body text-sm text-on-surface-variant mt-3">
+              {healthScore.score >= 75 ? 'Great progress! Keep it up.' : healthScore.score >= 50 ? 'You\'re improving! Practice daily.' : 'Let\'s work on building your skills.'}
+            </p>
+          </div>
+
+          {/* XP & Level Card */}
+          {gamProfile && (
+            <div className="glass-card rounded-3xl p-6 border border-white/80 flex flex-col shadow-sm">
+              <p className="font-display text-xs font-bold uppercase tracking-[0.08em] text-on-surface-variant mb-3">Your Progress</p>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-primary-container/20 flex items-center justify-center shadow-inner">
+                  <span className="material-symbols-outlined text-2xl text-primary" style={{fontVariationSettings: "'FILL' 1"}}>military_tech</span>
+                </div>
+                <div>
+                  <p className="font-display text-2xl font-extrabold text-primary">Level {gamProfile.level}</p>
+                  <p className="font-body text-xs text-on-surface-variant">{gamProfile.xpToNextLevel} XP to next level</p>
+                </div>
+              </div>
+              {/* XP Progress Bar */}
+              <div className="w-full bg-surface-container-high h-3 rounded-full overflow-hidden mb-4">
+                <div
+                  className="bg-primary h-full rounded-full transition-all duration-700"
+                  style={{ width: `${gamProfile.levelProgress}%` }}
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <p className="font-display text-lg font-bold text-on-surface">{gamProfile.totalSessions}</p>
+                  <p className="font-body text-[10px] text-on-surface-variant uppercase tracking-wider">Sessions</p>
+                </div>
+                <div>
+                  <p className="font-display text-lg font-bold text-on-surface">{gamProfile.totalDrillsCompleted}</p>
+                  <p className="font-body text-[10px] text-on-surface-variant uppercase tracking-wider">Drills</p>
+                </div>
+                <div>
+                  <p className="font-display text-lg font-bold text-amber-600">{gamProfile.currentStreak}</p>
+                  <p className="font-body text-[10px] text-on-surface-variant uppercase tracking-wider">Day Streak</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Achievements Showcase */}
+          <div className="glass-card rounded-3xl p-6 border border-white/80 flex flex-col shadow-sm">
+            <p className="font-display text-xs font-bold uppercase tracking-[0.08em] text-on-surface-variant mb-3">Achievements</p>
+            {earnedAchievements.length > 0 ? (
+              <div className="grid grid-cols-3 gap-2 flex-grow">
+                {earnedAchievements.slice(0, 6).map((ach: any) => (
+                  <div key={ach.id} className="flex flex-col items-center text-center p-2 rounded-xl bg-primary-container/10 hover:bg-primary-container/20 transition-colors">
+                    <span className="material-symbols-outlined text-2xl text-primary mb-1" style={{fontVariationSettings: "'FILL' 1"}}>{ach.icon}</span>
+                    <span className="font-display text-[9px] font-bold text-on-surface leading-tight">{ach.name}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex-grow flex flex-col items-center justify-center text-center">
+                <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2">emoji_events</span>
+                <p className="font-body text-sm text-on-surface-variant">Complete sessions to earn badges!</p>
+              </div>
+            )}
+            {achievements.length > 0 && (
+              <p className="font-body text-xs text-on-surface-variant mt-3 text-center">{earnedAchievements.length} / {achievements.length} earned</p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Learning Path Preview */}
+      {(user?.role === 'student' || user?.role === 'admin') && learningPath && (
+        <section className="mb-10">
+          <div className="glass-card rounded-3xl p-6 border border-white/80 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary-container/20 flex items-center justify-center shadow-inner">
+                  <span className="material-symbols-outlined text-xl text-primary" style={{fontVariationSettings: "'FILL' 1"}}>route</span>
+                </div>
+                <div>
+                  <p className="font-display text-sm font-bold text-on-surface">{learningPath.title}</p>
+                  <p className="font-body text-xs text-on-surface-variant">Week {learningPath.currentWeek} of {learningPath.totalWeeks}</p>
+                </div>
+              </div>
+              <Link to="/learning-path" className="text-primary font-display text-xs font-bold uppercase tracking-wider hover:underline">View Plan →</Link>
+            </div>
+            {/* Mini progress bar */}
+            <div className="flex gap-1.5">
+              {learningPath.weeks?.map((week: any, i: number) => (
+                <div key={i} className={`h-2 flex-1 rounded-full transition-colors ${week.completed ? 'bg-primary' : i + 1 === learningPath.currentWeek ? 'bg-primary/40 animate-pulse' : 'bg-surface-container-high'}`} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Consent + Invite Section */}
       {user?.role === 'student' && consentStatus ? (
         <section className="mb-10 grid gap-4 md:grid-cols-[1.1fr_1fr]">
           <div className="rounded-3xl glass-card p-6 border border-white/80">
@@ -80,30 +250,34 @@ export default function Dashboard() {
         </section>
       ) : null}
 
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-card-gap mb-12 sm:mb-16">
-        {/* Student actions */}
-        {(user?.role === 'student' || user?.role === 'admin') && (
-          <Link to="/passages" className="glass-card glass-card-hover rounded-3xl p-8 flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-primary/20">
-            <div className="h-16 w-16 bg-primary-container/15 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-primary-container/25 transition-colors shadow-inner">
-              <span className="material-symbols-outlined text-4xl text-primary" style={{fontVariationSettings: "'FILL' 1"}}>book</span>
-            </div>
-            <h2 className="font-display text-3xl font-bold text-on-surface mb-3 group-hover:text-primary transition-colors">Start Reading</h2>
-            <p className="font-body text-lg text-on-surface-variant">Select a passage and practice reading aloud.</p>
-          </Link>
-        )}
+      {/* Action Cards */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-card-gap mb-12 sm:mb-16">
+        <Link to="/passages" className="glass-card glass-card-hover rounded-3xl p-6 flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-primary/20">
+          <div className="h-14 w-14 bg-primary-container/15 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-primary-container/25 transition-colors shadow-inner">
+            <span className="material-symbols-outlined text-3xl text-primary" style={{fontVariationSettings: "'FILL' 1"}}>book</span>
+          </div>
+          <h2 className="font-display text-xl font-bold text-on-surface mb-1 group-hover:text-primary transition-colors">Start Reading</h2>
+          <p className="font-body text-sm text-on-surface-variant">Choose a passage and read aloud.</p>
+        </Link>
 
-        {/* Teacher actions */}
-        {(user?.role === 'teacher' || user?.role === 'admin') && (
-          <Link to="/teacher/dashboard" className="glass-card glass-card-hover rounded-3xl p-8 flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-secondary/20">
-            <div className="h-16 w-16 bg-secondary-container/15 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-secondary-container/25 transition-colors shadow-inner">
-              <span className="material-symbols-outlined text-4xl text-secondary" style={{fontVariationSettings: "'FILL' 1"}}>group</span>
-            </div>
-            <h2 className="font-display text-3xl font-bold text-on-surface mb-3 group-hover:text-secondary transition-colors">My Students</h2>
-            <p className="font-body text-lg text-on-surface-variant">Manage your classroom and view aggregate reports.</p>
-          </Link>
-        )}
+        <Link to="/stories" className="glass-card glass-card-hover rounded-3xl p-6 flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-secondary/20">
+          <div className="h-14 w-14 bg-secondary-container/15 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-secondary-container/25 transition-colors shadow-inner">
+            <span className="material-symbols-outlined text-3xl text-secondary" style={{fontVariationSettings: "'FILL' 1"}}>auto_stories</span>
+          </div>
+          <h2 className="font-display text-xl font-bold text-on-surface mb-1 group-hover:text-secondary transition-colors">AI Stories</h2>
+          <p className="font-body text-sm text-on-surface-variant">Practice with stories made for you.</p>
+        </Link>
+
+        <Link to="/learning-path" className="glass-card glass-card-hover rounded-3xl p-6 flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-primary/20">
+          <div className="h-14 w-14 bg-primary-container/15 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-primary-container/25 transition-colors shadow-inner">
+            <span className="material-symbols-outlined text-3xl text-primary" style={{fontVariationSettings: "'FILL' 1"}}>route</span>
+          </div>
+          <h2 className="font-display text-xl font-bold text-on-surface mb-1 group-hover:text-primary transition-colors">Learning Path</h2>
+          <p className="font-body text-sm text-on-surface-variant">Follow your personalized plan.</p>
+        </Link>
       </section>
 
+      {/* Progress Charts */}
       {(user?.role === 'student' || user?.role === 'admin') && (
         <section className="mb-16">
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-on-surface mb-8">Your Progress</h2>

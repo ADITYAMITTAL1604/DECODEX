@@ -36,10 +36,17 @@ export async function apiFetch<T>(endpoint: string, options?: RequestInit): Prom
 
 export function useApiQuery<T>(endpoint: string, options?: RequestInit) {
   const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!endpoint.includes('/skip'));
   const [error, setError] = useState<Error | null>(null);
+  const [key, setKey] = useState(0);
 
   useEffect(() => {
+    if (!endpoint || endpoint.includes('/skip')) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     const controller = new AbortController();
     
     apiFetch<T>(endpoint, { ...options, signal: controller.signal })
@@ -52,7 +59,7 @@ export function useApiQuery<T>(endpoint: string, options?: RequestInit) {
       .finally(() => setLoading(false));
 
     return () => controller.abort();
-  }, [endpoint]);
+  }, [endpoint, key]);
 
-  return { data, loading, error, refetch: () => setLoading(true) };
+  return { data, loading, error, refetch: () => setKey(k => k + 1) };
 }

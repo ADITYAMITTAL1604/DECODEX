@@ -303,3 +303,30 @@ INSERT INTO drills (session_id, student_id, target_category, drill_type, content
 ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'SUB', 'Sight Word Practice',
  '{"instructions":"Read these high-frequency words.","target":"Common substitutions","words":["taking","talking","breathe","breath"]}');
 
+-- ---------------------------------------------------------------------------
+-- 7. V2 Seed Data — AI Intervention Ecosystem
+-- ---------------------------------------------------------------------------
+
+-- Seed Health Scores for Demo Student (Sam)
+INSERT INTO health_scores (student_id, session_id, score, risk_level, fluency, accuracy, wpm_normalized, error_frequency, error_severity, improvement_trend, components)
+VALUES ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 68, 'medium', 55, 91, 40, 83, 70, 50, '{"wpmNormalized":40,"accuracy":91,"fluency":55,"errorFrequency":83,"errorSeverity":70,"improvementTrend":50}')
+ON CONFLICT DO NOTHING;
+
+-- Seed Gamification Profile for Demo Student (Sam)
+INSERT INTO gamification_profiles (student_id, xp, level, current_streak, longest_streak, total_sessions, total_drills_completed, total_stories_read)
+VALUES ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 185, 2, 3, 5, 2, 3, 1)
+ON CONFLICT (student_id) DO UPDATE SET xp = 185, level = 2, current_streak = 3;
+
+-- Seed Risk Screening for Demo Student (Sam)
+INSERT INTO risk_screenings (student_id, risk_level, confidence, indicators, evidence, sessions_analyzed)
+VALUES (
+  'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+  'medium',
+  75,
+  '["Moderate letter reversal pattern", "Word substitution frequency above average"]',
+  '[{"indicator":"Letter reversals","category":"REV","frequency":2,"severity":"moderate","details":"2 reversals detected across 2 sessions."},{"indicator":"Substitutions","category":"SUB","frequency":4,"severity":"moderate","details":"4 substitutions detected across 2 sessions."}]',
+  2
+)
+ON CONFLICT DO NOTHING;
+
+

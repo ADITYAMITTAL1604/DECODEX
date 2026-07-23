@@ -9,7 +9,15 @@ export const initDB = async () => {
     const schemaPath = path.join(__dirname, 'schema.sql');
     const schema = fs.readFileSync(schemaPath, 'utf-8');
     await query(schema);
-    console.log('Schema applied successfully (idempotent).');
+    console.log('Schema V1 applied successfully (idempotent).');
+
+    // Apply V2 Migration (Health Scores, Risk Screenings, Learning Paths, Copilot, Gamification, IEPs, Stories)
+    const migrationPath = path.join(__dirname, 'migration_v2.sql');
+    if (fs.existsSync(migrationPath)) {
+      const migration = fs.readFileSync(migrationPath, 'utf-8');
+      await query(migration);
+      console.log('Migration V2 applied successfully (idempotent).');
+    }
 
     // Only seed when the users table is empty to avoid duplicate-key errors on restart.
     const usersCheck = await query('SELECT count(*) FROM users');

@@ -18,7 +18,8 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   }
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/" replace />;
+    const target = user.role === 'parent' ? '/parent/home' : user.role === 'teacher' ? '/teacher/dashboard' : '/';
+    return <Navigate to={target} replace />;
   }
 
   return <Outlet />;

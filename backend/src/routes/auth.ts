@@ -126,6 +126,7 @@ router.post('/login', async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
+      path: '/',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
@@ -145,7 +146,12 @@ router.post('/login', async (req, res) => {
 
 // POST /api/v1/auth/logout
 router.post('/logout', (req, res) => {
-  res.clearCookie('token');
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/'
+  });
   res.json({ success: true });
 });
 

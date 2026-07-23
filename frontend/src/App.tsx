@@ -15,6 +15,10 @@ import StudentDetail from './pages/StudentDetail';
 import ParentHome from './pages/ParentHome';
 import ConsentConfirm from './pages/ConsentConfirm';
 
+import LearningPathPage from './pages/LearningPathPage';
+import StoryReaderPage from './pages/StoryReaderPage';
+import CopilotPanel from './pages/CopilotPanel';
+
 function App() {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
@@ -30,15 +34,25 @@ function App() {
     <div className="min-h-screen flex flex-col bg-transparent text-on-background font-body text-body selection:bg-primary-container selection:text-on-primary-container">
       <header className="glass-header text-primary shadow-sm sticky top-0 z-50">
         <div className="flex justify-between items-center w-full px-container-padding h-20 max-w-max-content-width mx-auto">
-          <Link to="/" onClick={() => setMobileMenuOpen(false)} className="font-display text-[28px] sm:text-[32px] font-bold text-primary">Decodex</Link>
+          <Link to={user?.role === 'parent' ? '/parent/home' : user?.role === 'teacher' ? '/teacher/dashboard' : '/'} onClick={() => setMobileMenuOpen(false)} className="font-display text-[28px] sm:text-[32px] font-bold text-primary">Decodex</Link>
           
           {/* Desktop Navigation */}
           <nav className="h-full hidden md:flex">
             {isAuthenticated ? (
               <div className="flex items-center gap-6 h-full">
-                <Link to={user?.role === 'parent' ? '/parent/home' : '/'} className="text-on-surface-variant hover:text-primary transition-colors duration-200 flex items-center font-display text-[14px] font-bold uppercase tracking-[0.08em] h-full border-b-2 border-transparent hover:border-primary">
-                  {user?.role === 'parent' ? 'Consent' : 'Dashboard'}
+                <Link to={user?.role === 'parent' ? '/parent/home' : user?.role === 'teacher' ? '/teacher/dashboard' : '/'} className="text-on-surface-variant hover:text-primary transition-colors duration-200 flex items-center font-display text-[14px] font-bold uppercase tracking-[0.08em] h-full border-b-2 border-transparent hover:border-primary">
+                  Dashboard
                 </Link>
+                {user?.role === 'student' && (
+                  <>
+                    <Link to="/learning-path" className="text-on-surface-variant hover:text-primary transition-colors duration-200 flex items-center font-display text-[14px] font-bold uppercase tracking-[0.08em] h-full border-b-2 border-transparent hover:border-primary">
+                      Learning Path
+                    </Link>
+                    <Link to="/stories" className="text-on-surface-variant hover:text-primary transition-colors duration-200 flex items-center font-display text-[14px] font-bold uppercase tracking-[0.08em] h-full border-b-2 border-transparent hover:border-primary">
+                      AI Stories
+                    </Link>
+                  </>
+                )}
                 {(user?.role === 'teacher' || user?.role === 'admin') && (
                   <Link to="/teacher/dashboard" className="text-on-surface-variant hover:text-primary transition-colors duration-200 flex items-center font-display text-[14px] font-bold uppercase tracking-[0.08em] h-full border-b-2 border-transparent hover:border-primary">
                     Classroom
@@ -144,20 +158,25 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/consent/:token" element={<ConsentConfirm />} />
           
-          <Route element={<ProtectedRoute />}>
+          {/* Student Routes */}
+          <Route element={<ProtectedRoute allowedRoles={['student', 'admin']} />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/passages" element={<PassageSelection />} />
             <Route path="/session/:id" element={<SessionActive />} />
             <Route path="/sessions/:id/results" element={<SessionResults />} />
             <Route path="/sessions/:id/practice" element={<PracticePage />} />
+            <Route path="/learning-path" element={<LearningPathPage />} />
+            <Route path="/stories" element={<StoryReaderPage />} />
           </Route>
 
           {/* Teacher Routes */}
           <Route element={<ProtectedRoute allowedRoles={['teacher', 'admin']} />}>
             <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
             <Route path="/teacher/student/:id" element={<StudentDetail />} />
+            <Route path="/copilot/:studentId" element={<CopilotPanel />} />
           </Route>
 
+          {/* Parent Routes */}
           <Route element={<ProtectedRoute allowedRoles={['parent', 'admin']} />}>
             <Route path="/parent/home" element={<ParentHome />} />
           </Route>
