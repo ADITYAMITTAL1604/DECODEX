@@ -33,8 +33,9 @@ export default function Login() {
       <div className="absolute inset-0 pointer-events-none opacity-20" style={{ backgroundImage: 'radial-gradient(#006474 1.5px, transparent 1.5px)', backgroundSize: '32px 32px' }}></div>
       <main className="w-full max-w-[440px] glass-card rounded-3xl p-8 sm:p-10 relative z-10 shadow-[0_20px_50px_rgba(0,100,116,0.08)] flex flex-col gap-6">
         <div className="flex flex-col items-center justify-center text-center">
-          <img alt="Decodex Logo" className="w-28 h-28 object-contain mb-2 drop-shadow-sm" src={decodexLogo} />
-          <p className="font-body text-xl text-secondary font-medium">Understand how every child reads</p>
+          <img alt="Decodex Logo" className="w-28 h-28 object-contain mb-2 drop-shadow-md" src={decodexLogo} />
+          <h1 className="font-display text-2xl font-extrabold text-primary mb-1">Welcome Back to Decodex</h1>
+          <p className="font-body text-sm text-secondary font-medium">Understand how every child reads</p>
         </div>
 
         {error && <div className="p-4 bg-error-container/80 backdrop-blur-md text-on-error-container rounded-2xl text-sm font-body border border-error/20">{error}</div>}
@@ -76,7 +77,7 @@ export default function Login() {
             </div>
           </div>
 
-          <button type="submit" className="w-full h-[56px] mt-4 bg-primary hover:bg-on-primary-fixed-variant text-on-primary font-display font-bold text-lg rounded-2xl transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg shadow-primary/20">
+          <button type="submit" className="w-full h-[56px] mt-4 bg-primary hover:bg-on-primary-fixed-variant text-on-primary font-display font-bold text-lg rounded-2xl transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg shadow-primary/20 cursor-pointer">
             Log In
             <span className="material-symbols-outlined">arrow_forward</span>
           </button>

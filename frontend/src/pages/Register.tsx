@@ -1,6 +1,7 @@
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
+import decodexLogo from '../assets/decodex-logo.png';
 
 type AccountType = 'student' | 'parent';
 const fieldControlClass = 'h-14 w-full glass-input rounded-2xl px-4 font-body text-lg text-on-surface outline-none transition-all focus:outline-none';
@@ -44,13 +45,14 @@ export default function Register() {
   return (
     <div className="min-h-[calc(100vh-80px)] bg-transparent px-container-padding py-8 flex items-center justify-center text-on-surface">
       <main className="mx-auto w-full max-w-[480px] glass-card rounded-3xl p-8 sm:p-10 shadow-[0_20px_50px_rgba(0,100,116,0.08)]">
-        <div className="mb-8 text-center">
+        <div className="mb-6 text-center flex flex-col items-center">
+          <img alt="Decodex Logo" className="w-24 h-24 object-contain mb-2 drop-shadow-sm" src={decodexLogo} />
           <p className="font-display text-xs font-bold uppercase tracking-[0.12em] text-secondary">Decodex Account</p>
-          <h1 className="mt-2 font-display text-3xl font-extrabold text-primary">Create Your Account</h1>
-          <p className="mt-2 font-body text-base text-on-surface-variant">Choose the account that fits how you use Decodex.</p>
+          <h1 className="mt-1 font-display text-3xl font-extrabold text-primary">Create Your Account</h1>
+          <p className="mt-1 font-body text-sm text-on-surface-variant">Choose the account that fits how you use Decodex.</p>
         </div>
 
-        <div className="mb-7 grid grid-cols-2 rounded-2xl bg-surface-container/60 p-1.5 backdrop-blur-md" role="tablist" aria-label="Account type">
+        <div className="mb-6 grid grid-cols-2 rounded-2xl bg-surface-container/60 p-1.5 backdrop-blur-md" role="tablist" aria-label="Account type">
           {(['student', 'parent'] as AccountType[]).map((type) => (
             <button
               key={type}
@@ -109,18 +111,26 @@ export default function Register() {
             />
           </Field>
           {accountType === 'student' ? (
-            <Field label="Grade Level" id="grade-level">
+            <Field
+              label="Student School Grade Level"
+              id="grade-level"
+              hint="Select the current school class grade of the student (Grade 1–12). Decodex uses this to calibrate target reading speed (Words Per Minute) and passage complexity."
+            >
               <select
                 id="grade-level"
                 value={formData.grade_level}
                 onChange={(event) => setFormData({ ...formData, grade_level: Number(event.target.value) })}
                 className={fieldControlClass}
               >
-                {Array.from({ length: 12 }, (_, index) => index + 1).map((grade) => <option key={grade} value={grade}>Grade {grade}</option>)}
+                {Array.from({ length: 12 }, (_, index) => index + 1).map((grade) => (
+                  <option key={grade} value={grade}>
+                    Grade {grade} (Class {grade})
+                  </option>
+                ))}
               </select>
             </Field>
           ) : null}
-          <button disabled={submitting} className="mt-2 h-14 rounded-2xl bg-primary font-display text-lg font-bold text-on-primary transition-all duration-200 hover:bg-on-primary-fixed-variant disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98] shadow-lg shadow-primary/20">
+          <button disabled={submitting} className="mt-2 h-14 rounded-2xl bg-primary font-display text-lg font-bold text-on-primary transition-all duration-200 hover:bg-on-primary-fixed-variant disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98] shadow-lg shadow-primary/20 cursor-pointer">
             {submitting ? 'Creating account…' : `Create ${accountType} Account`}
           </button>
         </form>
@@ -138,7 +148,7 @@ function Field({ children, hint, id, label }: { children: ReactNode; hint?: stri
     <div className="flex flex-col gap-2">
       <label htmlFor={id} className="font-display text-xs font-bold uppercase tracking-[0.08em] text-on-surface-variant">{label}</label>
       {children}
-      {hint ? <p className="font-body text-xs text-on-surface-variant">{hint}</p> : null}
+      {hint ? <p className="font-body text-xs text-on-surface-variant leading-normal">{hint}</p> : null}
     </div>
   );
 }
