@@ -14,6 +14,17 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/diff": "^7.0.2",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^26.1.1",
+    "@types/nodemailer": "^8.0.1",
+    "@types/opossum": "^8.1.9",
+    "@types/pg": "^8.20.0",
     "bcrypt": "^6.0.0",
     "bull": "^4.16.5",
     "cookie-parser": "^1.4.7",
@@ -30,23 +41,12 @@
     "openai": "^6.48.0",
     "opossum": "^10.0.0",
     "pg": "^8.22.0",
+    "typescript": "^5.9.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/bcrypt": "^6.0.0",
-    "@types/cookie-parser": "^1.4.10",
-    "@types/cors": "^2.8.19",
-    "@types/diff": "^7.0.2",
-    "@types/express": "^5.0.6",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/multer": "^2.2.0",
-    "@types/node": "^26.1.1",
-    "@types/nodemailer": "^8.0.1",
-    "@types/opossum": "^8.1.9",
-    "@types/pg": "^8.20.0",
     "nodemon": "^3.1.14",
     "ts-node": "^10.9.2",
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^5.9.3"
+    "ts-node-dev": "^2.0.0"
   }
 }
