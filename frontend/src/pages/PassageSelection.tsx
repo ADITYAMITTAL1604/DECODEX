@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useApiQuery } from '../lib/api';
+import { apiFetch, useApiQuery } from '../lib/api';
 
 interface Passage {
   id: string;
@@ -11,20 +11,48 @@ interface Passage {
 }
 
 export default function PassageSelection() {
-  const { data, loading, error } = useApiQuery<{ passages: Passage[] }>('/passages');
+  const [generating, setGenerating] = useState(false);
+  const { data, loading, error, refetch } = useApiQuery<{ passages: Passage[] }>('/passages');
+
+  const handleGeneratePassage = async () => {
+    setGenerating(true);
+    try {
+      await apiFetch('/passages/generate', {
+        method: 'POST',
+        body: JSON.stringify({ grade_level: 3 }),
+      });
+      refetch();
+    } catch (err) {
+      console.error('Failed to generate passage:', err);
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   if (loading) return <div className="p-8 text-center text-on-surface-variant font-body">Loading passages...</div>;
   if (error) return <div className="p-8 text-center text-error font-body">Error loading passages: {error.message}</div>;
 
   return (
     <main className="w-full max-w-max-content-width mx-auto px-container-padding py-8 space-y-8">
-      <div className="flex flex-col gap-2">
-        <Link to="/" className="inline-flex items-center gap-2 text-on-surface-variant hover:text-primary font-display text-sm font-bold tracking-[0.08em] uppercase transition-colors w-fit">
-          <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-          Back to Dashboard
-        </Link>
-        <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-on-surface">Select a Passage</h1>
-        <p className="font-body text-lg text-on-surface-variant">Choose a passage to begin your reading session.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col gap-2">
+          <Link to="/" className="inline-flex items-center gap-2 text-on-surface-variant hover:text-primary font-display text-sm font-bold tracking-[0.08em] uppercase transition-colors w-fit">
+            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+            Back to Dashboard
+          </Link>
+          <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-on-surface">Select a Reading Passage</h1>
+          <p className="font-body text-lg text-on-surface-variant">Choose a passage or generate a fresh AI text to begin your diagnostic assessment.</p>
+        </div>
+
+        {/* Dynamic AI Passage Generator Button */}
+        <button
+          onClick={handleGeneratePassage}
+          disabled={generating}
+          className="h-14 px-6 rounded-2xl bg-secondary text-on-secondary font-display text-sm font-bold uppercase tracking-wider transition-all shadow-md hover:bg-secondary-container hover:text-on-secondary-container active:scale-95 disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2 shrink-0"
+        >
+          <span className="material-symbols-outlined">{generating ? 'hourglass_top' : 'auto_awesome'}</span>
+          {generating ? 'Crafting Passage…' : 'Generate Fresh AI Passage'}
+        </button>
       </div>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
