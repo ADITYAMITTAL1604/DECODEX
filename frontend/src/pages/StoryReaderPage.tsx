@@ -61,9 +61,16 @@ export default function StoryReaderPage() {
         <div className="glass-card rounded-3xl p-8 sm:p-10 border border-secondary/30 shadow-xl bg-white/80 mb-10 animate-in fade-in space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-surface-container-highest pb-4">
             <div>
-              <span className="inline-block px-3 py-1 rounded-full bg-secondary-container/20 text-secondary font-display text-xs font-bold uppercase tracking-wider mb-2">
-                Level {selectedStory.difficultyLevel} Story
-              </span>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="inline-block px-3 py-1 rounded-full bg-secondary-container/20 text-secondary font-display text-xs font-bold uppercase tracking-wider">
+                  Level {selectedStory.difficultyLevel} Story
+                </span>
+                {selectedStory.wordCount && (
+                  <span className="inline-block px-3 py-1 rounded-full bg-primary/10 text-primary font-display text-xs font-bold uppercase tracking-wider">
+                    {selectedStory.wordCount} Words
+                  </span>
+                )}
+              </div>
               <h2 className="font-display text-3xl font-extrabold text-primary">{selectedStory.title}</h2>
             </div>
             <div className="flex items-center gap-2">
@@ -75,7 +82,7 @@ export default function StoryReaderPage() {
             </div>
           </div>
 
-          <div className="font-body text-xl leading-relaxed text-on-surface tracking-wide bg-surface-container-lowest p-6 rounded-2xl border border-surface-container-high shadow-inner">
+          <div className="font-body text-lg leading-relaxed text-on-surface tracking-wide bg-surface-container-lowest p-6 rounded-2xl border border-surface-container-high shadow-inner whitespace-pre-line space-y-4">
             {selectedStory.content}
           </div>
 

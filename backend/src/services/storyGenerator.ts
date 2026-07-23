@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // ---------------------------------------------------------------------------
-// Dynamic Infinite AI Story Generator (Groq Powered)
+// Dynamic Infinite AI Story Generator (OpenAI & Groq Powered)
 // ---------------------------------------------------------------------------
 
 export interface GeneratedStory {
@@ -18,82 +18,139 @@ export interface GeneratedStory {
   wordCount: number;
 }
 
-// Procedural elements for infinite unique stories
+// Procedural elements for infinite unique 200-250 word stories
 const CHARACTERS = [
-  { name: 'Shelly', animal: 'squirrel', phoneme: 'sh' },
-  { name: 'Charlie', animal: 'chipmunk', phoneme: 'ch' },
-  { name: 'Theo', animal: 'thrush', phoneme: 'th' },
-  { name: 'Buddy', animal: 'bear', phoneme: 'b' },
-  { name: 'Daisy', animal: 'duck', phoneme: 'd' },
-  { name: 'Pedro', animal: 'panda', phoneme: 'p' },
-  { name: 'Brett', animal: 'badger', phoneme: 'blends' },
-  { name: 'Grace', animal: 'gazelle', phoneme: 'blends' },
-  { name: 'Joan', animal: 'jaguar', phoneme: 'vowel_teams' },
-  { name: 'Jean', animal: 'blue jay', phoneme: 'vowel_teams' },
-  { name: 'Maya', animal: 'monkey', phoneme: 'general' },
-  { name: 'Leo', animal: 'lion cub', phoneme: 'general' },
-  { name: 'Pip', animal: 'penguin', phoneme: 'p' },
-  { name: 'Zeke', animal: 'zebra', phoneme: 'general' },
-  { name: 'Chloe', animal: 'cat', phoneme: 'ch' },
+  { name: 'Shelly', animal: 'squirrel', descriptor: 'curious and quick' },
+  { name: 'Charlie', animal: 'chipmunk', descriptor: 'cheerful and adventurous' },
+  { name: 'Theo', animal: 'thrush', descriptor: 'thoughtful and musical' },
+  { name: 'Buddy', animal: 'bear cub', descriptor: 'brave and kind-hearted' },
+  { name: 'Daisy', animal: 'duckling', descriptor: 'daring and playful' },
+  { name: 'Pedro', animal: 'panda', descriptor: 'patient and clever' },
+  { name: 'Brett', animal: 'badger', descriptor: 'bold and resourceful' },
+  { name: 'Grace', animal: 'gazelle', descriptor: 'graceful and speedy' },
+  { name: 'Joan', animal: 'jaguar', descriptor: 'jubilant and energetic' },
+  { name: 'Pip', animal: 'penguin', descriptor: 'polite and eager' },
+  { name: 'Zeke', animal: 'zebra', descriptor: 'zealous and helpful' },
+  { name: 'Chloe', animal: 'cat', descriptor: 'clever and gentle' },
+  { name: 'Barnaby', animal: 'beaver', descriptor: 'busy and bright' },
+  { name: 'Finley', animal: 'fox', descriptor: 'friendly and swift' },
+  { name: 'Sammy', animal: 'sea otter', descriptor: 'spirited and imaginative' },
+];
+
+const COMPANIONS = [
+  { name: 'Oliver', animal: 'owl' },
+  { name: 'Hattie', animal: 'hedgehog' },
+  { name: 'Penny', animal: 'porcupine' },
+  { name: 'Rusty', animal: 'rabbit' },
+  { name: 'Milo', animal: 'mouse' },
+  { name: 'Toby', animal: 'turtle' },
 ];
 
 const SETTINGS = [
-  'in a sunlit pine forest',
-  'by a sparkling blue stream',
-  'near an old stone fountain',
-  'high on a snowy mountain crest',
-  'inside a colorful shell shop by the shore',
-  'across a meadow full of blooming clover',
-  'along a quiet rainforest trail',
-  'inside a cozy wooden barn',
-  'under the shade of a giant oak tree',
-  'beside a hidden garden wall',
+  'deep in the sunlit pine forest where ancient oak trees arched overhead',
+  'along the sparkling blue riverbank surrounded by fragrant wild clover',
+  'high atop the misty Emerald Hills where rainbow-colored butterflies fluttered',
+  'inside a cozy hollow treehouse filled with carved wooden lanterns',
+  'near a hidden stone waterfall that hummed a gentle melody',
+  'across the Golden Meadow where tall silver grass swayed in the morning breeze',
+  'within a quiet rainforest trail lined with glowing moss flowers',
+  'beside an old stone fountain at the heart of the Woodland Village',
 ];
 
-const PLOT_HOOKS = [
+const PLOTS = [
   {
-    goal: 'find a lost golden key',
-    action: 'searched behind thick bushes and splashed through shallow puddles',
-    resolution: 'spotted the key shining bright in the green moss and cheered with joy',
+    theme: 'Mystery of the Lost Compass',
+    goal: 'find an ancient shiny silver compass hidden behind the overgrown ivy wall',
+    obstacle: 'a steep muddy hill and a thick patch of thorny brambles blocked the main path',
+    clue: 'a trail of glowing blue feathers left by a friendly forest bird',
+    resolution: 'discovered the polished compass tucked safely inside a hollow oak branch',
   },
   {
-    goal: 'collect the sweetest berries for an afternoon feast',
-    action: 'climbed up gentle grassy hills and reached for the highest branches',
-    resolution: 'filled a wicker basket to the brim and shared them with friends',
+    theme: 'Quest for the Golden Acorn',
+    goal: 'locate the mythical golden acorn that could light up the entire forest at night',
+    obstacle: 'strong autumn winds blew rustling leaves in every direction, hiding the secret trail',
+    clue: 'a soft rhythmic tapping sound coming from behind the old stone bridge',
+    resolution: 'uncovered the glowing acorn shining warmly beneath a blanket of soft green moss',
   },
   {
-    goal: 'build a sturdy shelter before the rain fell',
-    action: 'gathered fallen pine needles, oak leaves, and straight twigs',
-    resolution: 'finished the cozy roof just as the first raindrops tapped softly',
+    theme: 'The Secret River Celebration',
+    goal: 'gather sweet wild berries and fresh river mint for the annual woodland feast',
+    obstacle: 'the wooden footbridge across the rushing creek had lost three of its key planks',
+    clue: 'a bundle of sturdy willow twigs floating gently near the water edge',
+    resolution: 'rebuilt the bridge together with friends and filled three wicker baskets to the brim',
   },
   {
-    goal: 'deliver an important handwritten message',
-    action: 'trotted swiftly down the winding path under the morning sun',
-    resolution: 'handed the letter safely to the old forest owls at sunset',
+    theme: 'Rescue of the Starlight Map',
+    goal: 'decode the handwritten starlight map left by the wise old forest elders',
+    obstacle: 'the symbols on the parchment were faded and tricky to sound out clearly',
+    clue: 'a shimmering crystal key hidden beneath a smooth river pebble',
+    resolution: 'read every word with careful focus and unlocked a hidden chest of glowing gemstones',
   },
   {
-    goal: 'solve the riddle written on an ancient stone',
-    action: 'sounded out each letter carefully and traced the lines with a paw',
-    resolution: 'unlocked the secret chamber full of glowing magical crystals',
+    theme: 'The Great Canopy Flying Contest',
+    goal: 'construct a lightweight glider out of pine needles and sturdy maple leaves',
+    obstacle: 'finding the right balance so the craft could soar smoothly over high branches',
+    clue: 'a gentle thermal breeze swirling around the sunny mountain overlook',
+    resolution: 'launched the glider high into the sky, winning applause from every forest creature',
   },
 ];
 
-const PHONEME_SENTENCE_SETS: Record<string, string[][]> = {
-  sh_ch_th: [
-    ['She saw a shiny shell by the shore.', 'Charlie chose a fresh cherry pie.', 'Theo thought three thick branches fell.'],
-    ['Shirley brushed her shoes with care.', 'The chipmunk chattered on the branch.', 'Thirty thistles grew near the trail.'],
-  ],
+const PHONEME_EXERCISES: Record<string, string[][]> = {
   b_d_p: [
-    ['Buddy the bear found a big blue ball.', 'Daisy duck dived into deep clear water.', 'Pip the panda picked a sweet peach.'],
-    ['A brave boy bounced a ball by the barn.', 'The dog dug deep under the dark oak.', 'Pedro painted a pink paper kite.'],
+    [
+      'Buddy the bear picked up a big blue ball by the barn.',
+      'Daisy the duck dived into deep dark water with a happy splash.',
+      'Pip the panda pointed to a pretty pink peach hanging high on the branch.',
+      'Together, they promised to protect the peaceful pathway.',
+    ],
+    [
+      'A brave boy bounced a bright ball beside the big oak tree.',
+      'The playful puppy dug deep under the dry garden dirt.',
+      'Pedro painted a splendid picture of purple pansies in full bloom.',
+      'They carefully sounded out each letter: /b/, /d/, and /p/.',
+    ],
   ],
   blends: [
-    ['The bright green frog leaped over the brook.', 'Brave Brett stopped to clear the path.', 'Grace smiled at the glowing stars.'],
-    ['Slick snails slide across smooth stones.', 'Strong breezes blow through pine trees.', 'Fresh spring water flows down.'],
+    [
+      'The bright green frog leaped gracefully across the clear bubbling brook.',
+      'Brave Brett stopped to clear the path of heavy fallen branches.',
+      'Grace smiled as glowing stars sparkled across the dark night sky.',
+      'Slick snails slid smoothly over the flat stones near the spring.',
+    ],
+    [
+      'Strong breezes blew fresh pine scents through the quiet valley.',
+      'Crisp autumn leaves crinkled beneath their small swift paws.',
+      'They constructed a sturdy shelter using straight twigs and spruce needles.',
+      'Splendid sunshine streamed down as the brave travelers pressed forward.',
+    ],
+  ],
+  sh_ch_th: [
+    [
+      'Shelly saw a shiny shell glistening by the sandy shore.',
+      'Charlie chose a fresh cherry treat to share with his best friend.',
+      'Theo thought three thick branches had fallen across the path.',
+      'Shirley brushed her shoes with care before stepping into the hall.',
+    ],
+    [
+      'The cheerful chipmunk chattered excitedly from a high branch.',
+      'Thirty thistles grew near the quiet forest trail.',
+      'Shadows shifted softly as the thermal breeze blew through the trees.',
+      'They chanted three short rhymes to practice their target sounds.',
+    ],
   ],
   general: [
-    ['The sun shone warm and bright.', 'Every step brought new excitement.', 'A friendly bird sang a sweet song.'],
-    ['Clear water bubbled over smooth rocks.', 'Fresh breeze rustled the high leaves.', 'Happy laughter filled the air.'],
+    [
+      'The morning sun shone warm and bright over the peaceful meadow.',
+      'Every single step brought new excitement and wondrous discoveries.',
+      'A friendly bluebird perched on a high twig and sang a cheerful song.',
+      'Fresh mountain air filled the valley with energy and delight.',
+    ],
+    [
+      'Clear water bubbled over smooth river rocks in a steady rhythm.',
+      'Happy laughter echoed through the trees as the friends journeyed together.',
+      'They paused to admire the colorful wildflowers blooming along the path.',
+      'Confidence grew with every sentence they read aloud with pride.',
+    ],
   ],
 };
 
@@ -106,8 +163,68 @@ const CATEGORY_TO_FOCUS: Record<string, string> = {
   PAC: 'general',
 };
 
+const STORY_THEME_SEEDS = [
+  'tropical rainforest exploration',
+  'snowy mountain winter rescue',
+  'enchanted garden mystery',
+  'starlit nocturnal campfire',
+  'underwater coral reef adventure',
+  'ancient castle library discovery',
+  'sunny island treasure hunt',
+  'autumn harvest celebration',
+];
+
 /**
- * Generate a personalized reading story for a student using Groq API or Procedural Engine.
+ * Generate a rich, 200-250+ word procedural story when LLM is unavailable or offline.
+ */
+function generateProceduralStory(
+  studentGrade: number,
+  focusKey: string,
+  storyNum: number
+): { title: string; content: string } {
+  // Use a mix of storyNum and random seed for true variety
+  const randChar = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
+  const randComp = COMPANIONS[Math.floor(Math.random() * COMPANIONS.length)];
+  const randSetting = SETTINGS[Math.floor(Math.random() * SETTINGS.length)];
+  const randPlot = PLOTS[Math.floor(Math.random() * PLOTS.length)];
+
+  const phonemeSets = PHONEME_EXERCISES[focusKey] || PHONEME_EXERCISES['general'];
+  const phonemeLines = phonemeSets[Math.floor(Math.random() * phonemeSets.length)];
+
+  const title = `${randChar.name} and the ${randPlot.theme}`;
+
+  // Paragraph 1: Introduction (~60 words)
+  const p1 = `${randChar.name} was a ${randChar.descriptor} ${randChar.animal} who lived ${randSetting}. ` +
+    `Every morning, ${randChar.name} loved to explore new paths and discover the hidden wonders of the woodland. ` +
+    `On this special day, ${randChar.name} was joined by a dear friend named ${randComp.name} the ${randComp.animal}. ` +
+    `Together, they decided to set out on an exciting journey to ${randPlot.goal}. ` +
+    `The air was crisp and full of promise as they laced up their walking boots and headed down the winding trail.`;
+
+  // Paragraph 2: Challenge & Phoneme Practice (~70 words)
+  const p2 = `As they traveled deeper into the woods, they encountered an unexpected challenge: ${randPlot.obstacle}. ` +
+    `${randChar.name} stopped to observe the surroundings carefully, determined not to give up. ` +
+    `To stay focused and build up courage, ${randChar.name} and ${randComp.name} practiced sounding out words out loud. ` +
+    `${phonemeLines[0]} ${phonemeLines[1]} ` +
+    `Saying each word clearly gave them the energy they needed to keep moving forward without hesitation.`;
+
+  // Paragraph 3: Journey & Clue (~60 words)
+  const p3 = `Sensing that they were getting closer, ${randComp.name} pointed toward ${randPlot.clue}. ` +
+    `${phonemeLines[2]} ${phonemeLines[3]} ` +
+    `Step by step, the two companions navigated around the tricky obstacles with impressive teamwork. ` +
+    `${randChar.name} focused on reading the directional markers posted along the wooden signposts, checking every letter with patience and accuracy.`;
+
+  // Paragraph 4: Happy Resolution & Conclusion (~60 words)
+  const p4 = `Finally, after a thrilling search, ${randChar.name} and ${randComp.name} ${randPlot.resolution}. ` +
+    `They cheered with delight and celebrated their successful teamwork under the warm sunshine. ` +
+    `Looking back at the path they had conquered, ${randChar.name} felt proud of how far they had come and how fluently they had read every clue. ` +
+    `It was an unforgettable woodland adventure filled with confidence, laughter, and lifelong friendship!`;
+
+  const content = `${p1}\n\n${p2}\n\n${p3}\n\n${p4}`;
+  return { title, content };
+}
+
+/**
+ * Generate a personalized reading story for a student using OpenAI, Groq, or Procedural Engine.
  */
 export async function generateStoryForStudent(
   studentId: string,
@@ -152,26 +269,55 @@ export async function generateStoryForStudent(
   let content = '';
   let targetPhonemes: string[] = [];
 
-  const hasGroq = Boolean(process.env.GROQ_API_KEY);
+  // Determine LLM provider (OpenAI primary, Groq secondary)
+  const openaiKey = process.env.OPENAI_API_KEY;
+  const groqKey = process.env.GROQ_API_KEY;
 
-  if (hasGroq) {
+  let llmClient: OpenAI | null = null;
+  let modelName = '';
+
+  if (openaiKey && !openaiKey.includes('your-key-here')) {
+    llmClient = new OpenAI({ apiKey: openaiKey });
+    modelName = 'gpt-4o-mini';
+  } else if (groqKey && !groqKey.includes('your_free_groq_key_here')) {
+    llmClient = new OpenAI({ apiKey: groqKey, baseURL: 'https://api.groq.com/openai/v1' });
+    modelName = 'llama-3.3-70b-versatile';
+  }
+
+  if (llmClient) {
     try {
-      const client = new OpenAI({ apiKey: process.env.GROQ_API_KEY, baseURL: 'https://api.groq.com/openai/v1' });
-      const model = 'llama-3.3-70b-versatile';
+      const themeSeed = STORY_THEME_SEEDS[Math.floor(Math.random() * STORY_THEME_SEEDS.length)];
 
-      const completion = await client.chat.completions.create({
-        model,
+      const completion = await llmClient.chat.completions.create({
+        model: modelName,
         messages: [
           {
             role: 'system',
-            content: `You are an expert Orton-Gillingham reading specialist. Write an engaging, short reading story (50-80 words) for a Grade ${gradeLevel} student. Target phoneme area: ${focusKey}. Title line: "Title: [Story Title]".`,
+            content: `You are an expert Orton-Gillingham reading specialist and children's story author.
+Write a captivating, multi-paragraph reading story for a Grade ${gradeLevel} student.
+
+STORY SPECIFICATIONS:
+- Target Phoneme Focus: ${focusKey} (naturally weave words with these sound patterns throughout).
+- MANDATORY LENGTH: The story MUST be AT LEAST 200 TO 250 WORDS long. Do NOT make it short.
+- FORMAT:
+Title: [Creative Story Title]
+
+[Paragraph 1: Character & Setting introduction]
+
+[Paragraph 2: Conflict or challenge introducing phoneme practice]
+
+[Paragraph 3: Journey & problem solving]
+
+[Paragraph 4: Rewarding resolution]
+
+Make the story completely original, fun, and engaging!`,
           },
           {
             role: 'user',
-            content: `Generate story #${storyNum} targeting ${focusKey} patterns for Grade ${gradeLevel}. Make it fun and unique.`,
+            content: `Generate a brand new unique story #${storyNum} for Grade ${gradeLevel}. Theme seed: ${themeSeed}. Target phoneme: ${focusKey}. Ensure it is at least 200 to 250 words long.`,
           },
         ],
-        max_tokens: 250,
+        max_tokens: 1000,
       });
 
       const text = completion.choices[0]?.message?.content || '';
@@ -180,39 +326,21 @@ export async function generateStoryForStudent(
 
       if (titleLine) {
         title = titleLine.replace(/^title:\s*/i, '').replace(/[*"]/g, '');
-        content = lines.filter(l => !l.toLowerCase().startsWith('title:')).join(' ');
+        content = lines.filter(l => !l.toLowerCase().startsWith('title:')).join('\n\n');
       } else if (lines.length > 0) {
         title = lines[0].replace(/[*"]/g, '');
-        content = lines.slice(1).join(' ');
+        content = lines.slice(1).join('\n\n');
       }
     } catch (llmErr) {
-      console.warn('Groq story generation fallback to procedural engine:', (llmErr as Error).message);
+      console.warn(`LLM story generation (${modelName}) fallback to procedural engine:`, (llmErr as Error).message);
     }
   }
 
+  // Fallback to rich procedural engine if LLM was skipped or failed
   if (!content || !title) {
-    const charObj = CHARACTERS[(storyNum - 1) % CHARACTERS.length];
-    const setting = SETTINGS[(storyNum * 3) % SETTINGS.length];
-    const plot = PLOT_HOOKS[(storyNum * 7) % PLOT_HOOKS.length];
-    const sentenceSets = PHONEME_SENTENCE_SETS[focusKey] || PHONEME_SENTENCE_SETS['general'];
-    const sentences = sentenceSets[(storyNum - 1) % sentenceSets.length];
-
-    const TITLE_HOOKS = [
-      'Forest Adventure',
-      'Riverbank Discovery',
-      'Secret Mission',
-      'Morning Journey',
-      'Shelter Quest',
-    ];
-    const titleHook = TITLE_HOOKS[(storyNum - 1) % TITLE_HOOKS.length];
-    title = `${charObj.name}'s ${titleHook} #${storyNum}`;
-
-    content = `${charObj.name} the ${charObj.animal} lived ${setting}. ` +
-      `One bright morning, ${charObj.name} set out to ${plot.goal}. ` +
-      `${sentences.join(' ')} ` +
-      `Without slowing down, ${charObj.name} ${plot.action}. ` +
-      `In the end, ${charObj.name} ${plot.resolution}. ` +
-      `It was an unforgettable day full of proud moments!`;
+    const proc = generateProceduralStory(gradeLevel, focusKey, storyNum);
+    title = proc.title;
+    content = proc.content;
   }
 
   const wordCount = content.split(/\s+/).filter(Boolean).length;
