@@ -1,11 +1,5 @@
 # Decodex — AI Reading Diagnostic & Dyslexia Clinic Companion 📖✨
 
-![OpenAI Build Week](https://img.shields.io/badge/OpenAI_Build_Week-Built_with_Codex-412991?style=for-the-badge&logo=openai&logoColor=white)
-![Build Status](https://img.shields.io/badge/Status-Hackathon_Submission_Ready-emerald?style=for-the-badge)
-
-> **Submitted for OpenAI Build Week Hackathon.**  
-> **Decodex** was built using **Codex** as an agentic AI pair programmer, leveraging **OpenAI Whisper** and **GPT-4o** to move beyond traditional assistive EdTech into true **diagnostic dyslexia pedagogy**.
-
 ---
 
 ## 🏆 The Problem & Solution
@@ -18,15 +12,6 @@ EdTech tools help students read text aloud (Text-to-Speech), but they fail to ex
 3. **Orton-Gillingham (O-G) Taxonomy Classification**: Uses **GPT-4o** / **GPT-4o-mini** with strict Orton-Gillingham prompts to categorize error root causes (`REV` Reversals, `SUB` Substitutions, `BLD` Blend breakdowns, `OMI` Omissions, `INS` Insertions).
 4. **Interactive Sight Word Practice Clinic**: Auto-generates personalized sight word drills with letter-by-letter spelling, phonics sound breakdowns, TTS audio, and real-time Speech-to-Text pronunciation verification.
 5. **Teacher & Parent Portal**: Human-in-the-loop overrides, WPM and accuracy analytics, and in-app parent-student consent authorization.
-
----
-
-## 🤖 Built with OpenAI & Codex
-
-Decodex was architected and built during **OpenAI Build Week** using **Codex**:
-- **Codex Agentic Pair Programming**: Autonomous full-stack code generation, Needleman-Wunsch matrix alignment, database schema design, and UI component engineering.
-- **OpenAI Whisper (`whisper-1` / `whisper-large-v3-turbo`)**: Ultra-fast speech recognition for multi-dialect student recordings.
-- **OpenAI GPT-4o & GPT-4o-mini**: Structured JSON classification enforcing Orton-Gillingham clinical taxonomy rules.
 
 ---
 
@@ -80,7 +65,3 @@ Access **`http://localhost:5173`** after running `python app.py`:
 | **Parent** | `parent@decodex.com` | `password123` | In-app parent consent & invite code authorization |
 
 ---
-
-## 📜 License & Acknowledgments
-
-Submitted for **OpenAI Build Week Hackathon**. Built with ❤️ using **Codex** and **OpenAI**.
