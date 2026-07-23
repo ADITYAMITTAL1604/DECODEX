@@ -98,7 +98,7 @@ export async function generateLearningPath(studentId: string): Promise<LearningP
   const riskLevel = screening.risk; // 'low' | 'medium' | 'high'
 
   const sessionsRes = await query(
-    `SELECT rs.words_per_minute, rs.error_rate, ep.total_errors, ep.total_words_read
+    `SELECT rs.words_per_minute, ep.error_rate, ep.total_errors, ep.total_words_read
      FROM reading_sessions rs
      JOIN error_profiles ep ON ep.session_id = rs.id
      WHERE rs.student_id = $1 AND rs.status = 'completed' AND rs.deleted_at IS NULL

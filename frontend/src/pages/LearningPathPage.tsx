@@ -116,16 +116,17 @@ export default function LearningPathPage() {
       </div>
 
       {errorMsg && (
-        <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 text-amber-900 font-body text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="mb-6 p-4 rounded-2xl bg-red-500/10 border-2 border-red-500/30 text-red-900 font-body text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <p className="font-display font-bold text-base">Diagnostic Context Needed</p>
+            <p className="font-display font-bold text-base">Generation Error</p>
             <p className="mt-0.5">{errorMsg}</p>
           </div>
           <button
-            onClick={() => navigate('/passages')}
-            className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-display text-xs font-bold uppercase tracking-wider transition-all shadow-md shrink-0 cursor-pointer"
+            onClick={handleGenerate}
+            disabled={generating}
+            className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-display text-xs font-bold uppercase tracking-wider transition-all shadow-md shrink-0 cursor-pointer disabled:opacity-60"
           >
-            Take Reading Assessment ({currentSessions}/2) →
+            {generating ? 'Retrying…' : 'Try Again'}
           </button>
         </div>
       )}
