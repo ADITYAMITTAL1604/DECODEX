@@ -75,7 +75,10 @@ export default function LearningPathPage() {
   const canGenerate = learningPath?.canGenerate ?? true;
   const currentSessions = learningPath?.completedSessionsCount ?? 0;
   const requiredSessions = learningPath?.requiredSessionsCount ?? 2;
-  const hasPath = learningPath && learningPath.status === 'active' && learningPath.weeks?.length > 0;
+  const hasPath = learningPath && learningPath.weeks?.length > 0;
+  const isCompleted = learningPath?.status === 'completed' || (hasPath && learningPath.weeks.every((w: any) => w.completed));
+  const stageNumber = learningPath?.stageNumber || 1;
+  const trackMode = learningPath?.trackMode || 'Steady Mastery Track';
   const riskLevel = learningPath?.riskLevel || 'low';
 
   const riskBadgeStyle = riskLevel === 'high'
@@ -95,7 +98,7 @@ export default function LearningPathPage() {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-container/20 text-primary font-display text-[10px] font-bold uppercase tracking-widest mb-2">
             <span className="material-symbols-outlined text-sm">route</span>
-            Personalized Curriculum
+            Stage {stageNumber} Adaptive Curriculum
           </div>
           <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-on-surface">Your Reading Learning Path</h1>
           <p className="font-body text-base text-on-surface-variant mt-1">A day-by-day plan tailored to your diagnostic assessment context</p>
@@ -107,7 +110,7 @@ export default function LearningPathPage() {
             disabled={generating}
             className="h-12 px-6 rounded-2xl bg-surface-container-high text-on-surface font-display text-xs font-bold uppercase tracking-wider transition-all hover:bg-surface-container-highest active:scale-95 disabled:opacity-60 cursor-pointer"
           >
-            {generating ? 'Regenerating…' : 'Re-Analyze & Update Plan'}
+            {generating ? 'Regenerating…' : `Re-Analyze & Update Stage ${stageNumber}`}
           </button>
         )}
       </div>
@@ -123,6 +126,30 @@ export default function LearningPathPage() {
             className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-display text-xs font-bold uppercase tracking-wider transition-all shadow-md shrink-0 cursor-pointer"
           >
             Take Reading Assessment ({currentSessions}/2) →
+          </button>
+        </div>
+      )}
+
+      {/* Graduation Banner when 100% completed */}
+      {isCompleted && (
+        <div className="glass-card rounded-3xl p-8 sm:p-10 border border-emerald-500/50 bg-emerald-500/10 mb-8 shadow-xl text-center flex flex-col items-center">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mb-3 shadow-inner">
+            <span className="material-symbols-outlined text-4xl">workspace_premium</span>
+          </div>
+          <span className="px-3 py-1 rounded-full bg-emerald-200 text-emerald-900 font-display text-xs font-bold uppercase tracking-wider mb-2">
+            🏆 Stage {stageNumber} Curriculum Mastered! (+500 Bonus XP Awarded)
+          </span>
+          <h2 className="font-display text-3xl font-extrabold text-on-surface mb-2">Congratulations! Stage {stageNumber} Finished!</h2>
+          <p className="font-body text-base text-on-surface-variant max-w-xl mb-6 leading-relaxed">
+            You completed all 20 interactive days of Stage {stageNumber}. Decodex has analyzed your newest reading speed and error reduction rates to adapt your next level!
+          </p>
+          <button
+            onClick={handleGenerate}
+            disabled={generating}
+            className="h-14 px-8 rounded-2xl bg-emerald-600 text-white font-display text-base font-bold uppercase tracking-wider transition-all shadow-lg hover:bg-emerald-700 active:scale-95 disabled:opacity-60 cursor-pointer flex items-center gap-2"
+          >
+            <span className="material-symbols-outlined">rocket_launch</span>
+            {generating ? 'Constructing Next Stage…' : `Generate Stage ${stageNumber + 1} Advanced Plan →`}
           </button>
         </div>
       )}
@@ -159,7 +186,7 @@ export default function LearningPathPage() {
           <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-display text-xs font-bold uppercase tracking-wider mb-2">
             Context Ready ({currentSessions} Diagnostic Sessions Analyzed)
           </span>
-          <h3 className="font-display text-2xl font-bold text-on-surface mb-2">Generate Your Personalized Plan</h3>
+          <h3 className="font-display text-2xl font-bold text-on-surface mb-2">Generate Your Stage {stageNumber} Plan</h3>
           <p className="font-body text-base text-on-surface-variant max-w-md mb-6">
             Click below to construct your custom 4-week, 20-day Orton-Gillingham intervention roadmap based on your diagnostic results.
           </p>
@@ -169,19 +196,22 @@ export default function LearningPathPage() {
             className="h-14 px-8 rounded-2xl bg-primary text-on-primary font-display text-base font-bold uppercase tracking-wider transition-all shadow-lg hover:bg-primary-container hover:text-on-primary-container active:scale-95 disabled:opacity-60 cursor-pointer flex items-center gap-2"
           >
             <span className="material-symbols-outlined">{generating ? 'hourglass_top' : 'auto_awesome'}</span>
-            {generating ? 'Constructing Plan…' : 'Generate My 20-Day Plan'}
+            {generating ? 'Constructing Plan…' : `Generate Stage ${stageNumber} Plan`}
           </button>
         </div>
       )}
 
       {/* Active Day-by-Day Learning Path */}
-      {hasPath && (
+      {hasPath && !isCompleted && (
         <div className="space-y-8">
           <div className="glass-card rounded-3xl p-6 sm:p-8 border border-white/80 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
                 <span className="px-3 py-1 rounded-full bg-primary-container/20 text-primary font-display text-xs font-bold uppercase tracking-wider">
-                  Week {learningPath.currentWeek} of {learningPath.totalWeeks} • 20 Interactive Days
+                  Stage {stageNumber} • Week {learningPath.currentWeek} of {learningPath.totalWeeks}
+                </span>
+                <span className="px-3 py-1 rounded-full bg-indigo-100 text-indigo-800 font-display text-xs font-bold uppercase tracking-wider border border-indigo-200">
+                  {trackMode.toUpperCase()}
                 </span>
                 <span className={`px-3 py-1 rounded-full font-display text-xs font-bold uppercase tracking-wider border ${riskBadgeStyle}`}>
                   {riskLevel.toUpperCase()} RISK INTENSITY
@@ -288,7 +318,7 @@ export default function LearningPathPage() {
         </div>
       )}
 
-      {/* Interactive Activity Modal with Infinite Question Generator */}
+      {/* Interactive Activity Modal */}
       {activeActivity && (
         <InteractiveActivityModal
           activity={activeActivity}
@@ -304,8 +334,7 @@ export default function LearningPathPage() {
 }
 
 // ---------------------------------------------------------------------------
-// Procedural Infinite Question Generator (No Hardcoded Questions)
-// Generates fresh, non-repeating questions & speech targets every time!
+// Procedural Infinite Question Generator
 // ---------------------------------------------------------------------------
 interface QuestionItem {
   type: 'choice' | 'voice';
@@ -396,7 +425,6 @@ function InteractiveActivityModal({
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [voicePassed, setVoicePassed] = useState(false);
 
-  // Generate brand-new dynamic questions every time modal mounts or restarts
   const questions = useMemo(() => generateDynamicQuestions(activity), [activity]);
   const currentQ = questions[step % questions.length];
 

@@ -4,8 +4,8 @@ import { runRiskScreening } from './riskScreening';
 
 // ---------------------------------------------------------------------------
 // Learning Path Generator — Personalized, Day-by-Day Interactive Plans
-// Tailored dynamically by Dyslexia Risk Intensity (Mild, Moderate, High)
-// Gated on student completing at least 2 diagnostic reading test sessions.
+// Dynamically scales difficulty step-by-step based on student growth trend.
+// (Accelerates level if improving, degrades difficulty for support if struggling)
 // ---------------------------------------------------------------------------
 
 export const REQUIRED_SESSIONS_FOR_PLAN = 2;
@@ -44,6 +44,8 @@ export interface LearningPathResult {
   completedSessionsCount: number;
   requiredSessionsCount: number;
   riskLevel: 'low' | 'medium' | 'high';
+  stageNumber: number;
+  trackMode: string;
   weeks: LearningWeek[];
 }
 
@@ -70,7 +72,7 @@ export async function getCompletedSessionsCount(studentId: string): Promise<numb
 
 /**
  * Generate a personalized 4-week, 20-day interactive learning path.
- * Dynamically tailored to student's Dyslexia Risk Intensity (Low/Mild, Medium/Moderate, High).
+ * Evaluates student's growth trend to step-by-step accelerate or degrade difficulty.
  */
 export async function generateLearningPath(studentId: string): Promise<LearningPathResult> {
   const sessionCount = await getCompletedSessionsCount(studentId);
@@ -84,11 +86,55 @@ export async function generateLearningPath(studentId: string): Promise<LearningP
     throw error;
   }
 
-  // 1. Run / Fetch Dyslexia Risk Screening to determine severity intensity
+  // 1. Determine Stage Number based on past paths
+  const prevPathsRes = await query(
+    `SELECT COUNT(*) as cnt FROM learning_paths WHERE student_id = $1`,
+    [studentId]
+  );
+  const stageNumber = parseInt(prevPathsRes.rows[0]?.cnt || '0', 10) + 1;
+
+  // 2. Run Risk Screening & Calculate Growth Trend
   const screening = await runRiskScreening(studentId);
   const riskLevel = screening.risk; // 'low' | 'medium' | 'high'
 
-  // 2. Aggregate student's actual error counts across all sessions
+  const sessionsRes = await query(
+    `SELECT rs.words_per_minute, rs.error_rate, ep.total_errors, ep.total_words_read
+     FROM reading_sessions rs
+     JOIN error_profiles ep ON ep.session_id = rs.id
+     WHERE rs.student_id = $1 AND rs.status = 'completed' AND rs.deleted_at IS NULL
+     ORDER BY rs.started_at ASC`,
+    [studentId]
+  );
+  const sessions = sessionsRes.rows;
+
+  let initialWpm = 0;
+  let recentWpm = 0;
+  let initialErrorRate = 0;
+  let recentErrorRate = 0;
+
+  if (sessions.length >= 2) {
+    initialWpm = parseFloat(sessions[0].words_per_minute || '0');
+    recentWpm = parseFloat(sessions[sessions.length - 1].words_per_minute || '0');
+    initialErrorRate = parseFloat(sessions[0].error_rate || '0');
+    recentErrorRate = parseFloat(sessions[sessions.length - 1].error_rate || '0');
+  }
+
+  const wpmGrowth = recentWpm - initialWpm;
+  const errorReduction = initialErrorRate - recentErrorRate;
+
+  // Determine Adaptive Track Mode
+  let trackMode = 'Steady Mastery Track';
+  let levelAdjustment = 0;
+
+  if (wpmGrowth >= 5 || errorReduction > 0.02 || (riskLevel === 'low' && sessionCount >= 3)) {
+    trackMode = 'Accelerated Track (+1 Level)';
+    levelAdjustment = 1;
+  } else if (wpmGrowth < 0 || errorReduction < -0.02 || riskLevel === 'high') {
+    trackMode = 'High-Support Track (Foundational)';
+    levelAdjustment = -1;
+  }
+
+  // 3. Aggregate error profile
   const errorRes = await query(
     `SELECT
        SUM(rev_count) as rev, SUM(sub_count) as sub,
@@ -103,7 +149,6 @@ export async function generateLearningPath(studentId: string): Promise<LearningP
   const errors = errorRes.rows[0] || {};
   const avgWpm = Math.round(parseFloat(errors.avg_wpm || '0'));
 
-  // Sort weaknesses by actual frequency
   const errorCounts: Array<[string, number]> = [
     ['REV', Number(errors.rev || 0)],
     ['BLD', Number(errors.bld || 0)],
@@ -119,15 +164,16 @@ export async function generateLearningPath(studentId: string): Promise<LearningP
 
   const studentRes = await query(`SELECT display_name, grade_level FROM users WHERE id = $1`, [studentId]);
   const studentName = studentRes.rows[0]?.display_name || 'Student';
-  const gradeLevel = studentRes.rows[0]?.grade_level || 3;
+  const baseGradeLevel = studentRes.rows[0]?.grade_level || 3;
+  const effectiveGradeLevel = Math.max(1, Math.min(6, baseGradeLevel + levelAdjustment));
 
   const primaryMeta = CATEGORY_SKILL_MAP[primaryCategory] || CATEGORY_SKILL_MAP['SUB'];
   const secondaryMeta = CATEGORY_SKILL_MAP[secondaryCategory] || CATEGORY_SKILL_MAP['BLD'];
 
-  const riskLabel = riskLevel === 'high' ? 'High Risk Intensity' : riskLevel === 'medium' ? 'Moderate Risk Intensity' : 'Mild Risk Intensity';
+  const title = `Stage ${stageNumber}: ${studentName}'s Reading Curriculum (${trackMode})`;
 
-  const planSummary = `Personalized 4-Week Plan for ${studentName} (Grade ${gradeLevel}, ${riskLabel}, ${sessionCount} diagnostic sessions). ` +
-    `Focusing on ${primaryMeta.focus} (${errorCounts[0][1]} errors) and ${secondaryMeta.focus} (${errorCounts[1][1]} errors) with average speed ${avgWpm} WPM.`;
+  const planSummary = `Stage ${stageNumber} Plan for ${studentName} (Grade ${effectiveGradeLevel}, ${trackMode}, ${sessionCount} sessions analyzed). ` +
+    `Targeting ${primaryMeta.focus} (${errorCounts[0][1]} errors) and ${secondaryMeta.focus} (${errorCounts[1][1]} errors). Average speed: ${avgWpm} WPM.`;
 
   // Deactivate any old active paths
   await query(`UPDATE learning_paths SET status = 'paused', updated_at = NOW() WHERE student_id = $1 AND status = 'active'`, [studentId]);
@@ -136,25 +182,17 @@ export async function generateLearningPath(studentId: string): Promise<LearningP
   const pathRes = await query(
     `INSERT INTO learning_paths (student_id, title, total_weeks, plan_summary)
      VALUES ($1, $2, $3, $4) RETURNING id`,
-    [studentId, `${studentName}'s Diagnostic Reading Plan`, 4, planSummary]
+    [studentId, title, 4, planSummary]
   );
   const pathId = pathRes.rows[0].id;
 
   const weeks: LearningWeek[] = [];
 
-  // Week 1: Primary weakness deep-dive (intensity adjusted)
-  weeks.push(buildWeekData(pathId, 1, `Week 1: ${primaryMeta.title}`, `Focus on reducing ${primaryMeta.focus} errors using Orton-Gillingham techniques.`, primaryCategory, gradeLevel, riskLevel));
+  weeks.push(buildWeekData(pathId, 1, `Week 1: ${primaryMeta.title}`, `Focus on reducing ${primaryMeta.focus} errors using Orton-Gillingham techniques.`, primaryCategory, effectiveGradeLevel, riskLevel, levelAdjustment));
+  weeks.push(buildWeekData(pathId, 2, `Week 2: ${secondaryMeta.title}`, `Address ${secondaryMeta.focus} patterns and strengthen core phonics.`, secondaryCategory, effectiveGradeLevel, riskLevel, levelAdjustment));
+  weeks.push(buildWeekData(pathId, 3, 'Week 3: Fluency & Pacing Building', `Build reading speed toward Grade ${effectiveGradeLevel} benchmarks with repeated exposure.`, 'PAC', effectiveGradeLevel, riskLevel, levelAdjustment));
+  weeks.push(buildWeekData(pathId, 4, 'Week 4: Mastery & Diagnostic Assessment', 'Apply all learned strategies to new passages and complete progress re-assessment.', primaryCategory, effectiveGradeLevel, riskLevel, levelAdjustment));
 
-  // Week 2: Secondary weakness reinforcement
-  weeks.push(buildWeekData(pathId, 2, `Week 2: ${secondaryMeta.title}`, `Address ${secondaryMeta.focus} patterns and strengthen core phonics.`, secondaryCategory, gradeLevel, riskLevel));
-
-  // Week 3: Fluency & speed building
-  weeks.push(buildWeekData(pathId, 3, 'Week 3: Fluency & Pacing Building', `Build reading speed toward Grade ${gradeLevel} benchmarks with repeated exposure.`, 'PAC', gradeLevel, riskLevel));
-
-  // Week 4: Integration & Assessment
-  weeks.push(buildWeekData(pathId, 4, 'Week 4: Mastery & Diagnostic Assessment', 'Apply all learned strategies to new passages and complete progress re-assessment.', primaryCategory, gradeLevel, riskLevel));
-
-  // Save weeks to DB
   for (const week of weeks) {
     const weekRes = await query(
       `INSERT INTO learning_path_weeks (path_id, week_number, focus_area, description, exercises)
@@ -166,7 +204,7 @@ export async function generateLearningPath(studentId: string): Promise<LearningP
 
   return {
     id: pathId,
-    title: `${studentName}'s Diagnostic Reading Plan`,
+    title,
     totalWeeks: 4,
     currentWeek: 1,
     status: 'active',
@@ -175,6 +213,8 @@ export async function generateLearningPath(studentId: string): Promise<LearningP
     completedSessionsCount: sessionCount,
     requiredSessionsCount: REQUIRED_SESSIONS_FOR_PLAN,
     riskLevel,
+    stageNumber,
+    trackMode,
     weeks,
   };
 }
@@ -186,11 +226,12 @@ function buildWeekData(
   description: string,
   category: string,
   grade: number,
-  riskLevel: 'low' | 'medium' | 'high'
+  riskLevel: 'low' | 'medium' | 'high',
+  levelAdjustment: number
 ): LearningWeek {
   const meta = CATEGORY_SKILL_MAP[category] || CATEGORY_SKILL_MAP['SUB'];
   const minutesMultiplier = riskLevel === 'high' ? 1.5 : riskLevel === 'medium' ? 1.2 : 1.0;
-  const riskTag = riskLevel === 'high' ? ' (Intensive Focus)' : riskLevel === 'medium' ? ' (Targeted Focus)' : ' (Mastery Focus)';
+  const trackTag = levelAdjustment > 0 ? ' [Accelerated]' : levelAdjustment < 0 ? ' [High-Support]' : ' [Mastery]';
 
   let days: DayTask[] = [];
 
@@ -198,9 +239,11 @@ function buildWeekData(
     days = [
       {
         dayNumber: 1,
-        title: `Day 1: ${meta.focus} Multisensory Tracing`,
+        title: `Day 1: ${meta.focus} ${levelAdjustment < 0 ? 'Foundation Tracing' : 'Multisensory Drill'}`,
         activityType: 'drill',
-        description: `Explicit Orton-Gillingham letter tracing and phoneme isolation for ${meta.focus}.`,
+        description: levelAdjustment < 0
+          ? `High-support multi-sensory tracing and explicit phoneme isolation for ${meta.focus}.`
+          : `Advanced Orton-Gillingham letter tracing and phoneme isolation for ${meta.focus}.`,
         targetSkill: meta.skill,
         targetUrl: '/learning-path',
         actionLabel: 'Start Tracing Drill',
@@ -431,7 +474,7 @@ function buildWeekData(
   return {
     id: '',
     weekNumber: weekNum,
-    focusArea: `${title}${riskTag}`,
+    focusArea: `${title}${trackTag}`,
     description,
     days,
     completed: false,
@@ -444,6 +487,12 @@ function buildWeekData(
  */
 export async function getActiveLearningPath(studentId: string): Promise<LearningPathResult | null> {
   const sessionCount = await getCompletedSessionsCount(studentId);
+
+  const prevPathsRes = await query(
+    `SELECT COUNT(*) as cnt FROM learning_paths WHERE student_id = $1`,
+    [studentId]
+  );
+  const stageNumber = Math.max(1, parseInt(prevPathsRes.rows[0]?.cnt || '0', 10));
 
   const pathRes = await query(
     `SELECT * FROM learning_paths
@@ -463,6 +512,8 @@ export async function getActiveLearningPath(studentId: string): Promise<Learning
       completedSessionsCount: sessionCount,
       requiredSessionsCount: REQUIRED_SESSIONS_FOR_PLAN,
       riskLevel: 'low',
+      stageNumber,
+      trackMode: 'Steady Mastery Track',
       weeks: [],
     };
   }
@@ -484,6 +535,8 @@ export async function getActiveLearningPath(studentId: string): Promise<Learning
     completedSessionsCount: sessionCount,
     requiredSessionsCount: REQUIRED_SESSIONS_FOR_PLAN,
     riskLevel: 'low',
+    stageNumber,
+    trackMode: 'Steady Mastery Track',
     weeks: weeksRes.rows.map((w: any) => ({
       id: w.id,
       weekNumber: w.week_number,
