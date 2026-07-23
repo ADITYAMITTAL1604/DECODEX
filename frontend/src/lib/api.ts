@@ -7,19 +7,29 @@ export interface ApiError extends Error {
 
 function getApiBaseUrl(): string {
   let raw = (import.meta.env.VITE_API_BASE_URL || '').trim();
+  raw = raw.replace(/^["']|["']$/g, '').trim();
+
+  // If deployed on Vercel and VITE_API_BASE_URL wasn't baked into the build, fallback to live Render backend
+  if (!raw && typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
+    return 'https://decodex-backend.onrender.com';
+  }
+
   if (!raw) return '';
+
   if (!raw.startsWith('http://') && !raw.startsWith('https://')) {
     raw = `https://${raw}`;
   }
   return raw.replace(/\/$/, '');
 }
 
-const API_BASE = getApiBaseUrl();
-
 export async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const baseUrl = getApiBaseUrl();
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  const url = API_BASE ? `${API_BASE}/api/v1${cleanEndpoint}` : `/api/v1${cleanEndpoint}`;
   
+  const targetUrl = baseUrl 
+    ? `${baseUrl}/api/v1${cleanEndpoint}` 
+    : `/api/v1${cleanEndpoint}`;
+
   const token = localStorage.getItem('decodex_token');
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -31,7 +41,7 @@ export async function apiFetch<T>(endpoint: string, options?: RequestInit): Prom
   }
 
   try {
-    const response = await fetch(url, {
+    const response = await fetch(targetUrl, {
       ...options,
       credentials: 'include',
       headers,
@@ -49,7 +59,8 @@ export async function apiFetch<T>(endpoint: string, options?: RequestInit): Prom
     }
 
     if (!response.ok) {
-      const error = new Error(data?.error?.message || `HTTP error ${response.status}`) as ApiError;
+      const errorMsg = data?.error?.message || `Server Error (${response.status})`;
+      const error = new Error(errorMsg) as ApiError;
       error.code = data?.error?.code;
       error.details = data?.error?.details;
       throw error;
@@ -57,9 +68,8 @@ export async function apiFetch<T>(endpoint: string, options?: RequestInit): Prom
 
     return data as T;
   } catch (err: any) {
-    if (err instanceof TypeError && err.message.toLowerCase().includes('url')) {
-      console.error('API Fetch URL Error:', url, err);
-      throw new Error(`API Connection Failed: Unable to reach backend at ${url || 'server'}. Check VITE_API_BASE_URL.`);
+    if (err instanceof TypeError && err.message.toLowerCase().includes('failed to fetch')) {
+      throw new Error(`Unable to connect to Decodex backend (${targetUrl}). Please check your connection.`);
     }
     throw err;
   }
