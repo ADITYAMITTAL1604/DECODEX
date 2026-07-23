@@ -8,22 +8,26 @@ const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 // Track whether we've already warned about Redis being unavailable
 let redisWarned = false;
 
-const redisOptions = {
-  maxRetriesPerRequest: null as unknown as number,
+const isTls = redisUrl.startsWith('rediss://');
+
+const redisOptions: any = {
+  maxRetriesPerRequest: null,
   retryStrategy(times: number): number | null {
     if (times === 1 && !redisWarned) {
       redisWarned = true;
       console.warn(
-        '⚠️  Redis is not available at %s — Bull queues will not process jobs. ' +
-        'Start Redis with: docker compose up -d',
+        '⚠️  Redis is not available at %s — Bull queues will not process jobs.',
         redisUrl
       );
     }
-    // Retry with exponential backoff, capped at 30 seconds
     return Math.min(times * 2000, 30000);
   },
   enableReadyCheck: false,
 };
+
+if (isTls) {
+  redisOptions.tls = { rejectUnauthorized: false };
+}
 
 export const audioQueue = new Queue('audio-processing', redisUrl, {
   redis: redisOptions,
