@@ -5,7 +5,7 @@ export interface ApiError extends Error {
   details?: Record<string, unknown>;
 }
 
-function getApiBaseUrl(): string {
+export function getApiBaseUrl(): string {
   let raw = (import.meta.env.VITE_API_BASE_URL || '').trim();
   raw = raw.replace(/^["']|["']$/g, '').trim();
 

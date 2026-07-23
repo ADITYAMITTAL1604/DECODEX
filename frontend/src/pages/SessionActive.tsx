@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { apiFetch, useApiQuery } from '../lib/api';
+import { apiFetch, useApiQuery, getApiBaseUrl } from '../lib/api';
 import { useSessionSSE } from '../hooks/useSessionSSE';
 import AudioRecorder from '../components/AudioRecorder';
 
@@ -41,11 +41,20 @@ export default function SessionActive() {
     formData.append('audio', blob, 'recording.webm');
     
     try {
-      // Use standard fetch here because apiFetch uses JSON stringify
-      const response = await fetch(`/api/v1/sessions/${sessionId}/audio`, {
+      // Build absolute URL for deployed environments (Vercel → Render, etc.)
+      const baseUrl = getApiBaseUrl();
+      const uploadUrl = `${baseUrl}/api/v1/sessions/${sessionId}/audio`;
+      const token = localStorage.getItem('decodex_token');
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(uploadUrl, {
         method: 'POST',
         body: formData,
-        credentials: 'include'
+        credentials: 'include',
+        headers,
       });
       
       if (!response.ok) throw new Error('Upload failed');

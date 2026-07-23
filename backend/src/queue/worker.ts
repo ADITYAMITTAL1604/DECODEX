@@ -9,8 +9,12 @@ import { generateDrill } from '../services/drills';
 import { query } from '../db';
 import { getSSEClient } from '../routes/sessions';
 
-audioQueue.process(async (job) => {
-  const { sessionId, passageText, filePath } = job.data as AudioJobData;
+/**
+ * Core audio processing pipeline — extracted so it can be called by both the
+ * Bull queue worker AND the in-process fallback when Redis is unavailable.
+ */
+export async function processAudioJob(data: AudioJobData): Promise<{ success: boolean; wpm: number }> {
+  const { sessionId, passageText, filePath } = data;
   const sseClient = getSSEClient(sessionId);
 
   // Record wall-clock start time to compute duration_seconds accurately.
@@ -107,6 +111,11 @@ audioQueue.process(async (job) => {
       });
     }
   }
+}
+
+// Bull queue worker delegates to the shared processAudioJob function
+audioQueue.process(async (job) => {
+  return processAudioJob(job.data as AudioJobData);
 });
 
 consentErasureQueue.process(async () => {

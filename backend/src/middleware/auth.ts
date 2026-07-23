@@ -16,7 +16,9 @@ export interface AuthRequest extends Request {
 export const authenticate = (req: AuthRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   const bearerToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null;
-  const token = req.cookies.token || bearerToken;
+  // Also accept token from query parameter (needed for SSE EventSource which cannot set custom headers)
+  const queryToken = typeof req.query.token === 'string' ? req.query.token : null;
+  const token = req.cookies.token || bearerToken || queryToken;
 
   if (!token) {
     return res.status(401).json({

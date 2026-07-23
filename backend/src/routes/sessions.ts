@@ -4,6 +4,7 @@ import { authenticate, AuthRequest } from '../middleware/auth';
 import { requireConsent } from '../middleware/consent';
 import { upload } from '../middleware/upload';
 import { audioQueue } from '../queue';
+import { processAudioJob } from '../queue/worker';
 
 const router = Router();
 
@@ -74,12 +75,27 @@ router.post('/:id/audio', authenticate, requireConsent, upload.single('audio'), 
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Session not found' } });
     }
 
-    // Enqueue the job for async processing
-    await audioQueue.add({
-      sessionId: id,
+    const jobData = {
+      sessionId: String(id),
       passageText: sessionRes.rows[0].content,
       filePath: file.path,
-    });
+    };
+
+    // Try Bull queue first; fall back to in-process execution if Redis is unavailable
+    let queued = false;
+    try {
+      await audioQueue.add(jobData);
+      queued = true;
+    } catch (queueErr) {
+      console.warn('Bull queue unavailable, running pipeline in-process:', (queueErr as Error).message);
+    }
+
+    if (!queued) {
+      // In-process fallback: run the pipeline directly (fire-and-forget)
+      processAudioJob(jobData).catch(err => {
+        console.error('In-process audio pipeline failed:', err);
+      });
+    }
 
     res.status(202).json({
       message: 'Audio upload received and queued for processing',
@@ -111,6 +127,43 @@ router.get('/:id/status/stream', authenticate, (req, res) => {
     sseClients.delete(id as string);
   });
 });
+
+// GET /api/v1/sessions/:id/status — Polling endpoint for session processing status.
+// Used as a fallback when SSE connections are unreliable (serverless, proxies, etc.).
+router.get('/:id/status', authenticate, async (req: AuthRequest, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await query(
+      `SELECT status, words_per_minute FROM reading_sessions WHERE id = $1`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Session not found' } });
+    }
+
+    const session = result.rows[0];
+    const statusMap: Record<string, { step: string; message: string }> = {
+      in_progress: { step: 'processing', message: 'Processing your recording...' },
+      completed: { step: 'complete', message: 'Processing complete!' },
+      error: { step: 'error', message: 'Processing failed. Please try again.' },
+    };
+
+    const mapped = statusMap[session.status] || { step: session.status, message: 'Processing...' };
+
+    res.json({
+      status: session.status,
+      step: mapped.step,
+      message: mapped.message,
+      wpm: session.words_per_minute || null,
+    });
+  } catch (error) {
+    console.error('Error fetching session status:', error);
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch status' } });
+  }
+});
+
 
 // GET /api/v1/sessions/:id/results
 // SECURITY: Ownership check — students can only access their own sessions.
