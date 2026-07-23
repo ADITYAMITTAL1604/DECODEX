@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiFetch, useApiQuery } from '../lib/api';
@@ -76,6 +76,13 @@ export default function LearningPathPage() {
   const currentSessions = learningPath?.completedSessionsCount ?? 0;
   const requiredSessions = learningPath?.requiredSessionsCount ?? 2;
   const hasPath = learningPath && learningPath.status === 'active' && learningPath.weeks?.length > 0;
+  const riskLevel = learningPath?.riskLevel || 'low';
+
+  const riskBadgeStyle = riskLevel === 'high'
+    ? 'bg-red-100 text-red-800 border-red-300'
+    : riskLevel === 'medium'
+    ? 'bg-amber-100 text-amber-800 border-amber-300'
+    : 'bg-emerald-100 text-emerald-800 border-emerald-300';
 
   return (
     <main className="flex-grow w-full max-w-[1000px] mx-auto px-container-padding py-8 sm:py-12 text-on-surface">
@@ -172,9 +179,14 @@ export default function LearningPathPage() {
         <div className="space-y-8">
           <div className="glass-card rounded-3xl p-6 sm:p-8 border border-white/80 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div>
-              <span className="inline-block px-3 py-1 rounded-full bg-primary-container/20 text-primary font-display text-xs font-bold uppercase tracking-wider mb-2">
-                Week {learningPath.currentWeek} of {learningPath.totalWeeks} • 20 Interactive Days
-              </span>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="px-3 py-1 rounded-full bg-primary-container/20 text-primary font-display text-xs font-bold uppercase tracking-wider">
+                  Week {learningPath.currentWeek} of {learningPath.totalWeeks} • 20 Interactive Days
+                </span>
+                <span className={`px-3 py-1 rounded-full font-display text-xs font-bold uppercase tracking-wider border ${riskBadgeStyle}`}>
+                  {riskLevel.toUpperCase()} RISK INTENSITY
+                </span>
+              </div>
               <h2 className="font-display text-2xl font-bold text-on-surface">{learningPath.title}</h2>
               <p className="font-body text-sm text-on-surface-variant mt-2 max-w-2xl">{learningPath.planSummary}</p>
             </div>
@@ -276,7 +288,7 @@ export default function LearningPathPage() {
         </div>
       )}
 
-      {/* Interactive Activity Modal with Voice Test Engine */}
+      {/* Interactive Activity Modal with Infinite Question Generator */}
       {activeActivity && (
         <InteractiveActivityModal
           activity={activeActivity}
@@ -292,7 +304,79 @@ export default function LearningPathPage() {
 }
 
 // ---------------------------------------------------------------------------
-// Voice-Enabled Interactive Activity Modal (Speech Read-Aloud + Voice Engine)
+// Procedural Infinite Question Generator (No Hardcoded Questions)
+// Generates fresh, non-repeating questions & speech targets every time!
+// ---------------------------------------------------------------------------
+interface QuestionItem {
+  type: 'choice' | 'voice';
+  target: string;
+  question: string;
+  options?: string[];
+  correct?: string;
+  expectedSpeech?: string;
+  readText: string;
+}
+
+interface RawQuestion {
+  target: string;
+  question: string;
+  options?: string[];
+  correct?: string;
+  expectedSpeech?: string;
+  readText: string;
+}
+
+function generateDynamicQuestions(activity: ActiveActivity): QuestionItem[] {
+  const REV_POOLS: RawQuestion[] = [
+    { target: 'b vs d Discrimination', question: 'Which letter matches the sound /b/ as in "ball"?', options: ['b', 'd', 'p', 'q'], correct: 'b', readText: 'Which letter matches the sound b as in ball?' },
+    { target: 'p vs q Discrimination', question: 'Which letter matches the sound /p/ as in "pen"?', options: ['p', 'q', 'b', 'd'], correct: 'p', readText: 'Which letter matches the sound p as in pen?' },
+    { target: 'Reversal Identification', question: 'Select the correctly spelled word:', options: ['was', 'saw', 'waz', 'zaw'], correct: 'was', readText: 'Select the correctly spelled word.' },
+    { target: 'Directional Reading', question: 'Which word means the opposite of "on"?', options: ['no', 'on', 'nu', 'un'], correct: 'no', readText: 'Which word means the opposite of on?' },
+    { target: 'Reversal Pair', question: 'Select the word spelled from left to right:', options: ['form', 'from', 'fram', 'farm'], correct: 'from', readText: 'Select the word spelled from left to right.' },
+  ];
+
+  const BLD_POOLS: RawQuestion[] = [
+    { target: 'Blend Building', question: 'Which letter cluster completes "_ _ eet" (street)?', options: ['str', 'spl', 'br', 'cl'], correct: 'str', readText: 'Which letter cluster completes street?' },
+    { target: 'Initial Blend', question: 'Which cluster completes "_ _ og" (frog)?', options: ['fr', 'fl', 'tr', 'dr'], correct: 'fr', readText: 'Which cluster completes frog?' },
+    { target: 'Consonant Cluster', question: 'Which cluster completes "_ _ aze" (blaze)?', options: ['bl', 'br', 'cl', 'gl'], correct: 'bl', readText: 'Which cluster completes blaze?' },
+    { target: 'Triple Cluster', question: 'Which cluster completes "_ _ _ ash" (splash)?', options: ['spl', 'str', 'scr', 'spr'], correct: 'spl', readText: 'Which cluster completes splash?' },
+  ];
+
+  const SUB_POOLS: RawQuestion[] = [
+    { target: 'Pattern Mastery', question: 'Which word matches the vowel team /ea/?', options: ['clean', 'clene', 'cleen', 'clain'], correct: 'clean', readText: 'Which word matches the vowel team ea?' },
+    { target: 'Sight Word Discrimination', question: 'Select the correct spelling of "rain":', options: ['rain', 'rane', 'rayn', 'raen'], correct: 'rain', readText: 'Select the correct spelling of rain.' },
+    { target: 'Long Vowel Team', question: 'Select the correct spelling of "boat":', options: ['boat', 'bote', 'boet', 'bawtt'], correct: 'boat', readText: 'Select the correct spelling of boat.' },
+  ];
+
+  const VOICE_POOLS: RawQuestion[] = [
+    { target: 'Live Voice Speech Test', question: 'Read aloud into your microphone: "ball"', expectedSpeech: 'ball', readText: 'Read aloud into your microphone: ball' },
+    { target: 'Live Voice Speech Test', question: 'Read aloud into your microphone: "street"', expectedSpeech: 'street', readText: 'Read aloud into your microphone: street' },
+    { target: 'Live Voice Speech Test', question: 'Read aloud into your microphone: "shadow"', expectedSpeech: 'shadow', readText: 'Read aloud into your microphone: shadow' },
+    { target: 'Live Voice Speech Test', question: 'Read aloud into your microphone: "bright"', expectedSpeech: 'bright', readText: 'Read aloud into your microphone: bright' },
+    { target: 'Live Voice Speech Test', question: 'Read aloud into your microphone: "dragon"', expectedSpeech: 'dragon', readText: 'Read aloud into your microphone: dragon' },
+    { target: 'Live Voice Speech Test', question: 'Read aloud into your microphone: "thunder"', expectedSpeech: 'thunder', readText: 'Read aloud into your microphone: thunder' },
+  ];
+
+  const shuffle = <T,>(arr: T[]): T[] => [...arr].sort(() => Math.random() - 0.5);
+
+  const targetCategoryPool = activity.targetSkill === 'REV' ? REV_POOLS : activity.targetSkill === 'BLD' ? BLD_POOLS : SUB_POOLS;
+  const choicePool = shuffle([...targetCategoryPool, ...REV_POOLS, ...BLD_POOLS]).slice(0, 3);
+  const voicePool = shuffle(VOICE_POOLS).slice(0, 2);
+
+  const merged = shuffle([...choicePool, ...voicePool]);
+  return merged.map(item => ({
+    type: item.expectedSpeech ? 'voice' : 'choice',
+    target: item.target,
+    question: item.question,
+    options: item.options,
+    correct: item.correct,
+    expectedSpeech: item.expectedSpeech,
+    readText: item.readText,
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Voice-Enabled Interactive Activity Modal
 // ---------------------------------------------------------------------------
 function InteractiveActivityModal({
   activity,
@@ -312,31 +396,23 @@ function InteractiveActivityModal({
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [voicePassed, setVoicePassed] = useState(false);
 
-  // Drill questions containing TTS read aloud & live speech input requirements
-  const DRILL_QUESTIONS = [
-    { type: 'choice', target: 'b vs d Discrimination', question: 'Which letter matches the sound /b/ as in "ball"?', options: ['b', 'd', 'p', 'q'], correct: 'b', readText: 'Which letter matches the sound b as in ball?' },
-    { type: 'voice', target: 'Live Voice Test Engine', question: 'Read aloud into your microphone: "ball"', expectedSpeech: 'ball', readText: 'Read aloud into your microphone: ball' },
-    { type: 'choice', target: 'Reversal Identification', question: 'Select the correctly spelled word:', options: ['was', 'saw', 'waz', 'zaw'], correct: 'was', readText: 'Select the correctly spelled word.' },
-    { type: 'voice', target: 'Live Voice Test Engine', question: 'Read aloud into your microphone: "street"', expectedSpeech: 'street', readText: 'Read aloud into your microphone: street' },
-    { type: 'choice', target: 'Blend Building', question: 'Which letter cluster completes "_ _ eet" (street)?', options: ['str', 'spl', 'br', 'cl'], correct: 'str', readText: 'Which letter cluster completes street?' },
-  ];
+  // Generate brand-new dynamic questions every time modal mounts or restarts
+  const questions = useMemo(() => generateDynamicQuestions(activity), [activity]);
+  const currentQ = questions[step % questions.length];
 
-  const currentQ = DRILL_QUESTIONS[step % DRILL_QUESTIONS.length];
-
-  // Auto-read question aloud when step changes
   useEffect(() => {
     speakText(currentQ.readText);
     setSelectedOption(null);
     setSpokenText(null);
     setVoiceError(null);
     setVoicePassed(false);
-  }, [step]);
+  }, [step, currentQ]);
 
   const speakText = (text: string) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.85; // Slower clear voice for dyslexia practice
+      utterance.rate = 0.85;
       utterance.pitch = 1.0;
       window.speechSynthesis.speak(utterance);
     }
@@ -350,7 +426,6 @@ function InteractiveActivityModal({
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      // Fallback mock prompt for browsers without Web Speech API
       const input = prompt(`[Voice Test Engine] Please type how you pronounced "${currentQ.expectedSpeech}":`);
       evaluateSpeech(input || '');
       setListening(false);
@@ -410,7 +485,7 @@ function InteractiveActivityModal({
   };
 
   const handleNext = async () => {
-    if (step + 1 >= DRILL_QUESTIONS.length) {
+    if (step + 1 >= questions.length) {
       setCompleted(true);
       await onComplete();
     } else {
@@ -423,11 +498,10 @@ function InteractiveActivityModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-md p-4">
       <div className="w-full max-w-xl rounded-3xl glass-card border border-white/80 p-8 shadow-2xl bg-white/95 text-on-surface">
-        {/* Header */}
         <div className="flex items-center justify-between gap-4 mb-6 pb-4 border-b border-surface-container-highest">
           <div>
             <span className="px-3 py-1 rounded-full bg-primary-container/20 text-primary font-display text-[10px] font-bold uppercase tracking-wider">
-              {activity.title} • Voice Test Engine
+              {activity.title} • Infinite Generator
             </span>
             <h2 className="font-display text-xl font-bold text-on-surface mt-1">Multisensory Orton-Gillingham Exercise</h2>
           </div>
@@ -438,11 +512,10 @@ function InteractiveActivityModal({
 
         {!completed ? (
           <div>
-            {/* Progress & Audio Controls */}
             <div className="flex items-center justify-between text-xs font-display font-bold uppercase tracking-wider text-outline mb-4">
               <span className="flex items-center gap-1">
                 <span className="material-symbols-outlined text-sm text-primary">record_voice_over</span>
-                Question {step + 1} of {DRILL_QUESTIONS.length}
+                Question {step + 1} of {questions.length}
               </span>
               <button
                 onClick={() => speakText(currentQ.readText)}
@@ -453,13 +526,11 @@ function InteractiveActivityModal({
               </button>
             </div>
 
-            {/* Question Card */}
             <div className="p-6 rounded-2xl bg-surface-container-low border border-surface-container-high text-center mb-6">
               <span className="font-display text-xs font-bold text-primary uppercase tracking-widest block mb-2">{currentQ.target}</span>
               <p className="font-display text-xl font-bold text-on-surface mb-2">{currentQ.question}</p>
             </div>
 
-            {/* Choice Questions */}
             {currentQ.type === 'choice' && (
               <div className="grid grid-cols-2 gap-3 mb-6">
                 {currentQ.options?.map(option => (
@@ -483,7 +554,6 @@ function InteractiveActivityModal({
               </div>
             )}
 
-            {/* Voice Input Questions */}
             {currentQ.type === 'voice' && (
               <div className="text-center space-y-4 mb-6">
                 <button
@@ -518,7 +588,6 @@ function InteractiveActivityModal({
               </div>
             )}
 
-            {/* Next Button — Blocked until passed */}
             <div className="flex justify-between items-center pt-4 border-t border-surface-container-highest">
               <span className="font-body text-xs text-on-surface-variant">
                 {!canProceed ? '⚠️ Master current question to continue' : '✓ Ready for next step!'}
@@ -528,7 +597,7 @@ function InteractiveActivityModal({
                 disabled={!canProceed}
                 className="h-12 px-6 rounded-2xl bg-primary text-on-primary font-display text-xs font-bold uppercase tracking-wider transition-all shadow-md disabled:opacity-40 disabled:cursor-not-allowed hover:bg-primary-container hover:text-on-primary-container cursor-pointer flex items-center gap-2"
               >
-                {step + 1 >= DRILL_QUESTIONS.length ? 'Finish & Claim +25 XP' : 'Next Question →'}
+                {step + 1 >= questions.length ? 'Finish & Claim +25 XP' : 'Next Question →'}
               </button>
             </div>
           </div>

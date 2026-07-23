@@ -1,8 +1,10 @@
 import { query } from '../db';
 import { awardXP } from './gamification';
+import { runRiskScreening } from './riskScreening';
 
 // ---------------------------------------------------------------------------
 // Learning Path Generator — Personalized, Day-by-Day Interactive Plans
+// Tailored dynamically by Dyslexia Risk Intensity (Mild, Moderate, High)
 // Gated on student completing at least 2 diagnostic reading test sessions.
 // ---------------------------------------------------------------------------
 
@@ -41,10 +43,10 @@ export interface LearningPathResult {
   canGenerate: boolean;
   completedSessionsCount: number;
   requiredSessionsCount: number;
+  riskLevel: 'low' | 'medium' | 'high';
   weeks: LearningWeek[];
 }
 
-// Category mappings to skills and URLs
 const CATEGORY_SKILL_MAP: Record<string, { title: string; skill: string; focus: string }> = {
   REV: { title: 'Visual Discrimination (b/d, p/q)', skill: 'REV', focus: 'Letter Reversals' },
   BLD: { title: 'Phoneme Blending & Clusters', skill: 'BLD', focus: 'Blend Breakdowns' },
@@ -68,7 +70,7 @@ export async function getCompletedSessionsCount(studentId: string): Promise<numb
 
 /**
  * Generate a personalized 4-week, 20-day interactive learning path.
- * Requires at least 2 completed reading sessions.
+ * Dynamically tailored to student's Dyslexia Risk Intensity (Low/Mild, Medium/Moderate, High).
  */
 export async function generateLearningPath(studentId: string): Promise<LearningPathResult> {
   const sessionCount = await getCompletedSessionsCount(studentId);
@@ -82,7 +84,11 @@ export async function generateLearningPath(studentId: string): Promise<LearningP
     throw error;
   }
 
-  // Aggregate student's actual error counts across all sessions
+  // 1. Run / Fetch Dyslexia Risk Screening to determine severity intensity
+  const screening = await runRiskScreening(studentId);
+  const riskLevel = screening.risk; // 'low' | 'medium' | 'high'
+
+  // 2. Aggregate student's actual error counts across all sessions
   const errorRes = await query(
     `SELECT
        SUM(rev_count) as rev, SUM(sub_count) as sub,
@@ -118,7 +124,9 @@ export async function generateLearningPath(studentId: string): Promise<LearningP
   const primaryMeta = CATEGORY_SKILL_MAP[primaryCategory] || CATEGORY_SKILL_MAP['SUB'];
   const secondaryMeta = CATEGORY_SKILL_MAP[secondaryCategory] || CATEGORY_SKILL_MAP['BLD'];
 
-  const planSummary = `Personalized 4-Week Day-by-Day Reading Plan for ${studentName} (Grade ${gradeLevel}, ${sessionCount} diagnostic sessions analyzed). ` +
+  const riskLabel = riskLevel === 'high' ? 'High Risk Intensity' : riskLevel === 'medium' ? 'Moderate Risk Intensity' : 'Mild Risk Intensity';
+
+  const planSummary = `Personalized 4-Week Plan for ${studentName} (Grade ${gradeLevel}, ${riskLabel}, ${sessionCount} diagnostic sessions). ` +
     `Focusing on ${primaryMeta.focus} (${errorCounts[0][1]} errors) and ${secondaryMeta.focus} (${errorCounts[1][1]} errors) with average speed ${avgWpm} WPM.`;
 
   // Deactivate any old active paths
@@ -134,17 +142,17 @@ export async function generateLearningPath(studentId: string): Promise<LearningP
 
   const weeks: LearningWeek[] = [];
 
-  // Week 1: Primary weakness deep-dive
-  weeks.push(buildWeekData(pathId, 1, `Week 1: ${primaryMeta.title}`, `Focus on reducing ${primaryMeta.focus} errors using Orton-Gillingham techniques.`, primaryCategory, gradeLevel));
+  // Week 1: Primary weakness deep-dive (intensity adjusted)
+  weeks.push(buildWeekData(pathId, 1, `Week 1: ${primaryMeta.title}`, `Focus on reducing ${primaryMeta.focus} errors using Orton-Gillingham techniques.`, primaryCategory, gradeLevel, riskLevel));
 
   // Week 2: Secondary weakness reinforcement
-  weeks.push(buildWeekData(pathId, 2, `Week 2: ${secondaryMeta.title}`, `Address ${secondaryMeta.focus} patterns and strengthen core phonics.`, secondaryCategory, gradeLevel));
+  weeks.push(buildWeekData(pathId, 2, `Week 2: ${secondaryMeta.title}`, `Address ${secondaryMeta.focus} patterns and strengthen core phonics.`, secondaryCategory, gradeLevel, riskLevel));
 
   // Week 3: Fluency & speed building
-  weeks.push(buildWeekData(pathId, 3, 'Week 3: Fluency & Pacing Building', `Build reading speed toward Grade ${gradeLevel} benchmarks with repeated exposure.`, 'PAC', gradeLevel));
+  weeks.push(buildWeekData(pathId, 3, 'Week 3: Fluency & Pacing Building', `Build reading speed toward Grade ${gradeLevel} benchmarks with repeated exposure.`, 'PAC', gradeLevel, riskLevel));
 
   // Week 4: Integration & Assessment
-  weeks.push(buildWeekData(pathId, 4, 'Week 4: Mastery & Diagnostic Assessment', 'Apply all learned strategies to new passages and complete progress re-assessment.', primaryCategory, gradeLevel));
+  weeks.push(buildWeekData(pathId, 4, 'Week 4: Mastery & Diagnostic Assessment', 'Apply all learned strategies to new passages and complete progress re-assessment.', primaryCategory, gradeLevel, riskLevel));
 
   // Save weeks to DB
   for (const week of weeks) {
@@ -166,56 +174,71 @@ export async function generateLearningPath(studentId: string): Promise<LearningP
     canGenerate: true,
     completedSessionsCount: sessionCount,
     requiredSessionsCount: REQUIRED_SESSIONS_FOR_PLAN,
+    riskLevel,
     weeks,
   };
 }
 
-function buildWeekData(pathId: string, weekNum: number, title: string, description: string, category: string, grade: number): LearningWeek {
+function buildWeekData(
+  pathId: string,
+  weekNum: number,
+  title: string,
+  description: string,
+  category: string,
+  grade: number,
+  riskLevel: 'low' | 'medium' | 'high'
+): LearningWeek {
   const meta = CATEGORY_SKILL_MAP[category] || CATEGORY_SKILL_MAP['SUB'];
+  const minutesMultiplier = riskLevel === 'high' ? 1.5 : riskLevel === 'medium' ? 1.2 : 1.0;
+  const riskTag = riskLevel === 'high' ? ' (Intensive Focus)' : riskLevel === 'medium' ? ' (Targeted Focus)' : ' (Mastery Focus)';
 
   const days: DayTask[] = [
     {
       dayNumber: 1,
-      title: `Day 1: ${meta.focus} Warm-up`,
+      title: `Day 1: ${meta.focus} ${riskLevel === 'high' ? 'Multi-Sensory Tracing' : 'Warm-up'}`,
       activityType: 'drill',
-      description: `Practice ${meta.focus} drills targeting letter-sound relationships.`,
+      description: riskLevel === 'high'
+        ? `Intensive multi-sensory Orton-Gillingham tracing & phoneme isolation for ${meta.focus}.`
+        : `Practice ${meta.focus} drills targeting letter-sound relationships.`,
       targetSkill: meta.skill,
       targetUrl: '/passages',
       actionLabel: 'Start Practice Drill',
-      estimatedMinutes: 10,
+      estimatedMinutes: Math.round(10 * minutesMultiplier),
       completed: false,
     },
     {
       dayNumber: 2,
       title: `Day 2: AI Adaptive Story Reading`,
       activityType: 'story',
-      description: `Read a custom AI story generated specifically for ${meta.focus} practice.`,
+      description: `Read a custom AI story generated specifically for ${meta.focus} practice at Grade ${grade} level.`,
       targetSkill: meta.skill,
       targetUrl: '/stories',
       actionLabel: 'Read AI Story',
-      estimatedMinutes: 12,
+      estimatedMinutes: Math.round(12 * minutesMultiplier),
       completed: false,
     },
     {
       dayNumber: 3,
       title: `Day 3: Targeted Passage Reading`,
       activityType: 'reading',
-      description: `Read a Grade ${grade} passage with finger-tracking focus.`,
+      description: riskLevel === 'high'
+        ? `Read a Grade ${grade} passage with strict finger-tracking and line-by-line audio verification.`
+        : `Read a Grade ${grade} passage with finger-tracking focus.`,
       targetSkill: meta.skill,
       targetUrl: '/passages',
       actionLabel: 'Take Passage Test',
-      estimatedMinutes: 15,
+      estimatedMinutes: Math.round(15 * minutesMultiplier),
       completed: false,
     },
     {
       dayNumber: 4,
       title: `Day 4: AI Story Reading #2`,
       activityType: 'story',
-      description: `Practice a second adaptive story targeting phoneme confidence.`,
+      description: `Practice a second adaptive story targeting phoneme confidence and speed.`,
       targetSkill: meta.skill,
       targetUrl: '/stories',
       actionLabel: 'Read AI Story',
-      estimatedMinutes: 10,
+      estimatedMinutes: Math.round(10 * minutesMultiplier),
       completed: false,
     },
     {
@@ -226,7 +249,7 @@ function buildWeekData(pathId: string, weekNum: number, title: string, descripti
       targetSkill: 'MASTERY',
       targetUrl: '/passages',
       actionLabel: 'Complete Assessment',
-      estimatedMinutes: 15,
+      estimatedMinutes: Math.round(15 * minutesMultiplier),
       completed: false,
     },
   ];
@@ -234,7 +257,7 @@ function buildWeekData(pathId: string, weekNum: number, title: string, descripti
   return {
     id: '',
     weekNumber: weekNum,
-    focusArea: title,
+    focusArea: `${title}${riskTag}`,
     description,
     days,
     completed: false,
@@ -265,6 +288,7 @@ export async function getActiveLearningPath(studentId: string): Promise<Learning
       canGenerate: sessionCount >= REQUIRED_SESSIONS_FOR_PLAN,
       completedSessionsCount: sessionCount,
       requiredSessionsCount: REQUIRED_SESSIONS_FOR_PLAN,
+      riskLevel: 'low',
       weeks: [],
     };
   }
@@ -285,6 +309,7 @@ export async function getActiveLearningPath(studentId: string): Promise<Learning
     canGenerate: sessionCount >= REQUIRED_SESSIONS_FOR_PLAN,
     completedSessionsCount: sessionCount,
     requiredSessionsCount: REQUIRED_SESSIONS_FOR_PLAN,
+    riskLevel: 'low',
     weeks: weeksRes.rows.map((w: any) => ({
       id: w.id,
       weekNumber: w.week_number,
