@@ -192,67 +192,241 @@ function buildWeekData(
   const minutesMultiplier = riskLevel === 'high' ? 1.5 : riskLevel === 'medium' ? 1.2 : 1.0;
   const riskTag = riskLevel === 'high' ? ' (Intensive Focus)' : riskLevel === 'medium' ? ' (Targeted Focus)' : ' (Mastery Focus)';
 
-  const days: DayTask[] = [
-    {
-      dayNumber: 1,
-      title: `Day 1: ${meta.focus} ${riskLevel === 'high' ? 'Multi-Sensory Tracing' : 'Warm-up'}`,
-      activityType: 'drill',
-      description: riskLevel === 'high'
-        ? `Intensive multi-sensory Orton-Gillingham tracing & phoneme isolation for ${meta.focus}.`
-        : `Practice ${meta.focus} drills targeting letter-sound relationships.`,
-      targetSkill: meta.skill,
-      targetUrl: '/passages',
-      actionLabel: 'Start Practice Drill',
-      estimatedMinutes: Math.round(10 * minutesMultiplier),
-      completed: false,
-    },
-    {
-      dayNumber: 2,
-      title: `Day 2: AI Adaptive Story Reading`,
-      activityType: 'story',
-      description: `Read a custom AI story generated specifically for ${meta.focus} practice at Grade ${grade} level.`,
-      targetSkill: meta.skill,
-      targetUrl: '/stories',
-      actionLabel: 'Read AI Story',
-      estimatedMinutes: Math.round(12 * minutesMultiplier),
-      completed: false,
-    },
-    {
-      dayNumber: 3,
-      title: `Day 3: Targeted Passage Reading`,
-      activityType: 'reading',
-      description: riskLevel === 'high'
-        ? `Read a Grade ${grade} passage with strict finger-tracking and line-by-line audio verification.`
-        : `Read a Grade ${grade} passage with finger-tracking focus.`,
-      targetSkill: meta.skill,
-      targetUrl: '/passages',
-      actionLabel: 'Take Passage Test',
-      estimatedMinutes: Math.round(15 * minutesMultiplier),
-      completed: false,
-    },
-    {
-      dayNumber: 4,
-      title: `Day 4: AI Story Reading #2`,
-      activityType: 'story',
-      description: `Practice a second adaptive story targeting phoneme confidence and speed.`,
-      targetSkill: meta.skill,
-      targetUrl: '/stories',
-      actionLabel: 'Read AI Story',
-      estimatedMinutes: Math.round(10 * minutesMultiplier),
-      completed: false,
-    },
-    {
-      dayNumber: 5,
-      title: `Day 5: Weekly Mastery Assessment`,
-      activityType: 'reading',
-      description: `Complete a reading session to evaluate accuracy and speed improvement.`,
-      targetSkill: 'MASTERY',
-      targetUrl: '/passages',
-      actionLabel: 'Complete Assessment',
-      estimatedMinutes: Math.round(15 * minutesMultiplier),
-      completed: false,
-    },
-  ];
+  let days: DayTask[] = [];
+
+  if (weekNum === 1) {
+    days = [
+      {
+        dayNumber: 1,
+        title: `Day 1: ${meta.focus} Multisensory Tracing`,
+        activityType: 'drill',
+        description: `Explicit Orton-Gillingham letter tracing and phoneme isolation for ${meta.focus}.`,
+        targetSkill: meta.skill,
+        targetUrl: '/learning-path',
+        actionLabel: 'Start Tracing Drill',
+        estimatedMinutes: Math.round(10 * minutesMultiplier),
+        completed: false,
+      },
+      {
+        dayNumber: 2,
+        title: `Day 2: Sound-by-Sound Blending Slider`,
+        activityType: 'phonics',
+        description: `Build words phoneme-by-phoneme using an interactive slider card.`,
+        targetSkill: meta.skill,
+        targetUrl: '/learning-path',
+        actionLabel: 'Start Blending Slider',
+        estimatedMinutes: Math.round(12 * minutesMultiplier),
+        completed: false,
+      },
+      {
+        dayNumber: 3,
+        title: `Day 3: Visual Discrimination Card Sort`,
+        activityType: 'drill',
+        description: `Sort visually similar letter pairs (b/d, p/q, was/saw) with immediate audio feedback.`,
+        targetSkill: meta.skill,
+        targetUrl: '/learning-path',
+        actionLabel: 'Start Card Sort',
+        estimatedMinutes: Math.round(12 * minutesMultiplier),
+        completed: false,
+      },
+      {
+        dayNumber: 4,
+        title: `Day 4: AI Adaptive Story Reading #1`,
+        activityType: 'story',
+        description: `Read a custom AI story generated for ${meta.focus} practice at Grade ${grade} level.`,
+        targetSkill: meta.skill,
+        targetUrl: '/stories',
+        actionLabel: 'Read AI Story',
+        estimatedMinutes: Math.round(14 * minutesMultiplier),
+        completed: false,
+      },
+      {
+        dayNumber: 5,
+        title: `Day 5: Baseline Fluency & Speed Check`,
+        activityType: 'reading',
+        description: `Complete a reading assessment passage to record initial speed (WPM) and accuracy.`,
+        targetSkill: 'MASTERY',
+        targetUrl: '/passages',
+        actionLabel: 'Take Reading Passage',
+        estimatedMinutes: Math.round(15 * minutesMultiplier),
+        completed: false,
+      },
+    ];
+  } else if (weekNum === 2) {
+    days = [
+      {
+        dayNumber: 1,
+        title: `Day 1: Syllable Chunking & Segmenting`,
+        activityType: 'drill',
+        description: `Break complex words into prefix, root, and suffix syllables.`,
+        targetSkill: meta.skill,
+        targetUrl: '/learning-path',
+        actionLabel: 'Start Syllable Drill',
+        estimatedMinutes: Math.round(10 * minutesMultiplier),
+        completed: false,
+      },
+      {
+        dayNumber: 2,
+        title: `Day 2: High-Frequency Sight Word Flashcards`,
+        activityType: 'phonics',
+        description: `Rapid 10-word flashcard drill to build instant sight-word recognition.`,
+        targetSkill: meta.skill,
+        targetUrl: '/learning-path',
+        actionLabel: 'Start Flashcards',
+        estimatedMinutes: Math.round(10 * minutesMultiplier),
+        completed: false,
+      },
+      {
+        dayNumber: 3,
+        title: `Day 3: Consonant Cluster Sorting (str, spl, br)`,
+        activityType: 'drill',
+        description: `Identify and sort words by initial and final consonant clusters.`,
+        targetSkill: meta.skill,
+        targetUrl: '/learning-path',
+        actionLabel: 'Start Cluster Drill',
+        estimatedMinutes: Math.round(12 * minutesMultiplier),
+        completed: false,
+      },
+      {
+        dayNumber: 4,
+        title: `Day 4: AI Adaptive Story Reading #2`,
+        activityType: 'story',
+        description: `Read a second custom AI story targeting phoneme confidence and speed.`,
+        targetSkill: meta.skill,
+        targetUrl: '/stories',
+        actionLabel: 'Read AI Story',
+        estimatedMinutes: Math.round(12 * minutesMultiplier),
+        completed: false,
+      },
+      {
+        dayNumber: 5,
+        title: `Day 5: Timed Fluency Passage Assessment`,
+        activityType: 'reading',
+        description: `Read a fresh passage to measure WPM speed improvement and error reduction.`,
+        targetSkill: 'MASTERY',
+        targetUrl: '/passages',
+        actionLabel: 'Take Passage Test',
+        estimatedMinutes: Math.round(15 * minutesMultiplier),
+        completed: false,
+      },
+    ];
+  } else if (weekNum === 3) {
+    days = [
+      {
+        dayNumber: 1,
+        title: `Day 1: Phrase Boundary & Pacing Practice`,
+        activityType: 'drill',
+        description: `Read pre-marked phrase chunks to develop smooth natural reading rhythm.`,
+        targetSkill: meta.skill,
+        targetUrl: '/learning-path',
+        actionLabel: 'Start Phrase Drill',
+        estimatedMinutes: Math.round(12 * minutesMultiplier),
+        completed: false,
+      },
+      {
+        dayNumber: 2,
+        title: `Day 2: Echo Reading & Expressive Intonation`,
+        activityType: 'phonics',
+        description: `Listen to a sentence model, then match pace and expression with live voice verification.`,
+        targetSkill: meta.skill,
+        targetUrl: '/learning-path',
+        actionLabel: 'Start Echo Drill',
+        estimatedMinutes: Math.round(12 * minutesMultiplier),
+        completed: false,
+      },
+      {
+        dayNumber: 3,
+        title: `Day 3: AI Adaptive Story #3: Advanced Phonics`,
+        activityType: 'story',
+        description: `Practice an advanced adaptive story targeting multi-syllable phonemes.`,
+        targetSkill: meta.skill,
+        targetUrl: '/stories',
+        actionLabel: 'Read AI Story',
+        estimatedMinutes: Math.round(14 * minutesMultiplier),
+        completed: false,
+      },
+      {
+        dayNumber: 4,
+        title: `Day 4: Directional Tracking & Omission Prevention`,
+        activityType: 'drill',
+        description: `Use a digital line guide to track text left-to-right without skipping words.`,
+        targetSkill: meta.skill,
+        targetUrl: '/learning-path',
+        actionLabel: 'Start Tracking Drill',
+        estimatedMinutes: Math.round(10 * minutesMultiplier),
+        completed: false,
+      },
+      {
+        dayNumber: 5,
+        title: `Day 5: Mid-Point Diagnostic Progress Assessment`,
+        activityType: 'reading',
+        description: `Complete a diagnostic assessment to re-calculate your dyslexia risk screening & WPM.`,
+        targetSkill: 'MASTERY',
+        targetUrl: '/passages',
+        actionLabel: 'Take Assessment',
+        estimatedMinutes: Math.round(15 * minutesMultiplier),
+        completed: false,
+      },
+    ];
+  } else {
+    days = [
+      {
+        dayNumber: 1,
+        title: `Day 1: Sentence Building & Word Matching Quiz`,
+        activityType: 'drill',
+        description: `Construct correct sentences from scrambled target vocabulary cards.`,
+        targetSkill: meta.skill,
+        targetUrl: '/learning-path',
+        actionLabel: 'Start Sentence Quiz',
+        estimatedMinutes: Math.round(12 * minutesMultiplier),
+        completed: false,
+      },
+      {
+        dayNumber: 2,
+        title: `Day 2: High-Frequency Word Wall Hunt`,
+        activityType: 'phonics',
+        description: `Locate and pronounce target words hidden within a reading passage.`,
+        targetSkill: meta.skill,
+        targetUrl: '/learning-path',
+        actionLabel: 'Start Word Hunt',
+        estimatedMinutes: Math.round(10 * minutesMultiplier),
+        completed: false,
+      },
+      {
+        dayNumber: 3,
+        title: `Day 3: AI Story Reading #4: Final Story Challenge`,
+        activityType: 'story',
+        description: `Read the final 4-week story challenge combining all learned phoneme skills.`,
+        targetSkill: meta.skill,
+        targetUrl: '/stories',
+        actionLabel: 'Read Final Story',
+        estimatedMinutes: Math.round(15 * minutesMultiplier),
+        completed: false,
+      },
+      {
+        dayNumber: 4,
+        title: `Day 4: Orton-Gillingham Master Phonics Quiz`,
+        activityType: 'drill',
+        description: `Interactive 5-question speech & phonics quiz with live voice validation.`,
+        targetSkill: meta.skill,
+        targetUrl: '/learning-path',
+        actionLabel: 'Take Master Quiz',
+        estimatedMinutes: Math.round(15 * minutesMultiplier),
+        completed: false,
+      },
+      {
+        dayNumber: 5,
+        title: `Day 5: Final Comprehensive Reading Assessment`,
+        activityType: 'reading',
+        description: `Final assessment session to unlock your Curriculum Graduation Certificate!`,
+        targetSkill: 'MASTERY',
+        targetUrl: '/passages',
+        actionLabel: 'Complete Final Assessment',
+        estimatedMinutes: Math.round(20 * minutesMultiplier),
+        completed: false,
+      },
+    ];
+  }
 
   return {
     id: '',
@@ -324,6 +498,7 @@ export async function getActiveLearningPath(studentId: string): Promise<Learning
 
 /**
  * Complete a specific day task in a learning path.
+ * Tracks progress, awards XP, advances weeks, and triggers graduation upon 20-day plan completion.
  */
 export async function completeDayTask(pathId: string, weekNumber: number, dayNumber: number, studentId: string): Promise<void> {
   const weekRes = await query(
@@ -364,6 +539,12 @@ export async function completeDayTask(pathId: string, weekNumber: number, dayNum
 
     if (parseInt(remaining.rows[0].cnt, 10) === 0) {
       await query(`UPDATE learning_paths SET status = 'completed', updated_at = NOW() WHERE id = $1`, [pathId]);
+      // Award +500 Bonus XP & Graduation Badge for completing full 20-day curriculum!
+      try {
+        await awardXP(studentId, 500, 'curriculum_graduation_bonus');
+      } catch (err) {
+        console.error('Failed to award graduation XP bonus:', err);
+      }
     } else {
       await query(`UPDATE learning_paths SET current_week = $2, updated_at = NOW() WHERE id = $1`, [pathId, weekNumber + 1]);
     }
