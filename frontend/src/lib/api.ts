@@ -5,8 +5,10 @@ export interface ApiError extends Error {
   details?: Record<string, unknown>;
 }
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+
 export async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const url = `/api/v1${endpoint}`;
+  const url = `${API_BASE}/api/v1${endpoint}`;
   
   const response = await fetch(url, {
     ...options,
