@@ -34,7 +34,7 @@ const PASSAGE_TEMPLATES = [
 ];
 
 /**
- * Generate a fresh, unique reading passage.
+ * Generate a fresh, unique reading passage using Groq API or Procedural Engine.
  */
 export async function generatePassage(gradeLevel: number = 3): Promise<GeneratedPassage> {
   const countRes = await query(`SELECT COUNT(*) as cnt FROM passages`);
@@ -44,14 +44,11 @@ export async function generatePassage(gradeLevel: number = 3): Promise<Generated
   let content = '';
 
   const hasGroq = Boolean(process.env.GROQ_API_KEY);
-  const hasOpenAI = Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'sk-your-key-here');
 
-  if (hasGroq || hasOpenAI) {
+  if (hasGroq) {
     try {
-      const client = hasGroq
-        ? new OpenAI({ apiKey: process.env.GROQ_API_KEY, baseURL: 'https://api.groq.com/openai/v1' })
-        : new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      const model = hasGroq ? 'llama-3.3-70b-versatile' : 'gpt-4o-mini';
+      const client = new OpenAI({ apiKey: process.env.GROQ_API_KEY, baseURL: 'https://api.groq.com/openai/v1' });
+      const model = 'llama-3.3-70b-versatile';
 
       const completion = await client.chat.completions.create({
         model,
@@ -80,7 +77,7 @@ export async function generatePassage(gradeLevel: number = 3): Promise<Generated
         content = lines.slice(1).join(' ');
       }
     } catch (err) {
-      console.warn('LLM passage generation fallback to procedural:', (err as Error).message);
+      console.warn('Groq passage generation fallback to procedural:', (err as Error).message);
     }
   }
 

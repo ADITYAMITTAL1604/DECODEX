@@ -22,7 +22,8 @@ export default function Login() {
       });
       
       login(data.user);
-      navigate(data.user.role === 'parent' ? '/parent/home' : '/');
+      const target = data.user.role === 'parent' ? '/parent/home' : data.user.role === 'teacher' ? '/teacher/dashboard' : '/dashboard';
+      navigate(target);
     } catch (err: any) {
       setError(err.message || 'Login failed');
     }

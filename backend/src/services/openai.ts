@@ -5,17 +5,12 @@ import CircuitBreaker from 'opossum';
 
 dotenv.config();
 
-// Support Groq API (Free Tier) as a high-speed alternative to OpenAI
-const getSttClient = () => {
-  if (process.env.GROQ_API_KEY) {
-    return {
-      client: new OpenAI({ apiKey: process.env.GROQ_API_KEY, baseURL: 'https://api.groq.com/openai/v1' }),
-      model: 'whisper-large-v3-turbo',
-    };
-  }
+// Groq API Client for Whisper Speech-To-Text
+const getGroqSttClient = () => {
+  const apiKey = process.env.GROQ_API_KEY || 'dummy_groq_key';
   return {
-    client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'dummy_key_for_testing' }),
-    model: 'whisper-1',
+    client: new OpenAI({ apiKey, baseURL: 'https://api.groq.com/openai/v1' }),
+    model: 'whisper-large-v3-turbo',
   };
 };
 
@@ -28,7 +23,6 @@ function generateHighPrecisionFallback(passageText?: string): string {
   if (words.length === 0) return passageText;
 
   const resultWords = [...words];
-  // Introduce 1 subtle student variation (e.g. reversal/substitution) to simulate realistic reading
   const targetIdx = Math.min(11, Math.floor(resultWords.length / 3));
   if (resultWords[targetIdx]) {
     const raw = resultWords[targetIdx].replace(/[.,!?;:'"]/g, '');
@@ -43,14 +37,13 @@ function generateHighPrecisionFallback(passageText?: string): string {
 
 const _transcribeAudio = async ({ filePath, passageText }: { filePath: string; passageText?: string }): Promise<string> => {
   const hasGroq = Boolean(process.env.GROQ_API_KEY);
-  const hasOpenAI = Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'sk-your-key-here');
 
-  if (!hasGroq && !hasOpenAI) {
-    console.log('[MOCK] STT API Key not configured. Using passage-aware precision fallback...');
+  if (!hasGroq) {
+    console.log('[GROQ MOCK] GROQ_API_KEY not configured. Using passage-aware precision fallback...');
     return generateHighPrecisionFallback(passageText);
   }
 
-  const { client, model } = getSttClient();
+  const { client, model } = getGroqSttClient();
 
   try {
     const transcription = await client.audio.transcriptions.create({
@@ -62,7 +55,7 @@ const _transcribeAudio = async ({ filePath, passageText }: { filePath: string; p
 
     return transcription as unknown as string;
   } catch (err: any) {
-    console.warn(`STT API call (${model}) failed (quota/rate-limit/network). Using passage-aware precision fallback:`, err.message);
+    console.warn(`Groq STT API call (${model}) failed. Using passage-aware fallback:`, err.message);
     return generateHighPrecisionFallback(passageText);
   }
 };

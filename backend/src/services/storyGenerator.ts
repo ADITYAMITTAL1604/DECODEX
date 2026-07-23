@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // ---------------------------------------------------------------------------
-// Dynamic Infinite AI Story Generator
+// Dynamic Infinite AI Story Generator (Groq Powered)
 // ---------------------------------------------------------------------------
 
 export interface GeneratedStory {
@@ -57,113 +57,107 @@ const PLOT_HOOKS = [
     resolution: 'spotted the key shining bright in the green moss and cheered with joy',
   },
   {
-    goal: 'collect the sweetest berries for a afternoon feast',
-    action: 'climbed up a gentle slope and picked ripe fruit from high branches',
-    resolution: 'shared the delicious berries with all their friends near the riverbank',
+    goal: 'collect the sweetest berries for an afternoon feast',
+    action: 'climbed up gentle grassy hills and reached for the highest branches',
+    resolution: 'filled a wicker basket to the brim and shared them with friends',
   },
   {
-    goal: 'learn how to sail a tiny leaf boat across the pond',
-    action: 'steered carefully past floating lily pads and gentle water ripples',
-    resolution: 'reached the far shore safely as the frogs clapped and croaked',
+    goal: 'build a sturdy shelter before the rain fell',
+    action: 'gathered fallen pine needles, oak leaves, and straight twigs',
+    resolution: 'finished the cozy roof just as the first raindrops tapped softly',
   },
   {
-    goal: 'solve the mystery of the strange chirping sound',
-    action: 'followed a winding path through whispering trees and soft ferns',
-    resolution: 'discovered a friendly baby bird learning its very first morning song',
+    goal: 'deliver an important handwritten message',
+    action: 'trotted swiftly down the winding path under the morning sun',
+    resolution: 'handed the letter safely to the old forest owls at sunset',
   },
   {
-    goal: 'build a sturdy shelter before the gentle afternoon rain',
-    action: 'gathered smooth twigs and broad green leaves with great care',
-    resolution: 'sat warmly inside watching raindrops splash softly on the ground outside',
+    goal: 'solve the riddle written on an ancient stone',
+    action: 'sounded out each letter carefully and traced the lines with a paw',
+    resolution: 'unlocked the secret chamber full of glowing magical crystals',
   },
 ];
 
-// O-G Target Sentence Sets
 const PHONEME_SENTENCE_SETS: Record<string, string[][]> = {
-  b_d_p: [
-    ['Buddy the bold bear dove into the deep blue pond.', 'Daisy the duck paddled past the big dandelion patch.', 'Pedro the panda bounced his bright red ball on the dusty path.'],
-    ['Dad built a big wooden barn for the brown dog.', 'Buddy dropped a dirty bone by the deep brook.', 'Daisy dipped her paws into the cool water.'],
-  ],
   sh_ch_th: [
-    ['Shelly rushed to the shiny shell shop on the shore.', 'Charlie the cheerful chipmunk chose a slice of rich cheese.', 'Theo the thoughtful thrush perched on a thick oak branch.'],
-    ['Three small thrushes swooshed through the shadows.', 'Charlie chased a chipmunk through the thistle bushes.', 'Shelly shared her shiny shells with the shopkeeper.'],
+    ['She saw a shiny shell by the shore.', 'Charlie chose a fresh cherry pie.', 'Theo thought three thick branches fell.'],
+    ['Shirley brushed her shoes with care.', 'The chipmunk chattered on the branch.', 'Thirty thistles grew near the trail.'],
+  ],
+  b_d_p: [
+    ['Buddy the bear found a big blue ball.', 'Daisy duck dived into deep clear water.', 'Pip the panda picked a sweet peach.'],
+    ['A brave boy bounced a ball by the barn.', 'The dog dug deep under the dark oak.', 'Pedro painted a pink paper kite.'],
   ],
   blends: [
-    ['Brett sprinted up the steep slope with his sleek sled.', 'A strong stream splashed over smooth river stones.', 'Grace blazed across the track with great speed and pride.'],
-    ['Brock clapped as the bright snow glistened on the crest.', 'Small frogs crouched on flat rocks in the crisp morning.', 'Grace stretched her stride and won the grand prize.'],
-  ],
-  vowel_teams: [
-    ['Rain streamed down as the main train arrived at the station.', 'Joan rowed her small boat slowly across the calm bay.', 'The Green Team was keen to keep the field neat and clean.'],
-    ['Eight people boarded the train and sailed down the rail.', 'A toad floated on a leaf as foam drifted past the oar.', 'Jean received a gleam of hope when trees began to leaf.'],
+    ['The bright green frog leaped over the brook.', 'Brave Brett stopped to clear the path.', 'Grace smiled at the glowing stars.'],
+    ['Slick snails slide across smooth stones.', 'Strong breezes blow through pine trees.', 'Fresh spring water flows down.'],
   ],
   general: [
-    ['On a warm morning, Maya walked through the lush green valley.', 'Behind the stone wall grew flowers of every bright color.', 'Leo the little explorer wrote every discovery in his notebook.'],
-    ['A gentle breeze rustled through the tall sunflowers.', 'Butterflies danced around purple lavender near the fountain.', 'He counted seven tall trees and drew pictures of three birds.'],
+    ['The sun shone warm and bright.', 'Every step brought new excitement.', 'A friendly bird sang a sweet song.'],
+    ['Clear water bubbled over smooth rocks.', 'Fresh breeze rustled the high leaves.', 'Happy laughter filled the air.'],
   ],
 };
 
 const CATEGORY_TO_FOCUS: Record<string, string> = {
   REV: 'b_d_p',
   BLD: 'blends',
-  SUB: 'vowel_teams',
-  OMI: 'sh_ch_th',
+  SUB: 'sh_ch_th',
+  OMI: 'general',
   INS: 'general',
   PAC: 'general',
 };
 
 /**
- * Generate a truly infinite, non-repeating adaptive story for a student.
+ * Generate a personalized reading story for a student using Groq API or Procedural Engine.
  */
-export async function generateStory(studentId: string): Promise<GeneratedStory> {
-  // 1. Fetch student's error profile
-  const errorRes = await query(
-    `SELECT
-       SUM(rev_count) as rev, SUM(sub_count) as sub,
-       SUM(bld_count) as bld, SUM(omi_count) as omi
-     FROM error_profiles WHERE student_id = $1`,
-    [studentId]
-  );
-  const errors = errorRes.rows[0] || {};
-
+export async function generateStoryForStudent(
+  studentId: string,
+  difficultyLevel: number = 3
+): Promise<GeneratedStory> {
   const studentRes = await query(
     `SELECT grade_level FROM users WHERE id = $1`,
     [studentId]
   );
-  const gradeLevel = studentRes.rows[0]?.grade_level || 3;
+  const gradeLevel = studentRes.rows[0]?.grade_level || difficultyLevel;
 
-  // Determine top weakness category
+  const errorRes = await query(
+    `SELECT
+       SUM(rev_count) as rev, SUM(sub_count) as sub,
+       SUM(omi_count) as omi, SUM(ins_count) as ins,
+       SUM(bld_count) as bld, SUM(pac_count) as pac
+     FROM error_profiles
+     WHERE student_id = $1`,
+    [studentId]
+  );
+  const errors = errorRes.rows[0] || {};
   const errorMap: Array<[string, number]> = [
     ['REV', Number(errors.rev || 0)],
     ['BLD', Number(errors.bld || 0)],
     ['SUB', Number(errors.sub || 0)],
     ['OMI', Number(errors.omi || 0)],
+    ['INS', Number(errors.ins || 0)],
+    ['PAC', Number(errors.pac || 0)],
   ];
   errorMap.sort((a, b) => b[1] - a[1]);
 
   const topCategory = errorMap[0][1] > 0 ? errorMap[0][0] : 'general';
   const focusKey = CATEGORY_TO_FOCUS[topCategory] || 'general';
 
-  // 2. Count existing stories to ensure uniqueness sequence
   const countRes = await query(
     `SELECT COUNT(*) as cnt FROM generated_stories WHERE student_id = $1`,
     [studentId]
   );
   const storyNum = parseInt(countRes.rows[0]?.cnt || '0') + 1;
 
-  // 3. Try LLM generation if API Key available, else use Procedural Generator
   let title = '';
   let content = '';
   let targetPhonemes: string[] = [];
 
   const hasGroq = Boolean(process.env.GROQ_API_KEY);
-  const hasOpenAI = Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'sk-your-key-here');
 
-  if (hasGroq || hasOpenAI) {
+  if (hasGroq) {
     try {
-      const client = hasGroq
-        ? new OpenAI({ apiKey: process.env.GROQ_API_KEY, baseURL: 'https://api.groq.com/openai/v1' })
-        : new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      const model = hasGroq ? 'llama-3.3-70b-versatile' : 'gpt-4o-mini';
+      const client = new OpenAI({ apiKey: process.env.GROQ_API_KEY, baseURL: 'https://api.groq.com/openai/v1' });
+      const model = 'llama-3.3-70b-versatile';
 
       const completion = await client.chat.completions.create({
         model,
@@ -192,11 +186,10 @@ export async function generateStory(studentId: string): Promise<GeneratedStory> 
         content = lines.slice(1).join(' ');
       }
     } catch (llmErr) {
-      console.warn('LLM story generation fallback to procedural engine:', (llmErr as Error).message);
+      console.warn('Groq story generation fallback to procedural engine:', (llmErr as Error).message);
     }
   }
 
-  // 4. Procedural Engine Fallback (guarantees infinite unique combinations)
   if (!content || !title) {
     const charObj = CHARACTERS[(storyNum - 1) % CHARACTERS.length];
     const setting = SETTINGS[(storyNum * 3) % SETTINGS.length];
@@ -228,13 +221,9 @@ export async function generateStory(studentId: string): Promise<GeneratedStory> 
     sh_ch_th: ['sh', 'ch', 'th'],
     b_d_p: ['b', 'd', 'p'],
     blends: ['bl', 'cr', 'str', 'spl', 'br', 'gr'],
-    vowel_teams: ['ai', 'ea', 'oa', 'ee'],
-    general: ['a', 'e', 'i', 'o', 'u'],
-  }[focusKey] || [];
+    general: ['general_phonics'],
+  }[focusKey] || ['general_phonics'];
 
-  const difficultyLevel = Math.min(5, Math.max(1, gradeLevel));
-
-  // Save to DB
   const res = await query(
     `INSERT INTO generated_stories
       (student_id, title, content, difficulty_level, target_phonemes,
@@ -260,14 +249,8 @@ export async function generateStory(studentId: string): Promise<GeneratedStory> 
   };
 }
 
-function capitalize(str: string): string {
-  if (!str) return '';
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
+export const generateStory = generateStoryForStudent;
 
-/**
- * Get all generated stories for a student.
- */
 export async function getStudentStories(studentId: string, limit: number = 20) {
   const res = await query(
     `SELECT * FROM generated_stories
@@ -277,6 +260,7 @@ export async function getStudentStories(studentId: string, limit: number = 20) {
   );
   return res.rows.map((r: any) => ({
     id: r.id,
+    studentId: r.student_id,
     title: r.title,
     content: r.content,
     difficultyLevel: r.difficulty_level,
@@ -288,9 +272,6 @@ export async function getStudentStories(studentId: string, limit: number = 20) {
   }));
 }
 
-/**
- * Get a single story by ID.
- */
 export async function getStoryById(storyId: string) {
   const res = await query(
     `SELECT * FROM generated_stories WHERE id = $1`,
@@ -300,6 +281,7 @@ export async function getStoryById(storyId: string) {
   const r = res.rows[0];
   return {
     id: r.id,
+    studentId: r.student_id,
     title: r.title,
     content: r.content,
     difficultyLevel: r.difficulty_level,
@@ -307,6 +289,6 @@ export async function getStoryById(storyId: string) {
     targetWeaknesses: r.target_weaknesses || [],
     wordCount: r.word_count,
     timesRead: r.times_read,
-    studentId: r.student_id,
+    createdAt: r.created_at,
   };
 }

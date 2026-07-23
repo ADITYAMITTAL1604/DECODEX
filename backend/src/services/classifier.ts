@@ -6,10 +6,6 @@ import { getCache, setCache, generateHashKey } from './cache';
 
 dotenv.config();
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || 'dummy_key',
-});
-
 // Define the classification taxonomy
 export type ErrorCategory = 'REV' | 'SUB' | 'OMI' | 'INS' | 'BLD' | 'PAC' | 'UNC';
 
@@ -21,10 +17,6 @@ export interface ClassificationResult {
   rationale: string;
 }
 
-// The system prompt and the JSON parsing logic must agree on the response shape.
-// We use response_format: json_object which forces the model to return valid JSON,
-// and explicitly ask for a top-level "classifications" key so the parsed shape
-// matches what the code expects at `parsed.classifications`.
 const classificationPrompt = `
 You are an expert reading specialist trained in the Orton-Gillingham approach.
 Given a list of reading errors (insertions, omissions, substitutions), classify each error into ONE of the following categories:
@@ -86,28 +78,22 @@ function applyRuleBasedOGClassification(errors: AlignmentResult[]): Classificati
   });
 }
 
-const getLlmClient = () => {
-  if (process.env.GROQ_API_KEY) {
-    return {
-      client: new OpenAI({ apiKey: process.env.GROQ_API_KEY, baseURL: 'https://api.groq.com/openai/v1' }),
-      model: 'llama-3.3-70b-versatile',
-    };
-  }
+const getGroqClient = () => {
+  const apiKey = process.env.GROQ_API_KEY || 'dummy_groq_key';
   return {
-    client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'dummy_key_for_testing' }),
-    model: 'gpt-4o-mini',
+    client: new OpenAI({ apiKey, baseURL: 'https://api.groq.com/openai/v1' }),
+    model: 'llama-3.3-70b-versatile',
   };
 };
 
 const _classifyErrors = async (errors: AlignmentResult[]): Promise<ClassificationResult[]> => {
   const hasGroq = Boolean(process.env.GROQ_API_KEY);
-  const hasOpenAI = Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'sk-your-key-here');
 
-  if (!hasGroq && !hasOpenAI) {
+  if (!hasGroq) {
     return applyRuleBasedOGClassification(errors);
   }
 
-  const { client, model } = getLlmClient();
+  const { client, model } = getGroqClient();
 
   try {
     const response = await client.chat.completions.create({
@@ -125,7 +111,7 @@ const _classifyErrors = async (errors: AlignmentResult[]): Promise<Classificatio
     try {
       parsed = JSON.parse(content);
     } catch {
-      console.error('Failed to parse LLM JSON response:', content);
+      console.error('Failed to parse Groq LLM JSON response:', content);
       parsed = { classifications: [] };
     }
 
@@ -140,16 +126,16 @@ const _classifyErrors = async (errors: AlignmentResult[]): Promise<Classificatio
       };
     });
   } catch (err: any) {
-    console.warn(`LLM API call (${model}) failed. Using smart Orton-Gillingham rule engine:`, err.message);
+    console.warn(`Groq LLM API call (${model}) failed. Using smart Orton-Gillingham rule engine:`, err.message);
     return applyRuleBasedOGClassification(errors);
   }
 };
 
 // Circuit Breaker configuration
 const breakerOptions = {
-  timeout: 10000, // 10 seconds timeout
-  errorThresholdPercentage: 50, // Open if 50% of requests fail
-  resetTimeout: 30000, // Wait 30s before trying again
+  timeout: 10000,
+  errorThresholdPercentage: 50,
+  resetTimeout: 30000,
 };
 
 const classifierBreaker = new CircuitBreaker(_classifyErrors, breakerOptions);
@@ -171,10 +157,9 @@ export const classifyErrors = async (alignment: AlignmentResult[]): Promise<Clas
     return JSON.parse(cached);
   }
 
-  console.log('LLM Cache MISS, calling OpenAI...');
+  console.log('LLM Cache MISS, calling Groq LLM...');
   const results = await classifierBreaker.fire(errorsOnly);
 
-  // Only cache successful (non-fallback) results
   const isFallback = results.length > 0 && results[0].rationale === 'Fallback applied due to service timeout/error.';
   if (!isFallback) {
     await setCache(cacheKey, JSON.stringify(results));
