@@ -47,13 +47,6 @@ function HealthScoreGauge({ score, riskLevel }: { score: number; riskLevel: stri
 export default function Dashboard() {
   const { user } = useAuth();
 
-  // Role-based dashboard redirects
-  if (user?.role === 'parent') {
-    return <Navigate to="/parent/home" replace />;
-  }
-  if (user?.role === 'teacher') {
-    return <Navigate to="/teacher/dashboard" replace />;
-  }
   const [consentStatus, setConsentStatus] = useState<{ invite_code: string | null; consent_granted: boolean; consent_date: string | null; pending_parent_name?: string | null; pending_parent_email?: string | null } | null>(null);
   const [approving, setApproving] = useState(false);
 
@@ -77,8 +70,18 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    fetchConsentStatus();
+    if (user?.role === 'student') {
+      fetchConsentStatus();
+    }
   }, [user?.role]);
+
+  // Role-based dashboard redirects (placed after all hooks)
+  if (user?.role === 'parent') {
+    return <Navigate to="/parent/home" replace />;
+  }
+  if (user?.role === 'teacher') {
+    return <Navigate to="/teacher/dashboard" replace />;
+  }
 
   const handleApproveConsent = async () => {
     setApproving(true);
