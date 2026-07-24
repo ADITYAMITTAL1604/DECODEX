@@ -356,8 +356,51 @@ export function useDex(): DexHook {
 }
 
 // ---------------------------------------------------------------------------
-// Browser TTS fallback — invisible to the user, no error message
+// Helper: Select a soothing female voice for children's educational narration
+// Avoids heavy/deep default male system voices (e.g. Microsoft David)
 // ---------------------------------------------------------------------------
+function getSoothingFemaleVoice(): SpeechSynthesisVoice | null {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null;
+  if (typeof window.speechSynthesis.getVoices !== 'function') return null;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices || voices.length === 0) return null;
+
+  const femaleVoiceNames = [
+    'microsoft aria',
+    'microsoft jenny',
+    'microsoft zira',
+    'google us english',
+    'samantha',
+    'victoria',
+    'karen',
+    'fiona',
+    'female',
+    'woman',
+  ];
+
+  for (const name of femaleVoiceNames) {
+    const found = voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes(name));
+    if (found) return found;
+  }
+
+  // Fallback: Pick any English voice that is not a heavy male voice
+  const nonMaleVoice = voices.find(v =>
+    v.lang.startsWith('en') &&
+    !v.name.toLowerCase().includes('david') &&
+    !v.name.toLowerCase().includes('mark') &&
+    !v.name.toLowerCase().includes('george') &&
+    !v.name.toLowerCase().includes('male')
+  );
+
+  return nonMaleVoice || voices[0] || null;
+}
+
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  window.speechSynthesis.onvoiceschanged = () => {
+    getSoothingFemaleVoice();
+  };
+}
+
 function speakViaBrowser(text: string): Promise<void> {
   return new Promise((resolve) => {
     if (!('speechSynthesis' in window)) {
@@ -367,8 +410,15 @@ function speakViaBrowser(text: string): Promise<void> {
 
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.85;
-    utterance.pitch = 1.0;
+
+    const voice = getSoothingFemaleVoice();
+    if (voice) {
+      utterance.voice = voice;
+    }
+
+    // Friendly, warm, soothing female tone (pitch 1.25, rate 0.88)
+    utterance.pitch = 1.25;
+    utterance.rate = 0.88;
     utterance.onend = () => resolve();
     utterance.onerror = () => resolve();
     window.speechSynthesis.speak(utterance);

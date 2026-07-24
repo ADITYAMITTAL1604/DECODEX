@@ -37,7 +37,7 @@ const _synthesizeSpeech = async (text: string): Promise<TtsResult> => {
   try {
     const response = await client.audio.speech.create({
       model: 'tts-1',
-      voice: 'nova',
+      voice: 'shimmer',
       input: text,
       response_format: 'mp3',
     });
