@@ -16,27 +16,50 @@ function splitIntoSentences(text: string): string[] {
     .filter(s => s.length > 0);
 }
 
+function editDistance(s1: string, s2: string): number {
+  const m = s1.length;
+  const n = s2.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = s1[i - 1] === s2[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
+
 // ---------------------------------------------------------------------------
 // Helper: Evaluate if spoken text matches target sentence
-// Strict threshold: Student must read at least 80% of content words in sentence
+// Fair 65% threshold with fuzzy matching so correct readings are never flagged as wrong.
 // ---------------------------------------------------------------------------
 function evaluateSentenceRead(sentence: string, spoken: string): boolean {
   if (!spoken || spoken.trim().length === 0) return false;
 
-  const targetWords = sentence.toLowerCase().replace(/[.,!?;:'"]/g, '').split(/\s+/).filter(w => w.length > 2);
-  const spokenWords = spoken.toLowerCase().replace(/[.,!?;:'"]/g, '').split(/\s+/);
+  const targetWords = sentence.toLowerCase().replace(/[.,!?;:'"–-]/g, '').split(/\s+/).filter(w => w.length > 0);
+  const spokenWords = spoken.toLowerCase().replace(/[.,!?;:'"–-]/g, '').split(/\s+/).filter(w => w.length > 0);
 
   if (targetWords.length === 0) return true;
 
   let matchedCount = 0;
   for (const tw of targetWords) {
-    if (spokenWords.some(sw => sw === tw || sw.includes(tw) || tw.includes(sw))) {
+    const isMatched = spokenWords.some(sw => {
+      if (sw === tw) return true;
+      if (tw.length >= 3 && (sw.includes(tw) || tw.includes(sw))) return true;
+      if (tw.length >= 4 && sw.length >= 4 && editDistance(tw, sw) <= 1) return true;
+      return false;
+    });
+
+    if (isMatched) {
       matchedCount++;
     }
   }
 
-  // Student MUST read at least 80% of content words in sentence line
-  return (matchedCount / targetWords.length) >= 0.80;
+  // Pass threshold: 65% of words matched
+  return (matchedCount / targetWords.length) >= 0.65;
 }
 
 export default function StoryReaderPage() {
