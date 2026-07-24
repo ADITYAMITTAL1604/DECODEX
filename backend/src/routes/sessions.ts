@@ -75,6 +75,12 @@ router.post('/:id/audio', authenticate, requireConsent, upload.single('audio'), 
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Session not found' } });
     }
 
+    // Save audio file path to reading_sessions record for parent/teacher playback
+    await query(
+      `UPDATE reading_sessions SET audio_file_path = $1 WHERE id = $2`,
+      [file.path, id]
+    );
+
     const jobData = {
       sessionId: String(id),
       passageText: sessionRes.rows[0].content,
