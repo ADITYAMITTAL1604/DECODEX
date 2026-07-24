@@ -14,6 +14,7 @@ import PracticePage from './pages/PracticePage';
 import TeacherDashboard from './pages/TeacherDashboard';
 import StudentDetail from './pages/StudentDetail';
 import ParentHome from './pages/ParentHome';
+import ParentSessionReport from './pages/ParentSessionReport';
 import ConsentConfirm from './pages/ConsentConfirm';
 
 import LearningPathPage from './pages/LearningPathPage';
@@ -211,6 +212,7 @@ function App() {
           {/* Parent Protected Routes */}
           <Route element={<ProtectedRoute allowedRoles={['parent', 'admin']} />}>
             <Route path="/parent/home" element={<ParentHome />} />
+            <Route path="/parent/children/:studentId/sessions/:sessionId" element={<ParentSessionReport />} />
           </Route>
 
           {/* Fallback Route */}

@@ -1,4 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 
 interface LinkedChild {
@@ -274,18 +275,25 @@ export default function ParentHome() {
               <h3 className="font-display text-lg font-bold text-on-surface mb-3">Recent Diagnostic Sessions</h3>
               <div className="space-y-2">
                 {childProgress.recentSessions.slice(0, 5).map((s: any) => (
-                  <div key={s.id} className="p-3 rounded-2xl bg-white/40 border border-surface-container-highest flex items-center justify-between">
+                  <Link
+                    key={s.id}
+                    to={`/parent/children/${selectedChildId}/sessions/${s.id}`}
+                    className="p-3 rounded-2xl bg-white/40 border border-surface-container-highest flex items-center justify-between hover:bg-primary-container/10 hover:border-primary/20 transition-all group"
+                  >
                     <div>
-                      <p className="font-display text-sm font-bold text-on-surface">{s.passage_title || 'Reading Session'}</p>
+                      <p className="font-display text-sm font-bold text-on-surface group-hover:text-primary transition-colors">{s.passage_title || 'Reading Session'}</p>
                       <p className="font-body text-xs text-on-surface-variant">{new Date(s.started_at).toLocaleDateString()}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-display text-sm font-bold text-primary">{s.words_per_minute != null ? Math.round(s.words_per_minute) : '—'} WPM</p>
-                      <p className="font-body text-xs text-on-surface-variant">
-                        {s.error_rate != null ? `${100 - Math.round(s.error_rate * 100)}% accuracy` : ''}
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <p className="font-display text-sm font-bold text-primary">{s.words_per_minute != null ? Math.round(s.words_per_minute) : '—'} WPM</p>
+                        <p className="font-body text-xs text-on-surface-variant">
+                          {s.error_rate != null ? `${100 - Math.round(s.error_rate * 100)}% accuracy` : ''}
+                        </p>
+                      </div>
+                      <span className="material-symbols-outlined text-on-surface-variant text-sm group-hover:text-primary group-hover:translate-x-0.5 transition-all">chevron_right</span>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </div>

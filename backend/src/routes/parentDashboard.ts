@@ -4,6 +4,8 @@ import { authenticate, AuthRequest } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
 import { getLatestHealthScore, getHealthScoreHistory } from '../services/healthScore';
 import { getLatestScreening } from '../services/riskScreening';
+import { generateStrategy } from '../services/copilot';
+import { synthesizeSpeech } from '../services/tts';
 
 const router = Router();
 
@@ -116,6 +118,126 @@ router.get('/children', authenticate, requireParent, async (req: AuthRequest, re
   } catch (error) {
     console.error('Error fetching children:', error);
     res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch children' } });
+  }
+});
+
+// GET /api/v1/parent/children/:studentId/sessions/:sessionId/report
+// Parent-facing session report with improvement plan (no exercises/drills).
+router.get('/children/:studentId/sessions/:sessionId/report', authenticate, requireParent, async (req: AuthRequest, res) => {
+  const studentId = String(req.params.studentId);
+  const sessionId = String(req.params.sessionId);
+  const parentId = req.user?.id;
+
+  try {
+    // Verify parent-student link (same check as /children/:studentId/progress)
+    if (req.user?.role === 'parent') {
+      const linkRes = await query(
+        `SELECT 1 FROM parent_student_links
+         WHERE parent_id = $1 AND student_id = $2 AND withdrawn_at IS NULL`,
+        [parentId, studentId]
+      );
+      if (linkRes.rows.length === 0) {
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'No linked child found' } });
+      }
+    }
+
+    // Fetch session — verify session belongs to the specified student (IDOR guard)
+    const sessionRes = await query(
+      `SELECT rs.id, rs.started_at, rs.completed_at, rs.duration_seconds,
+              rs.words_per_minute, rs.transcript,
+              p.title,
+              ep.error_rate, ep.total_words_read, ep.total_errors
+       FROM reading_sessions rs
+       JOIN passages p ON rs.passage_id = p.id
+       LEFT JOIN error_profiles ep ON ep.session_id = rs.id
+       WHERE rs.id = $1 AND rs.student_id = $2 AND rs.deleted_at IS NULL`,
+      [sessionId, studentId]
+    );
+
+    if (sessionRes.rows.length === 0) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Session not found' } });
+    }
+
+    const session = sessionRes.rows[0];
+
+    // Generate improvement plan via copilot — omit recommendedExercises for parents
+    let improvementPlan = null;
+    try {
+      const strategy = await generateStrategy(studentId);
+      improvementPlan = {
+        summary: strategy.summary,
+        keyConcerns: strategy.keyConcerns,
+        weeklyRoadmap: strategy.weeklyRoadmap,
+        parentCommunicationDraft: strategy.parentCommunicationDraft,
+        healthScoreAtGeneration: strategy.healthScoreAtGeneration,
+        riskLevelAtGeneration: strategy.riskLevelAtGeneration,
+        // NOTE: recommendedExercises is intentionally OMITTED — parents see
+        // the plan and the "why," not the drill library.
+      };
+    } catch (planErr) {
+      console.warn('Copilot strategy generation failed for parent report:', planErr);
+      // Non-blocking — report still returns session data even if plan fails
+    }
+
+    res.json({ session, improvementPlan });
+  } catch (error) {
+    console.error('Error fetching parent session report:', error);
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch session report' } });
+  }
+});
+
+// GET /api/v1/parent/children/:studentId/sessions/:sessionId/tts-playback
+// On-demand TTS synthesis from the session transcript. Never persists audio.
+router.get('/children/:studentId/sessions/:sessionId/tts-playback', authenticate, requireParent, async (req: AuthRequest, res) => {
+  const studentId = String(req.params.studentId);
+  const sessionId = String(req.params.sessionId);
+  const parentId = req.user?.id;
+
+  try {
+    // Verify parent-student link
+    if (req.user?.role === 'parent') {
+      const linkRes = await query(
+        `SELECT 1 FROM parent_student_links
+         WHERE parent_id = $1 AND student_id = $2 AND withdrawn_at IS NULL`,
+        [parentId, studentId]
+      );
+      if (linkRes.rows.length === 0) {
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'No linked child found' } });
+      }
+    }
+
+    // Fetch transcript — verify session belongs to the specified student (IDOR guard)
+    const sessionRes = await query(
+      `SELECT transcript FROM reading_sessions
+       WHERE id = $1 AND student_id = $2 AND deleted_at IS NULL`,
+      [sessionId, studentId]
+    );
+
+    if (sessionRes.rows.length === 0) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Session not found' } });
+    }
+
+    const transcript = sessionRes.rows[0].transcript;
+
+    if (!transcript || !transcript.trim()) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No transcript available for this session' } });
+    }
+
+    // Synthesize speech — never cached or persisted
+    const result = await synthesizeSpeech(transcript);
+
+    if (Buffer.isBuffer(result)) {
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('Content-Length', result.length);
+      res.setHeader('Cache-Control', 'no-store');
+      return res.send(result);
+    }
+
+    // Browser TTS fallback — return transcript text so frontend can use SpeechSynthesis
+    return res.json({ useBrowserTts: true, transcript });
+  } catch (error) {
+    console.error('Error generating TTS playback:', error);
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to generate audio playback' } });
   }
 });
 
