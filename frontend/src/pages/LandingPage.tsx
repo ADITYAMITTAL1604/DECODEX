@@ -8,7 +8,11 @@ export default function LandingPage() {
   const navigate = useNavigate();
 
   // If user is already logged in, offer quick jump to dashboard
-  const dashboardPath = user?.role === 'parent' ? '/parent/home' : user?.role === 'teacher' ? '/teacher/dashboard' : '/';
+  const dashboardPath = user?.role === 'parent' 
+    ? '/parent/home' 
+    : (user?.role === 'teacher' || user?.role === 'admin') 
+    ? '/teacher/dashboard' 
+    : '/dashboard';
 
   return (
     <div className="w-full text-on-surface">
