@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { Link, Navigate } from 'react-router-dom';
 import { apiFetch, useApiQuery } from '../lib/api';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import DexAvatar from '../components/DexAvatar';
+import { TUTOR_NAME } from '../lib/constants';
 
 // ---------------------------------------------------------------------------
 // Health Score Gauge Component — animated SVG radial gauge
@@ -117,6 +119,41 @@ export default function Dashboard() {
           </div>
         )}
       </section>
+
+      {/* Dex Companion Banner on Student Dashboard */}
+      {user?.role === 'student' && (
+        <section className="mb-8 p-6 rounded-3xl bg-gradient-to-br from-white/90 via-amber-50/40 to-indigo-50/40 border-2 border-secondary/30 shadow-lg flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
+            <DexAvatar
+              state="idle"
+              size="md"
+              showCaptionBubble={false}
+            />
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-container/30 text-secondary font-display text-[10px] font-bold uppercase tracking-wider mb-2">
+                <span className="material-symbols-outlined text-xs">auto_awesome</span>
+                Your AI Voice Companion
+              </div>
+              <h2 className="font-display text-xl sm:text-2xl font-bold text-on-surface">
+                Hi {user.display_name.split(' ')[0]}! I'm {TUTOR_NAME}!
+              </h2>
+              <p className="font-body text-sm text-on-surface-variant mt-1 max-w-md">
+                Let's practice reading together today! I'll read story lines aloud with you and celebrate every milestone!
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto shrink-0">
+            <Link
+              to="/stories"
+              className="w-full sm:w-auto h-12 px-6 rounded-2xl bg-secondary text-on-secondary font-display text-xs font-bold uppercase tracking-wider hover:bg-secondary-container hover:text-on-secondary-container transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-lg">auto_stories</span>
+              Read with {TUTOR_NAME}
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* Consent banner (unchanged behavior) */}
       {user?.role === 'student' && consentStatus && !consentStatus.consent_granted && consentStatus.pending_parent_name ? (
