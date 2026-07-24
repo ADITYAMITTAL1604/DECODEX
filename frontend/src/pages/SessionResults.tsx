@@ -100,8 +100,8 @@ export default function SessionResults() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         <div className="lg:col-span-2 space-y-6">
-          <div className="glass-card rounded-3xl border border-white/80 shadow-sm overflow-hidden bg-white/40">
-            <div className="px-6 sm:px-8 py-5 border-b border-white/60 bg-white/20 backdrop-blur-md flex justify-between items-center">
+          <div className="glass-card rounded-3xl border border-white/80 shadow-sm bg-white/40 relative">
+            <div className="px-6 sm:px-8 py-5 border-b border-white/60 bg-white/20 backdrop-blur-md flex justify-between items-center rounded-t-3xl">
               <h2 className="font-display text-[20px] sm:text-[24px] font-bold text-on-surface">Diagnostic View</h2>
             </div>
             

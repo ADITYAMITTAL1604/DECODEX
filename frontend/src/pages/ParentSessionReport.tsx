@@ -350,16 +350,26 @@ export default function ParentSessionReport() {
               }
 
               const meta = CATEGORY_NAMES[err.category] || CATEGORY_NAMES.UNC;
+              const isTopLine = idx < 6;
+              const isLeftColumn = idx % 8 < 2;
+              const isRightColumn = idx % 8 >= 6;
+
+              const vPos = isTopLine ? 'top-full mt-2' : 'bottom-full mb-2';
+              const hPos = isLeftColumn
+                ? 'left-0 translate-x-0'
+                : isRightColumn
+                ? 'right-0 left-auto translate-x-0'
+                : 'left-1/2 -translate-x-1/2';
 
               return (
                 <span key={idx} className="relative group inline-block">
-                  <span className={`px-2 py-1 rounded-xl font-bold border ${meta.bg} ${meta.text} ${meta.border} cursor-help shadow-xs`}>
+                  <span className={`px-2 py-1 rounded-xl font-bold border ${meta.bg} ${meta.text} ${meta.border} cursor-help shadow-xs hover:scale-105 transition-transform`}>
                     {word}
                     <span className="ml-1 text-[10px] uppercase tracking-wider font-display opacity-95">({err.category})</span>
                   </span>
 
                   {/* Tooltip on hover */}
-                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 p-2.5 rounded-xl bg-on-surface text-surface font-body text-xs leading-tight shadow-xl z-20 pointer-events-none">
+                  <span className={`absolute ${vPos} ${hPos} hidden group-hover:block w-52 p-3 rounded-2xl bg-on-surface text-surface font-body text-xs leading-relaxed shadow-2xl z-40 pointer-events-none transition-all`}>
                     <strong className="block font-display text-[10px] uppercase font-bold text-secondary mb-1">Spoken: "{err.spoken_word}"</strong>
                     {err.rationale}
                   </span>
