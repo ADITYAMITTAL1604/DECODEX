@@ -186,6 +186,8 @@ export function useDex(): DexHook {
         resolve(resultText.trim());
       };
 
+      let fullTranscript = '';
+
       try {
         if ('speechSynthesis' in window) {
           window.speechSynthesis.cancel();
@@ -195,25 +197,32 @@ export function useDex(): DexHook {
           try {
             const recognition = new SpeechRec();
             recognition.continuous = false;
-            recognition.interimResults = false;
+            recognition.interimResults = true;
             recognition.lang = 'en-US';
 
             timeoutId = setTimeout(() => {
               try { recognition.abort(); } catch { /* ignore */ }
-              finish('');
-            }, 5000);
+              finish(fullTranscript);
+            }, 6000);
 
             recognition.onresult = (event: any) => {
-              const transcript = event.results[0]?.[0]?.transcript || '';
-              finish(transcript);
+              for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i]?.[0]?.transcript) {
+                  fullTranscript = event.results[i][0].transcript;
+                }
+              }
+              if (event.results[0]?.isFinal) {
+                finish(fullTranscript);
+              }
             };
 
-            recognition.onerror = () => {
-              finish('');
+            recognition.onerror = (event: any) => {
+              console.warn('listenShort recognition error:', event?.error);
+              finish(fullTranscript);
             };
 
             recognition.onend = () => {
-              finish('');
+              finish(fullTranscript);
             };
 
             recognition.start();

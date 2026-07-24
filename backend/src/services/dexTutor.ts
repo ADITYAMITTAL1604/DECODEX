@@ -37,6 +37,20 @@ Examples of good feedback:
  * Non-AI fallback grading — simple case-insensitive substring match.
  * Less accurate than AI grading but ensures the student is never stuck.
  */
+function editDistance(s1: string, s2: string): number {
+  const m = s1.length, n = s2.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (s1[i - 1] === s2[j - 1]) dp[i][j] = dp[i - 1][j - 1];
+      else dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
+
 function fallbackGrade(expectedAnswer: string, studentTranscript: string): GradingResult {
   const expected = expectedAnswer.toLowerCase().trim().replace(/[.,!?;:'"]/g, '');
   const spoken = studentTranscript.toLowerCase().trim().replace(/[.,!?;:'"]/g, '');
@@ -44,16 +58,25 @@ function fallbackGrade(expectedAnswer: string, studentTranscript: string): Gradi
   if (!spoken) {
     return {
       correct: false,
-      feedback: 'I didn\'t catch that. Please speak your answer clearly!',
+      feedback: 'I didn\'t catch that. Please click the microphone and speak your answer clearly!',
     };
   }
 
   const expectedWords = expected.split(/\s+/).filter(w => w.length > 0);
   const spokenWords = spoken.split(/\s+/).filter(w => w.length > 0);
 
+  let matchCount = 0;
+  for (const ew of expectedWords) {
+    if (spokenWords.some(sw => sw === ew || sw.includes(ew) || ew.includes(sw) || (ew.length >= 4 && editDistance(sw, ew) <= 1))) {
+      matchCount++;
+    }
+  }
+
+  const matchRatio = expectedWords.length > 0 ? matchCount / expectedWords.length : 0;
   const correct = spoken === expected ||
-    (expected.length >= 3 && spoken.includes(expected)) ||
-    (expectedWords.length > 0 && expectedWords.every(word => word.length >= 2 && spokenWords.includes(word)));
+    spoken.includes(expected) ||
+    expected.includes(spoken) ||
+    matchRatio >= 0.6;
 
   return {
     correct,
