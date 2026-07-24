@@ -32,6 +32,15 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
     };
     next();
   } catch (error) {
+    const isProd = process.env.NODE_ENV === 'production';
+    res.cookie('token', '', {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
+      path: '/',
+      expires: new Date(0),
+      maxAge: 0,
+    });
     return res.status(401).json({
       error: { code: 'AUTH_EXPIRED', message: 'Session has expired or token is invalid', details: {} }
     });

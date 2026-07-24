@@ -152,9 +152,23 @@ router.post('/login', async (req, res) => {
   }
 });
 
+const getClearCookieOptions = () => {
+  const isProd = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
+    path: '/',
+    expires: new Date(0),
+    maxAge: 0,
+  };
+};
+
 // POST /api/v1/auth/logout
 router.post('/logout', (req, res) => {
-  res.clearCookie('token', getCookieOptions());
+  const clearOpts = getClearCookieOptions();
+  res.cookie('token', '', clearOpts);
+  res.clearCookie('token', clearOpts);
   res.json({ success: true });
 });
 
