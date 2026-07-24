@@ -10,6 +10,9 @@ jobs:
   backend:
     name: Backend
     runs-on: ubuntu-latest
+    env:
+      JWT_SECRET: ci-test-secret-that-is-at-least-32-characters-long
+      NODE_ENV: test
 
     steps:
       - uses: actions/checkout@v4
@@ -31,9 +34,6 @@ jobs:
 
       - name: Test
         working-directory: backend
-        env:
-          JWT_SECRET: ci-test-secret-that-is-at-least-32-characters-long
-          NODE_ENV: test
         run: npm test
 
   frontend:
