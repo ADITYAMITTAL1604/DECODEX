@@ -1,4 +1,5 @@
 import { Router, Response } from 'express';
+import fs from 'fs';
 import { query } from '../db';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { requireConsent } from '../middleware/consent';
