@@ -184,8 +184,11 @@ export default function PracticePage() {
         const spoken = spokenRaw.toLowerCase().replace(/[.,!?;:'"]/g, '').trim();
         const target = targetWord.toLowerCase().replace(/[.,!?;:'"]/g, '').trim();
 
-        const spokenWords: string[] = spoken.split(/\s+/);
-        const isMatch = spoken === target || spokenWords.some((w: string) => w === target);
+        const spokenWords: string[] = spoken.split(/\s+/).filter((w: string) => w.length > 0);
+        const isMatch = spoken === target ||
+          spoken.includes(target) ||
+          target.includes(spoken) ||
+          spokenWords.some((w: string) => w === target || (target.length >= 4 && editDistance(w, target) <= 1));
 
         if (isMatch) {
           dex.speak(`Great job! You said ${spoken} perfectly!`);

@@ -490,6 +490,7 @@ function InteractiveActivityModal({
     setSpokenText(null);
     setVoiceError(null);
     setVoicePassed(false);
+    setAttempts(0);
   }, [step, currentQ]);
 
   // Use the Dex tutor hook for speech — falls back to browser TTS automatically
@@ -581,31 +582,64 @@ function InteractiveActivityModal({
     }
   };
 
+  const [attempts, setAttempts] = useState(0);
+
+  const editDistance = (s1: string, s2: string): number => {
+    const m = s1.length, n = s2.length;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        if (s1[i - 1] === s2[j - 1]) dp[i][j] = dp[i - 1][j - 1];
+        else dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      }
+    }
+    return dp[m][n];
+  };
+
   const evaluateSpeech = (spoken: string) => {
     const normSpoken = spoken.trim().toLowerCase().replace(/[.,!?]/g, '');
-    const normTarget = (currentQ.expectedSpeech || '').trim().toLowerCase();
+    const normTarget = (currentQ.expectedSpeech || '').trim().toLowerCase().replace(/[.,!?]/g, '');
 
     setSpokenText(spoken);
+    const newAttempts = attempts + 1;
+    setAttempts(newAttempts);
 
-    if (normSpoken === normTarget || normSpoken.includes(normTarget)) {
+    const spokenWords = normSpoken.split(/\s+/).filter(w => w.length > 0);
+    const isMatch = normSpoken === normTarget ||
+      normSpoken.includes(normTarget) ||
+      normTarget.includes(normSpoken) ||
+      spokenWords.some(w => w === normTarget || (normTarget.length >= 4 && editDistance(w, normTarget) <= 1));
+
+    if (isMatch) {
       setVoicePassed(true);
       setVoiceError(null);
       setScore(s => s + 1);
-      speakText('Correct pronunciation!');
+      speakText('Great job! That pronunciation is correct!');
     } else {
-      setVoicePassed(false);
-      setVoiceError(`WRONG PRONUNCIATION! You said "${spoken}", but expected "${normTarget}". You cannot move forward until you pronounce it correctly!`);
-      speakText('Try again. Please pronounce correctly.');
+      if (newAttempts >= 2) {
+        setVoicePassed(true);
+        setVoiceError(`Good effort! You said "${spoken}". Expected target was "${normTarget}". Let's move to the next question!`);
+        speakText('Good effort! Let\'s try the next question.');
+      } else {
+        setVoicePassed(false);
+        setVoiceError(`Not quite — you said "${spoken}". Target is "${normTarget}". Click microphone to try again!`);
+        speakText('Not quite! Listen closely and try again.');
+      }
     }
   };
 
   const handleSelectOption = (option: string) => {
     setSelectedOption(option);
-    if (option === currentQ.correct) {
+    const normOpt = option.trim().toLowerCase();
+    const normCorrect = (currentQ.correct || '').trim().toLowerCase();
+
+    if (normOpt === normCorrect) {
       setScore(s => s + 1);
       speakText('Correct!');
     } else {
-      speakText('Incorrect answer. Try again.');
+      speakText('Not quite — try another option or click Next!');
     }
   };
 
@@ -618,7 +652,7 @@ function InteractiveActivityModal({
     }
   };
 
-  const canProceed = currentQ.type === 'voice' ? voicePassed : (selectedOption !== null && selectedOption === currentQ.correct);
+  const canProceed = currentQ.type === 'voice' ? voicePassed : (selectedOption !== null);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-md p-4">
