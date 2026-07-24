@@ -41,15 +41,24 @@ function fallbackGrade(expectedAnswer: string, studentTranscript: string): Gradi
   const expected = expectedAnswer.toLowerCase().trim().replace(/[.,!?;:'"]/g, '');
   const spoken = studentTranscript.toLowerCase().trim().replace(/[.,!?;:'"]/g, '');
 
-  // Check exact match or if the expected answer appears in the transcript
+  if (!spoken) {
+    return {
+      correct: false,
+      feedback: 'I didn\'t catch that. Please speak your answer clearly!',
+    };
+  }
+
+  const expectedWords = expected.split(/\s+/).filter(w => w.length > 0);
+  const spokenWords = spoken.split(/\s+/).filter(w => w.length > 0);
+
   const correct = spoken === expected ||
-    spoken.includes(expected) ||
-    expected.split(/\s+/).every(word => spoken.includes(word));
+    (expected.length >= 3 && spoken.includes(expected)) ||
+    (expectedWords.length > 0 && expectedWords.every(word => word.length >= 2 && spokenWords.includes(word)));
 
   return {
     correct,
     feedback: correct
-      ? 'Great job, that sounds right!'
+      ? 'Great job, that\'s right!'
       : 'Not quite — let\'s try that one again!',
   };
 }

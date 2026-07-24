@@ -57,29 +57,28 @@ function editDistance(s1: string, s2: string): number {
 }
 
 /**
- * Checks if a single spoken word matches a target word.
+ * Checks if a single spoken word matches a target word accurately.
+ * Requires exact match or editDistance <= 1 for 4+ letter words.
+ * Prevents false positives where completely different words are accepted.
  */
 function isWordMatch(tw: string, sw: string): boolean {
   if (tw === sw) return true;
   if (tw.length >= 4 && sw.length >= 4 && Math.abs(tw.length - sw.length) <= 1) {
     if (editDistance(tw, sw) <= 1) return true;
   }
-  if (tw.length >= 4 && sw.length >= 3 && Math.abs(tw.length - sw.length) <= 2) {
-    if (tw.startsWith(sw) || sw.startsWith(tw)) return true;
-  }
   return false;
 }
 
 // ---------------------------------------------------------------------------
-// Helper: Evaluate if spoken text matches target 3-4 word chunk
+// Helper: Evaluate if spoken text fairly matches target 3-4 word chunk
 // ---------------------------------------------------------------------------
-function evaluateChunkRead(chunk: string, spoken: string): boolean {
-  if (!spoken || spoken.trim().length === 0) return false;
+function evaluateChunkRead(chunk: string, spoken: string): { passed: boolean; ratio: number } {
+  if (!spoken || spoken.trim().length === 0) return { passed: false, ratio: 0 };
 
   const targetWords = chunk.toLowerCase().replace(/[.,!?;:'"–-]/g, '').split(/\s+/).filter(w => w.length > 0);
   const spokenWords = spoken.toLowerCase().replace(/[.,!?;:'"–-]/g, '').split(/\s+/).filter(w => w.length > 0);
 
-  if (targetWords.length === 0) return true;
+  if (targetWords.length === 0) return { passed: true, ratio: 1.0 };
 
   const usedSpokenIndices = new Set<number>();
   let matchedCount = 0;
@@ -97,7 +96,11 @@ function evaluateChunkRead(chunk: string, spoken: string): boolean {
   }
 
   const ratio = matchedCount / targetWords.length;
-  return ratio >= 0.65;
+  // Fair evaluation: student must read at least 75% of target words correctly
+  return {
+    passed: ratio >= 0.75,
+    ratio,
+  };
 }
 
 export default function StoryReaderPage() {
@@ -232,6 +235,7 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
   const chunks = useMemo(() => splitInto3To4WordChunks(story.content || ''), [story.content]);
 
   const [currentChunkIdx, setCurrentChunkIdx] = useState(-1);
+  const [chunkStatuses, setChunkStatuses] = useState<Record<number, 'mastered' | 'struggled' | 'pending'>>({});
   const [isNarrating, setIsNarrating] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [finished, setFinished] = useState(false);
@@ -289,29 +293,31 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
 
         if (!narrationActive.current) break;
 
-        // 4. Evaluate spoken text against 3-4 word chunk
-        const passed = evaluateChunkRead(chunk, spoken);
+        // 4. Fair evaluation of spoken text against target 3-4 word chunk
+        const { passed, ratio } = evaluateChunkRead(chunk, spoken);
 
         if (passed) {
           chunkPassed = true;
-          setStatusMessage(`🎉 Great job! Words mastered.`);
-          await dex.speak("Great job!");
+          setChunkStatuses(prev => ({ ...prev, [i]: 'mastered' }));
+          setStatusMessage(`🎉 Correct! Mastered (${Math.round(ratio * 100)}% match)`);
+          await dex.speak("Great job! You read that correctly!");
         } else if (attempts < 2) {
-          setStatusMessage(`Let's practice these words once more!`);
-          await dex.speak("Let me read it again, then you repeat.");
+          setStatusMessage(`❌ Incorrect (heard "${spoken || 'silence'}"). Let's try again!`);
+          await dex.speak("Not quite! Listen closely and let's try again.");
           await new Promise(r => setTimeout(r, 300));
         } else {
-          // Encourage effort & move forward after 2 attempts so child is never stuck!
+          // Fair assessment: Mark as 'struggled' so it isn't falsely marked as mastered
           chunkPassed = true;
-          setStatusMessage(`🌟 Wonderful effort! Moving to next words.`);
-          await dex.speak("Awesome effort! Let's read the next words!");
+          setChunkStatuses(prev => ({ ...prev, [i]: 'struggled' }));
+          setStatusMessage(`⚠️ Needs Practice — Let's try the next phrase.`);
+          await dex.speak("That phrase was tricky! Let's read the next words.");
           await new Promise(r => setTimeout(r, 300));
         }
       }
     }
 
     if (narrationActive.current) {
-      await dex.speak("Awesome effort! You completed the entire story step by step!");
+      await dex.speak("Great effort completing the story! Check your reading summary below.");
       setFinished(true);
     }
 
@@ -337,6 +343,9 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
     setStatusMessage(`${TUTOR_NAME} reciting: "${chunk}"`);
     await dex.speak(chunk);
   };
+
+  const masteredCount = Object.values(chunkStatuses).filter(s => s === 'mastered').length;
+  const struggledCount = Object.values(chunkStatuses).filter(s => s === 'struggled').length;
 
   return (
     <div ref={containerRef} className="glass-card rounded-3xl p-8 sm:p-10 border border-secondary/30 shadow-xl bg-white/80 mb-10 animate-in fade-in space-y-6">
@@ -399,7 +408,7 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-amber-600 text-base">psychology</span>
           <span>
-            <strong>Dyslexia Support:</strong> Dex recites 3–4 word phrases! Tap any phrase to hear Dex read it aloud!
+            <strong>Fair Evaluation Mode:</strong> Green = Mastered • Yellow = Needs Practice • Tap any phrase to re-listen!
           </span>
         </div>
         {currentChunkIdx >= 0 && (
@@ -415,22 +424,29 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
 
       {/* Story content with 3-4 word phrase chunk highlighting */}
       <div className="font-body text-xl leading-relaxed text-on-surface tracking-wide bg-surface-container-lowest p-6 rounded-2xl border border-surface-container-high shadow-inner flex flex-wrap gap-2.5 items-center">
-        {chunks.map((chunk, i) => (
-          <button
-            key={i}
-            onClick={() => handleSelectChunk(i)}
-            title="Click to hear Dex recite these words!"
-            className={`px-3 py-1.5 rounded-xl transition-all duration-300 cursor-pointer text-left ${
-              i === currentChunkIdx
-                ? 'bg-primary text-on-primary font-extrabold shadow-md scale-105 ring-2 ring-primary/40'
-                : i < currentChunkIdx
-                ? 'bg-emerald-50 text-emerald-800 font-medium border border-emerald-200 hover:bg-emerald-100'
-                : 'bg-surface-container-high/60 text-on-surface hover:bg-surface-container-high'
-            }`}
-          >
-            {chunk}
-          </button>
-        ))}
+        {chunks.map((chunk, i) => {
+          const status = chunkStatuses[i];
+          const isCurrent = i === currentChunkIdx;
+
+          return (
+            <button
+              key={i}
+              onClick={() => handleSelectChunk(i)}
+              title="Click to hear Dex recite these words!"
+              className={`px-3 py-1.5 rounded-xl transition-all duration-300 cursor-pointer text-left ${
+                isCurrent
+                  ? 'bg-primary text-on-primary font-extrabold shadow-md scale-105 ring-2 ring-primary/40'
+                  : status === 'mastered'
+                  ? 'bg-emerald-100 text-emerald-900 font-bold border border-emerald-300 hover:bg-emerald-200'
+                  : status === 'struggled'
+                  ? 'bg-amber-100 text-amber-900 font-medium border border-amber-300 hover:bg-amber-200'
+                  : 'bg-surface-container-high/60 text-on-surface hover:bg-surface-container-high'
+              }`}
+            >
+              {chunk}
+            </button>
+          );
+        })}
       </div>
 
       {/* Status banner */}
@@ -446,7 +462,9 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
         <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-300 text-center">
           <span className="material-symbols-outlined text-4xl text-emerald-600 mb-2">celebration</span>
           <h3 className="font-display text-xl font-bold text-emerald-900">Story Complete! 🎉</h3>
-          <p className="font-body text-sm text-emerald-800 mt-1">You read every 3-4 word phrase effortlessly with {TUTOR_NAME}. Fantastic job!</p>
+          <p className="font-body text-sm text-emerald-800 mt-1">
+            Fair Evaluation Summary: <strong>{masteredCount}</strong> of <strong>{chunks.length}</strong> phrases mastered cleanly! {struggledCount > 0 && `(${struggledCount} phrases flagged for extra practice)`}
+          </p>
         </div>
       )}
     </div>
