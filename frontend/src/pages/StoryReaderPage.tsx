@@ -7,13 +7,37 @@ import DexAvatar from '../components/DexAvatar';
 import { TUTOR_NAME } from '../lib/constants';
 
 // ---------------------------------------------------------------------------
-// Utility: split content into sentences for narration pacing
+// Utility: split content into short 3-4 word chunks for easy dyslexic reading
 // ---------------------------------------------------------------------------
-function splitIntoSentences(text: string): string[] {
-  return text
+function splitInto3To4WordChunks(text: string): string[] {
+  const rawSentences = text
     .split(/(?<=[.!?])\s+/)
     .map(s => s.trim())
     .filter(s => s.length > 0);
+
+  const chunks: string[] = [];
+
+  for (const sentence of rawSentences) {
+    const words = sentence.split(/\s+/).filter(w => w.length > 0);
+    if (words.length === 0) continue;
+
+    let i = 0;
+    while (i < words.length) {
+      const remaining = words.length - i;
+      let count = 3;
+      if (remaining === 4) {
+        count = 4;
+      } else if (remaining < 3) {
+        count = remaining;
+      }
+
+      const chunkWords = words.slice(i, i + count);
+      chunks.push(chunkWords.join(' '));
+      i += count;
+    }
+  }
+
+  return chunks;
 }
 
 function editDistance(s1: string, s2: string): number {
@@ -47,12 +71,12 @@ function isWordMatch(tw: string, sw: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Helper: Evaluate if spoken text matches target sentence
+// Helper: Evaluate if spoken text matches target 3-4 word chunk
 // ---------------------------------------------------------------------------
-function evaluateSentenceRead(sentence: string, spoken: string): boolean {
+function evaluateChunkRead(chunk: string, spoken: string): boolean {
   if (!spoken || spoken.trim().length === 0) return false;
 
-  const targetWords = sentence.toLowerCase().replace(/[.,!?;:'"–-]/g, '').split(/\s+/).filter(w => w.length > 0);
+  const targetWords = chunk.toLowerCase().replace(/[.,!?;:'"–-]/g, '').split(/\s+/).filter(w => w.length > 0);
   const spokenWords = spoken.toLowerCase().replace(/[.,!?;:'"–-]/g, '').split(/\s+/).filter(w => w.length > 0);
 
   if (targetWords.length === 0) return true;
@@ -73,7 +97,7 @@ function evaluateSentenceRead(sentence: string, spoken: string): boolean {
   }
 
   const ratio = matchedCount / targetWords.length;
-  return ratio >= 0.75;
+  return ratio >= 0.65;
 }
 
 export default function StoryReaderPage() {
@@ -201,13 +225,13 @@ export default function StoryReaderPage() {
 }
 
 // ---------------------------------------------------------------------------
-// NarratedStoryReader — Header controls + smooth auto-scroll + repeat reading
+// NarratedStoryReader — Header controls + smooth auto-scroll + 3-4 word chunk reading
 // ---------------------------------------------------------------------------
 function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => void }) {
   const dex = useDex();
-  const sentences = useMemo(() => splitIntoSentences(story.content || ''), [story.content]);
+  const chunks = useMemo(() => splitInto3To4WordChunks(story.content || ''), [story.content]);
 
-  const [currentSentenceIdx, setCurrentSentenceIdx] = useState(-1);
+  const [currentChunkIdx, setCurrentChunkIdx] = useState(-1);
   const [isNarrating, setIsNarrating] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [finished, setFinished] = useState(false);
@@ -224,7 +248,7 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
     setStatusMessage(null);
   }, []);
 
-  // Start interactive line-by-line reading with smooth auto-scroll to story top
+  // Start interactive 3-4 word chunk reading with smooth auto-scroll to story top
   const startNarration = useCallback(async () => {
     if (narrationActive.current) return;
     narrationActive.current = true;
@@ -234,58 +258,58 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
     // Auto scroll directly to top of story reader feature
     containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-    await dex.speak(`Let's read ${story.title} together! I'll read line by line, then you repeat after me.`);
+    await dex.speak(`Let's read ${story.title} together! I'll read 3 to 4 words at a time, then you repeat after me.`);
 
-    for (let i = 0; i < sentences.length; i++) {
+    for (let i = 0; i < chunks.length; i++) {
       if (!narrationActive.current) break;
 
-      setCurrentSentenceIdx(i);
-      const sentence = sentences[i];
-      let linePassed = false;
+      setCurrentChunkIdx(i);
+      const chunk = chunks[i];
+      let chunkPassed = false;
 
-      while (!linePassed && narrationActive.current) {
-        // 1. Dex reads the line aloud
-        setStatusMessage(`${TUTOR_NAME} is reading the line…`);
-        await dex.speak(sentence);
-
-        if (!narrationActive.current) break;
-
-        // 2. Dex prompts student to repeat
-        setStatusMessage(`Now your turn! Read the line aloud into your mic.`);
-        await dex.speak("Now your turn! Read this line aloud into your microphone.");
+      while (!chunkPassed && narrationActive.current) {
+        // 1. Dex reads 3-4 words aloud
+        setStatusMessage(`${TUTOR_NAME} is reading: "${chunk}"`);
+        await dex.speak(chunk);
 
         if (!narrationActive.current) break;
 
-        // 3. Listen for full sentence speech (continuous 9-second window)
-        setStatusMessage(`Listening for your full sentence reading… (speak clearly into mic)`);
+        // 2. Dex prompts student to repeat the 3-4 words
+        setStatusMessage(`Now your turn! Read: "${chunk}"`);
+        await dex.speak(`Now your turn! ${chunk}`);
+
+        if (!narrationActive.current) break;
+
+        // 3. Listen for spoken reading
+        setStatusMessage(`Listening for: "${chunk}" (speak into mic)`);
         const spoken = await dex.listen('sentence');
 
         if (!narrationActive.current) break;
 
-        // 4. Evaluate spoken text against current sentence line (75% threshold)
-        const passed = evaluateSentenceRead(sentence, spoken);
+        // 4. Evaluate spoken text against 3-4 word chunk
+        const passed = evaluateChunkRead(chunk, spoken);
 
         if (passed) {
-          linePassed = true;
-          setStatusMessage(`🎉 Great job! Line mastered.`);
-          await dex.speak("Great job! You read that line effortlessly!");
+          chunkPassed = true;
+          setStatusMessage(`🎉 Great job! Words mastered.`);
+          await dex.speak("Great job!");
         } else {
-          setStatusMessage(`Not quite — let's practice reading this line again!`);
-          await dex.speak("Not quite! Let me read it again, then you repeat after me.");
-          await new Promise(r => setTimeout(r, 500));
+          setStatusMessage(`Let's practice these words again!`);
+          await dex.speak("Let me read it again, then you repeat.");
+          await new Promise(r => setTimeout(r, 400));
         }
       }
     }
 
     if (narrationActive.current) {
-      await dex.speak("Awesome effort! You completed the entire story line by line!");
+      await dex.speak("Awesome effort! You completed the entire story step by step!");
       setFinished(true);
     }
 
     narrationActive.current = false;
     setIsNarrating(false);
     setStatusMessage(null);
-  }, [sentences, dex, story.title]);
+  }, [chunks, dex, story.title]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -299,7 +323,7 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
 
   return (
     <div ref={containerRef} className="glass-card rounded-3xl p-8 sm:p-10 border border-secondary/30 shadow-xl bg-white/80 mb-10 animate-in fade-in space-y-6">
-      {/* Header — Title on left, Action buttons (Read with Dex / Stop Reading / Close Story) on top right */}
+      {/* Header — Title on left, Action buttons on top right */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-surface-container-highest pb-6">
         <div>
           <div className="flex items-center gap-2 mb-2">
@@ -308,14 +332,14 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
             </span>
             {story.wordCount && (
               <span className="inline-block px-3 py-1 rounded-full bg-primary/10 text-primary font-display text-xs font-bold uppercase tracking-wider">
-                {story.wordCount} Words
+                {story.wordCount} Words ({chunks.length} bites)
               </span>
             )}
           </div>
           <h2 className="font-display text-3xl font-extrabold text-primary">{story.title}</h2>
         </div>
 
-        {/* Action Controls right at the top beside the title */}
+        {/* Action Controls */}
         <div className="flex items-center gap-3">
           {!isNarrating ? (
             <button
@@ -323,7 +347,7 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
               className="px-6 py-2.5 rounded-xl bg-secondary text-on-secondary font-display text-xs font-bold uppercase tracking-wider hover:bg-secondary-container hover:text-on-secondary-container transition-all cursor-pointer flex items-center gap-2 shadow-md hover:shadow-lg active:scale-95"
             >
               <span className="material-symbols-outlined text-base">play_arrow</span>
-              {finished ? 'Read Again' : currentSentenceIdx >= 0 ? 'Resume Reading' : `Read with ${TUTOR_NAME}`}
+              {finished ? 'Read Again' : currentChunkIdx >= 0 ? 'Resume Reading' : `Read with ${TUTOR_NAME}`}
             </button>
           ) : (
             <button
@@ -353,27 +377,36 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
         <DexAvatar state={dex.state} caption={dex.caption} />
       </div>
 
-      {/* Story content with sentence line highlighting */}
-      <div className="font-body text-lg leading-relaxed text-on-surface tracking-wide bg-surface-container-lowest p-6 rounded-2xl border border-surface-container-high shadow-inner space-y-2">
-        {sentences.map((sentence, i) => (
-          <p
+      {/* Dyslexia-Friendly Pacing Guidance Banner */}
+      <div className="p-3 px-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-display flex items-center gap-2">
+        <span className="material-symbols-outlined text-amber-600 text-base">psychology</span>
+        <span>
+          <strong>Dyslexia Reading Support:</strong> Dex recites short 3–4 word phrases so you can read smoothly without getting overwhelmed!
+        </span>
+      </div>
+
+      {/* Story content with 3-4 word phrase chunk highlighting */}
+      <div className="font-body text-xl leading-relaxed text-on-surface tracking-wide bg-surface-container-lowest p-6 rounded-2xl border border-surface-container-high shadow-inner flex flex-wrap gap-2 items-center">
+        {chunks.map((chunk, i) => (
+          <span
             key={i}
-            className={`p-2 rounded-xl transition-all duration-300 ${
-              i === currentSentenceIdx
-                ? 'bg-primary/15 text-primary font-bold border-l-4 border-primary pl-3'
-                : i < currentSentenceIdx
-                ? 'text-on-surface-variant opacity-75'
-                : 'text-on-surface'
+            className={`inline-block px-3 py-1.5 rounded-xl transition-all duration-300 ${
+              i === currentChunkIdx
+                ? 'bg-primary text-on-primary font-extrabold shadow-md scale-105 ring-2 ring-primary/40'
+                : i < currentChunkIdx
+                ? 'bg-emerald-50 text-emerald-800 font-medium border border-emerald-200'
+                : 'bg-surface-container-high/60 text-on-surface hover:bg-surface-container-high'
             }`}
           >
-            {sentence}
-          </p>
+            {chunk}
+          </span>
         ))}
       </div>
 
       {/* Status banner */}
       {statusMessage && (
-        <div className="p-3.5 rounded-2xl bg-indigo-50 border border-indigo-200 text-center font-display text-xs font-bold text-indigo-900 shadow-sm animate-pulse">
+        <div className="p-3.5 rounded-2xl bg-indigo-50 border border-indigo-200 text-center font-display text-xs font-bold text-indigo-900 shadow-sm animate-pulse flex items-center justify-center gap-2">
+          <span className="material-symbols-outlined text-indigo-600 text-base">record_voice_over</span>
           {statusMessage}
         </div>
       )}
@@ -383,7 +416,7 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
         <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-300 text-center">
           <span className="material-symbols-outlined text-4xl text-emerald-600 mb-2">celebration</span>
           <h3 className="font-display text-xl font-bold text-emerald-900">Story Complete! 🎉</h3>
-          <p className="font-body text-sm text-emerald-800 mt-1">You read every line effortlessly with {TUTOR_NAME}. Fantastic job!</p>
+          <p className="font-body text-sm text-emerald-800 mt-1">You read every 3-4 word phrase effortlessly with {TUTOR_NAME}. Fantastic job!</p>
         </div>
       )}
     </div>

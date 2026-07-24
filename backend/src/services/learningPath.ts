@@ -173,7 +173,8 @@ export async function generateLearningPath(studentId: string): Promise<LearningP
   const title = `Stage ${stageNumber}: ${studentName}'s Reading Curriculum (${trackMode})`;
 
   const planSummary = `Stage ${stageNumber} Plan for ${studentName} (Grade ${effectiveGradeLevel}, ${trackMode}, ${sessionCount} sessions analyzed). ` +
-    `Targeting ${primaryMeta.focus} (${errorCounts[0][1]} errors) and ${secondaryMeta.focus} (${errorCounts[1][1]} errors). Average speed: ${avgWpm} WPM.`;
+    `Targeting ${primaryMeta.focus} (${errorCounts[0][1]} errors) and ${secondaryMeta.focus} (${errorCounts[1][1]} errors). Average speed: ${avgWpm} WPM. ` +
+    `Daily Practice Rule: You must practice reading every single day — if not an entire story, reading even a small part or a few 3-4 word phrases of a story daily will continuously improve your reading skills!`;
 
   // Deactivate any old active paths
   await query(`UPDATE learning_paths SET status = 'paused', updated_at = NOW() WHERE student_id = $1 AND status = 'active'`, [studentId]);

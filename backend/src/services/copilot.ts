@@ -283,7 +283,7 @@ function generateSummary(
     `Across ${sessionCount} reading session${sessionCount !== 1 ? 's' : ''}, the primary areas for improvement are: ${weaknessNames}. ` +
     `Average reading speed is ${avgWpm} WPM. ` +
     `The recommended intervention plan focuses on structured Orton-Gillingham exercises targeting these specific patterns, ` +
-    `with weekly milestones to track progress and adjust difficulty.`;
+    `with weekly milestones to track progress. Daily Practice Commitment: Students must practice reading daily — if not a whole story, reading even a small part of a story daily will continuously improve reading skills.`;
 }
 
 function generateParentCommunication(
@@ -314,7 +314,7 @@ Here's our 4-week improvement plan:
 ${weekSummary}
 
 How you can help at home:
-  • Encourage 10-15 minutes of reading practice daily
+  • Encourage daily reading practice (if not a whole story, reading even a small part of a story daily is essential!)
   • Listen to ${name} read aloud and praise effort (not just accuracy)
   • Use the Decodex parent dashboard to track weekly progress
   • Celebrate milestones — every improvement matters!

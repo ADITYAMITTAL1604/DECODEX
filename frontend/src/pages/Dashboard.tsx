@@ -138,7 +138,7 @@ export default function Dashboard() {
                 Hi {user.display_name.split(' ')[0]}! I'm {TUTOR_NAME}!
               </h2>
               <p className="font-body text-sm text-on-surface-variant mt-1 max-w-md">
-                Let's practice reading together today! I'll read story lines aloud with you and celebrate every milestone!
+                Let's practice reading together today! Remember: <strong>you must practice reading daily</strong> — even if not a whole story, reading even a small part of a story every day will help you continuously improve yourself!
               </p>
             </div>
           </div>

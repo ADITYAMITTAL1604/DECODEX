@@ -139,6 +139,31 @@ export default function LearningPathPage() {
         )}
       </div>
 
+      {/* Daily Practice Commitment Card */}
+      <div className="glass-card rounded-3xl p-6 border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent mb-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-600 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-2xl">menu_book</span>
+          </div>
+          <div>
+            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-900 font-display text-[10px] font-bold uppercase tracking-wider">
+              Student Core Rule
+            </span>
+            <h3 className="font-display text-lg font-bold text-on-surface mt-1">Daily Story Practice Commitment</h3>
+            <p className="font-body text-sm text-on-surface-variant max-w-2xl mt-0.5">
+              You must practice reading every single day — even if you cannot finish a whole story, reading even a small part or a few phrases of a story daily will continuously improve your skills!
+            </p>
+          </div>
+        </div>
+        <Link
+          to="/stories"
+          className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-display text-xs font-bold uppercase tracking-wider transition-all shadow-sm shrink-0 flex items-center gap-1.5"
+        >
+          <span className="material-symbols-outlined text-base">auto_stories</span>
+          Practice Story
+        </Link>
+      </div>
+
       {errorMsg && (
         <div className="mb-6 p-4 rounded-2xl bg-red-500/10 border-2 border-red-500/30 text-red-900 font-body text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
