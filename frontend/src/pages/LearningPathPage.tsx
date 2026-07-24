@@ -453,6 +453,12 @@ function InteractiveActivityModal({
   const questions = useMemo(() => generateDynamicQuestions(activity), [activity]);
   const currentQ = questions[step % questions.length];
 
+  const modalRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    modalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, []);
+
   useEffect(() => {
     speakText(currentQ.readText);
     setSelectedOption(null);

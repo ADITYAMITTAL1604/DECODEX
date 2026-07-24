@@ -34,10 +34,6 @@ function editDistance(s1: string, s2: string): number {
 
 /**
  * Checks if a single spoken word matches a target word.
- * 1. Exact match (e.g. "cat" === "cat")
- * 2. Edit distance <= 1 for words length >= 4 with length diff <= 1 (e.g. "small" vs "smal")
- * 3. Prefix/stem match for words length >= 4 with length diff <= 2 (e.g. "jumped" vs "jump")
- * NO substring matching across arbitrary words to prevent false passes!
  */
 function isWordMatch(tw: string, sw: string): boolean {
   if (tw === sw) return true;
@@ -52,7 +48,6 @@ function isWordMatch(tw: string, sw: string): boolean {
 
 // ---------------------------------------------------------------------------
 // Helper: Evaluate if spoken text matches target sentence
-// Fair 75% threshold with position-aware word consumption.
 // ---------------------------------------------------------------------------
 function evaluateSentenceRead(sentence: string, spoken: string): boolean {
   if (!spoken || spoken.trim().length === 0) return false;
@@ -78,7 +73,6 @@ function evaluateSentenceRead(sentence: string, spoken: string): boolean {
   }
 
   const ratio = matchedCount / targetWords.length;
-  // Require 75% accuracy — fair evaluation that requires reading the line correctly
   return ratio >= 0.75;
 }
 
@@ -89,9 +83,17 @@ export default function StoryReaderPage() {
 
   const [generating, setGenerating] = useState(false);
   const [selectedStory, setSelectedStory] = useState<any | null>(null);
+  const readerSectionRef = useRef<HTMLDivElement | null>(null);
 
   const { data, loading, refetch } = useApiQuery<any>(`/stories/student/${studentId}`);
   const stories = data?.stories || [];
+
+  const handleSelectStory = (story: any) => {
+    setSelectedStory(story);
+    setTimeout(() => {
+      readerSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
 
   const handleGenerateStory = async () => {
     setGenerating(true);
@@ -99,6 +101,9 @@ export default function StoryReaderPage() {
       const res = await apiFetch<any>('/stories/generate', { method: 'POST', body: JSON.stringify({ student_id: studentId }) });
       setSelectedStory(res.story);
       refetch();
+      setTimeout(() => {
+        readerSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 150);
     } catch (err) {
       console.error('Failed to generate story:', err);
     } finally {
@@ -135,12 +140,14 @@ export default function StoryReaderPage() {
         </button>
       </div>
 
-      {/* Selected Active Story Reader — interactive repeat-after-me reader */}
+      {/* Selected Active Story Reader — scroll anchor */}
       {selectedStory && (
-        <NarratedStoryReader
-          story={selectedStory}
-          onClose={() => setSelectedStory(null)}
-        />
+        <div ref={readerSectionRef}>
+          <NarratedStoryReader
+            story={selectedStory}
+            onClose={() => setSelectedStory(null)}
+          />
+        </div>
       )}
 
       {/* Library Grid */}
@@ -179,7 +186,7 @@ export default function StoryReaderPage() {
                   ))}
                 </div>
                 <button
-                  onClick={() => setSelectedStory(story)}
+                  onClick={() => handleSelectStory(story)}
                   className="px-4 py-2 rounded-xl bg-primary text-on-primary font-display text-xs font-bold uppercase tracking-wider hover:bg-primary-container hover:text-on-primary-container transition-colors cursor-pointer"
                 >
                   Read Story
@@ -194,10 +201,7 @@ export default function StoryReaderPage() {
 }
 
 // ---------------------------------------------------------------------------
-// NarratedStoryReader — Interactive line-by-line repeat-after-me reading loop
-//
-// Reads one sentence line -> prompts student to repeat -> listens -> evaluates.
-// Repeats line until student reads it effortlessly before advancing!
+// NarratedStoryReader — Header controls + smooth auto-scroll + repeat reading
 // ---------------------------------------------------------------------------
 function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => void }) {
   const dex = useDex();
@@ -209,6 +213,7 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
   const [finished, setFinished] = useState(false);
 
   const narrationActive = useRef(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   const stopNarration = useCallback(() => {
     narrationActive.current = false;
@@ -219,12 +224,15 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
     setStatusMessage(null);
   }, []);
 
-  // Start interactive line-by-line reading
+  // Start interactive line-by-line reading with smooth auto-scroll to story top
   const startNarration = useCallback(async () => {
     if (narrationActive.current) return;
     narrationActive.current = true;
     setIsNarrating(true);
     setFinished(false);
+
+    // Auto scroll directly to top of story reader feature
+    containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     await dex.speak(`Let's read ${story.title} together! I'll read line by line, then you repeat after me.`);
 
@@ -254,7 +262,7 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
 
         if (!narrationActive.current) break;
 
-        // 4. Evaluate spoken text against current sentence line (80% threshold required)
+        // 4. Evaluate spoken text against current sentence line (75% threshold)
         const passed = evaluateSentenceRead(sentence, spoken);
 
         if (passed) {
@@ -290,9 +298,9 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
   }, []);
 
   return (
-    <div className="glass-card rounded-3xl p-8 sm:p-10 border border-secondary/30 shadow-xl bg-white/80 mb-10 animate-in fade-in space-y-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-surface-container-highest pb-4">
+    <div ref={containerRef} className="glass-card rounded-3xl p-8 sm:p-10 border border-secondary/30 shadow-xl bg-white/80 mb-10 animate-in fade-in space-y-6">
+      {/* Header — Title on left, Action buttons (Read with Dex / Stop Reading / Close Story) on top right */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-surface-container-highest pb-6">
         <div>
           <div className="flex items-center gap-2 mb-2">
             <span className="inline-block px-3 py-1 rounded-full bg-secondary-container/20 text-secondary font-display text-xs font-bold uppercase tracking-wider">
@@ -306,12 +314,37 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
           </div>
           <h2 className="font-display text-3xl font-extrabold text-primary">{story.title}</h2>
         </div>
-        <div className="flex items-center gap-2">
-          {story.targetPhonemes?.map((ph: string, i: number) => (
-            <span key={i} className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 font-display text-xs font-bold border border-emerald-300">
-              Target: /{ph}/
-            </span>
-          ))}
+
+        {/* Action Controls right at the top beside the title */}
+        <div className="flex items-center gap-3">
+          {!isNarrating ? (
+            <button
+              onClick={startNarration}
+              className="px-6 py-2.5 rounded-xl bg-secondary text-on-secondary font-display text-xs font-bold uppercase tracking-wider hover:bg-secondary-container hover:text-on-secondary-container transition-all cursor-pointer flex items-center gap-2 shadow-md hover:shadow-lg active:scale-95"
+            >
+              <span className="material-symbols-outlined text-base">play_arrow</span>
+              {finished ? 'Read Again' : currentSentenceIdx >= 0 ? 'Resume Reading' : `Read with ${TUTOR_NAME}`}
+            </button>
+          ) : (
+            <button
+              onClick={stopNarration}
+              className="px-6 py-2.5 rounded-xl bg-red-500 text-white font-display text-xs font-bold uppercase tracking-wider hover:bg-red-600 active:scale-95 transition-all cursor-pointer flex items-center gap-2 shadow-md"
+            >
+              <span className="material-symbols-outlined text-base">stop</span>
+              Stop Reading
+            </button>
+          )}
+
+          <button
+            onClick={() => {
+              stopNarration();
+              onClose();
+            }}
+            className="px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface-variant font-display text-xs font-bold uppercase tracking-wider hover:bg-surface-container-highest transition-colors cursor-pointer flex items-center gap-1"
+          >
+            <span className="material-symbols-outlined text-sm">close</span>
+            Close
+          </button>
         </div>
       </div>
 
@@ -353,37 +386,6 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
           <p className="font-body text-sm text-emerald-800 mt-1">You read every line effortlessly with {TUTOR_NAME}. Fantastic job!</p>
         </div>
       )}
-
-      {/* Controls */}
-      <div className="flex justify-between gap-4">
-        <button
-          onClick={() => {
-            stopNarration();
-            onClose();
-          }}
-          className="px-5 py-2.5 rounded-xl bg-surface-container-high text-on-surface-variant font-display text-xs font-bold uppercase tracking-wider hover:bg-surface-container-highest transition-colors cursor-pointer"
-        >
-          Close Story
-        </button>
-
-        {!isNarrating ? (
-          <button
-            onClick={startNarration}
-            className="px-6 py-2.5 rounded-xl bg-secondary text-on-secondary font-display text-xs font-bold uppercase tracking-wider hover:bg-secondary-container hover:text-on-secondary-container transition-colors cursor-pointer flex items-center gap-2 shadow-md"
-          >
-            <span className="material-symbols-outlined text-base">play_arrow</span>
-            {finished ? 'Read Again' : currentSentenceIdx >= 0 ? 'Resume Interactive Reading' : `Read with ${TUTOR_NAME}`}
-          </button>
-        ) : (
-          <button
-            onClick={stopNarration}
-            className="px-6 py-2.5 rounded-xl bg-red-500 text-white font-display text-xs font-bold uppercase tracking-wider hover:bg-red-600 active:scale-95 transition-all cursor-pointer flex items-center gap-2 shadow-md"
-          >
-            <span className="material-symbols-outlined text-base">stop</span>
-            Stop Reading
-          </button>
-        )}
-      </div>
     </div>
   );
 }

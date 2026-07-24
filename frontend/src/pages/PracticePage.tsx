@@ -248,6 +248,12 @@ export default function PracticePage() {
     }
   };
 
+  const cardRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [currentWordIdx]);
+
   if (loading) return <div className="p-12 text-center text-on-surface-variant font-body text-lg">Loading practice session...</div>;
   if (error) return <div className="p-12 text-center text-error font-body text-lg">Error: {error.message}</div>;
 
@@ -293,7 +299,7 @@ export default function PracticePage() {
       </div>
 
       {/* Main Interactive Light Mode Stage Card */}
-      <div className="glass-card rounded-[32px] p-8 sm:p-12 border border-white/90 shadow-xl flex flex-col items-center text-center gap-8 bg-surface-container-lowest">
+      <div ref={cardRef} className="glass-card rounded-[32px] p-8 sm:p-12 border border-white/90 shadow-xl flex flex-col items-center text-center gap-8 bg-surface-container-lowest">
         
         {/* Target Word */}
         <div className="space-y-2">
