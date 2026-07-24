@@ -468,10 +468,29 @@ function InteractiveActivityModal({
     modalDex.speak(text);
   };
 
-  const startVoiceInput = () => {
+  const startVoiceInput = async () => {
+    // Cancel ongoing TTS audio and give browser 200ms to release audio device
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    await new Promise(r => setTimeout(r, 200));
+
     setListening(true);
     setVoiceError(null);
     setSpokenText(null);
+
+    // Warm up mic explicitly via getUserMedia
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop());
+      }
+    } catch (permErr) {
+      console.warn('Microphone permission error:', permErr);
+      setListening(false);
+      setVoiceError('Microphone permission blocked. Please allow mic access in your browser bar.');
+      return;
+    }
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
@@ -482,26 +501,51 @@ function InteractiveActivityModal({
       return;
     }
 
+    let timeoutId: any = null;
+
     try {
       const recognition = new SpeechRecognition();
       recognition.lang = 'en-US';
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
 
+      // 8-second max safety timeout
+      timeoutId = setTimeout(() => {
+        try { recognition.abort(); } catch (e) {}
+        setListening(false);
+        setVoiceError('Listening timed out. Click the microphone to try speaking again!');
+      }, 8000);
+
       recognition.onresult = (event: any) => {
+        if (timeoutId) clearTimeout(timeoutId);
         const transcript = event.results[0][0].transcript;
         evaluateSpeech(transcript);
         setListening(false);
       };
 
-      recognition.onerror = () => {
-        setVoiceError('Could not detect speech clearly. Click microphone and try again!');
+      recognition.onerror = (event: any) => {
+        if (timeoutId) clearTimeout(timeoutId);
+        console.warn('Modal SpeechRecognition error:', event?.error);
+        if (event?.error === 'aborted') return;
+
+        const msg = event?.error === 'not-allowed'
+          ? 'Microphone permission blocked. Allow mic access in your browser address bar.'
+          : 'Could not detect speech clearly. Click microphone and try speaking into your mic!';
+
+        setVoiceError(msg);
+        setListening(false);
+      };
+
+      recognition.onend = () => {
+        if (timeoutId) clearTimeout(timeoutId);
         setListening(false);
       };
 
       recognition.start();
-    } catch {
-      setVoiceError('Speech recognition unavailable. Please try typing fallback.');
+    } catch (err) {
+      if (timeoutId) clearTimeout(timeoutId);
+      console.error('Modal SpeechRecognition start failed:', err);
+      setVoiceError('Speech recognition unavailable. Click microphone to try again.');
       setListening(false);
     }
   };
