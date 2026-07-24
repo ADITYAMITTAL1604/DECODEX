@@ -2,6 +2,8 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import decodexLogo from '../assets/decodex-logo.png';
+import DexAvatar from '../components/DexAvatar';
+import { TUTOR_NAME } from '../lib/constants';
 
 export default function LandingPage() {
   const { isAuthenticated, user } = useAuth();
@@ -17,7 +19,7 @@ export default function LandingPage() {
   return (
     <div className="w-full text-on-surface">
       {/* Hero Section */}
-      <section className="relative py-12 sm:py-20 flex flex-col items-center text-center">
+      <section className="relative py-12 sm:py-16 flex flex-col items-center text-center">
         {/* Glow backdrop */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
 
@@ -38,7 +40,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="font-body text-lg sm:text-xl text-on-surface-variant max-w-2xl leading-relaxed mb-8">
-            Decodex transcribes speech in real-time, diagnoses reading difficulties using structured Orton-Gillingham taxonomy, and delivers adaptive 20-day multisensory learning plans.
+            Decodex transcribes speech in real-time, diagnoses reading difficulties using structured Orton-Gillingham taxonomy, and delivers adaptive multisensory learning plans.
           </p>
 
           {/* Call to Action Buttons */}
@@ -69,6 +71,65 @@ export default function LandingPage() {
                 </Link>
               </>
             )}
+          </div>
+        </div>
+      </section>
+
+      {/* MEET DEX — Cartoon Voice Tutor Spotlight */}
+      <section className="py-12 px-4 max-w-6xl mx-auto">
+        <div className="glass-card rounded-[36px] p-8 sm:p-12 border-2 border-secondary/30 bg-gradient-to-br from-white/90 via-amber-50/40 to-indigo-50/40 shadow-2xl flex flex-col lg:flex-row items-center justify-between gap-10">
+          {/* Left Mascot Display */}
+          <div className="flex flex-col items-center shrink-0">
+            <DexAvatar
+              state="celebrating"
+              caption={`Hi there! I'm ${TUTOR_NAME}, your AI reading companion! Let's read stories and master words together!`}
+              size="lg"
+              showCaptionBubble={true}
+            />
+          </div>
+
+          {/* Right Spotlight Content */}
+          <div className="space-y-6 max-w-xl text-center lg:text-left">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-secondary-container/30 text-secondary font-display text-xs font-bold uppercase tracking-widest">
+              <span className="material-symbols-outlined text-base">face_5</span>
+              Meet Your AI Companion
+            </div>
+
+            <h2 className="font-display text-3xl sm:text-4xl font-extrabold text-on-surface leading-tight">
+              Interactive Voice Reading with <span className="text-secondary">{TUTOR_NAME}</span>
+            </h2>
+
+            <p className="font-body text-base text-on-surface-variant leading-relaxed">
+              {TUTOR_NAME} acts like an interactive cartoon tutor that listens, speaks, and reacts to students in real-time. With expressional victory dances, soothing narration, and instant line repeat evaluation, {TUTOR_NAME} makes learning to read fun and stress-free!
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <div className="p-4 rounded-2xl bg-white/80 border border-secondary/20 shadow-xs flex items-start gap-3 text-left">
+                <span className="material-symbols-outlined text-secondary text-2xl">auto_stories</span>
+                <div>
+                  <h4 className="font-display text-sm font-bold text-on-surface">Line-by-Line Pacing</h4>
+                  <p className="font-body text-xs text-on-surface-variant">Dex reads each line aloud, then listens continuously as students repeat it.</p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white/80 border border-secondary/20 shadow-xs flex items-start gap-3 text-left">
+                <span className="material-symbols-outlined text-emerald-600 text-2xl">record_voice_over</span>
+                <div>
+                  <h4 className="font-display text-sm font-bold text-on-surface">Soothing Female Voice</h4>
+                  <p className="font-body text-xs text-on-surface-variant">Warm, clear educational narration designed specifically for young learners.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
+              <Link
+                to={isAuthenticated ? "/stories" : "/login"}
+                className="px-8 py-3.5 rounded-2xl bg-secondary text-on-secondary font-display text-sm font-bold uppercase tracking-wider shadow-md hover:bg-secondary-container hover:text-on-secondary-container transition-all active:scale-95 flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined text-lg">play_arrow</span>
+                Read Stories with {TUTOR_NAME}
+              </Link>
+            </div>
           </div>
         </div>
       </section>
@@ -154,7 +215,7 @@ export default function LandingPage() {
               </div>
               <h4 className="font-display text-lg font-bold text-on-surface mb-2">Follow 20-Day Path</h4>
               <p className="font-body text-xs text-on-surface-variant leading-relaxed">
-                Student completes daily voice activities and fresh AI stories, advancing step-by-step to Stage 2+.
+                Student completes daily voice activities and fresh AI stories with {TUTOR_NAME}, advancing step-by-step.
               </p>
             </div>
           </div>
@@ -166,7 +227,7 @@ export default function LandingPage() {
         <div className="glass-card rounded-3xl p-8 sm:p-12 border border-white/80 max-w-3xl mx-auto shadow-lg">
           <h2 className="font-display text-3xl font-extrabold text-on-surface mb-3">Ready to Help Every Child Read?</h2>
           <p className="font-body text-base text-on-surface-variant mb-6">
-            Get started in seconds with personalized diagnostic reading assessment.
+            Get started in seconds with personalized diagnostic reading assessment and {TUTOR_NAME}.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
