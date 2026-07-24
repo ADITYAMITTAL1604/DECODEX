@@ -42,6 +42,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Security and utility middlewares
+// Trust first proxy (Render / Vercel reverse proxy) so rate limiter
+// sees real client IPs instead of the proxy's IP.
+app.set('trust proxy', 1);
 app.use(helmet());
 
 const allowedOrigins = [
@@ -66,7 +69,7 @@ app.use(
 // --- Rate limiting (Section 1e) ---
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
+  max: 50, // 50 login/register attempts per 15 min per IP
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: { code: 'RATE_LIMITED', message: 'Too many requests, please try again later' } },
@@ -74,7 +77,7 @@ const authLimiter = rateLimit({
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 60,
+  max: 300, // 300 API requests per 15 min per IP
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: { code: 'RATE_LIMITED', message: 'Too many requests, please try again later' } },
