@@ -100,14 +100,32 @@ export default function PracticePage() {
     }
   }, [currentWordIdx, data]);
 
-  const startSpeechVerification = (targetWord: string) => {
-    // Cancel TTS audio to prevent system mic lockup
+  const startSpeechVerification = async (targetWord: string) => {
+    // Cancel TTS audio and give browser 200ms to release audio device
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
+    await new Promise(r => setTimeout(r, 200));
 
     setMicStatus('listening');
     setSpeechFeedback(null);
+
+    // Warm up / verify mic permission explicitly via getUserMedia
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop());
+      }
+    } catch (permErr) {
+      console.warn('Microphone permission denied or unavailable:', permErr);
+      setMicStatus('idle');
+      setSpeechFeedback({
+        correct: false,
+        spoken: '',
+        message: 'Microphone access blocked. Please click the lock icon in your browser address bar to allow microphone access.'
+      });
+      return;
+    }
 
     const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
@@ -141,7 +159,7 @@ export default function PracticePage() {
       recognition.interimResults = false;
       recognition.lang = 'en-US';
 
-      // 6-second max safety timeout so the button never freezes
+      // 8-second max safety timeout so the button never freezes
       timeoutId = setTimeout(() => {
         try { recognition.abort(); } catch (e) {}
         cleanup();
@@ -150,7 +168,7 @@ export default function PracticePage() {
           spoken: '',
           message: 'Listening timed out. Click to try speaking again!'
         });
-      }, 6000);
+      }, 8000);
 
       recognition.onstart = () => {
         setMicStatus('listening');
@@ -170,7 +188,6 @@ export default function PracticePage() {
         const isMatch = spoken === target || spokenWords.some((w: string) => w === target);
 
         if (isMatch) {
-          // Dex celebrates and gives spoken positive feedback
           dex.speak(`Great job! You said ${spoken} perfectly!`);
           setSpeechFeedback({
             correct: true,
@@ -178,7 +195,6 @@ export default function PracticePage() {
             message: `🎉 Perfect Pronunciation! You correctly said "${spoken}"!`
           });
         } else {
-          // Dex gives encouraging feedback and prompts retry
           dex.speak(`Not quite. Let's try saying ${target} again!`);
           setSpeechFeedback({
             correct: false,
@@ -188,17 +204,25 @@ export default function PracticePage() {
         }
       };
 
-      recognition.onerror = () => {
+      recognition.onerror = (event: any) => {
         cleanup();
+        console.warn('SpeechRecognition error:', event?.error);
+        if (event?.error === 'aborted') return;
+
+        const msg = event?.error === 'not-allowed'
+          ? 'Microphone permission blocked. Allow mic access in your browser bar.'
+          : 'Microphone did not hear speech clearly. Click the button and speak into your mic!';
+
         setSpeechFeedback({
           correct: false,
           spoken: '',
-          message: 'Microphone did not hear speech clearly. Click to try speaking again!'
+          message: msg
         });
       };
 
       recognition.start();
     } catch (err) {
+      console.error('SpeechRecognition start failed:', err);
       cleanup();
     }
   };
