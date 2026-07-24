@@ -75,10 +75,19 @@ router.post('/:id/audio', authenticate, requireConsent, upload.single('audio'), 
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Session not found' } });
     }
 
-    // Save audio file path to reading_sessions record for parent/teacher playback
+    // Save persistent audio_base64 and relative audio_file_path to reading_sessions for parent/teacher playback
+    let base64Audio: string | null = null;
+    try {
+      const audioBuffer = fs.readFileSync(file.path);
+      const mimeType = file.mimetype || 'audio/webm';
+      base64Audio = `data:${mimeType};base64,${audioBuffer.toString('base64')}`;
+    } catch (readErr) {
+      console.warn('Could not read audio file buffer for base64 storage:', readErr);
+    }
+
     await query(
-      `UPDATE reading_sessions SET audio_file_path = $1 WHERE id = $2`,
-      [file.path, id]
+      `UPDATE reading_sessions SET audio_file_path = $1, audio_base64 = $2 WHERE id = $3`,
+      [file.filename || file.path, base64Audio, id]
     );
 
     const jobData = {

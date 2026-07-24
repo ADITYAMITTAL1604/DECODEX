@@ -146,7 +146,7 @@ router.get('/children/:studentId/sessions/:sessionId/report', authenticate, requ
     // 1. Session & Passage
     const sessionRes = await query(
       `SELECT rs.id, rs.started_at, rs.completed_at, rs.duration_seconds,
-              rs.words_per_minute, rs.transcript, rs.alignment_result, rs.audio_file_path,
+              rs.words_per_minute, rs.transcript, rs.alignment_result, rs.audio_file_path, rs.audio_base64,
               p.id as passage_id, p.title as passage_title, p.content as passage_content,
               p.grade_level, p.word_count
        FROM reading_sessions rs
@@ -198,6 +198,18 @@ router.get('/children/:studentId/sessions/:sessionId/report', authenticate, requ
       console.warn('Copilot strategy generation failed for parent report:', planErr);
     }
 
+    // Check disk storage & persistent database audio storage
+    const resolvedDiskPath = session.audio_file_path
+      ? (fs.existsSync(session.audio_file_path)
+          ? session.audio_file_path
+          : path.resolve(process.cwd(), 'uploads', path.basename(session.audio_file_path)))
+      : null;
+
+    const hasStudentRecording = Boolean(
+      (session.audio_base64 && session.audio_base64.length > 50) ||
+      (resolvedDiskPath && fs.existsSync(resolvedDiskPath))
+    );
+
     res.json({
       session,
       passage: {
@@ -212,7 +224,7 @@ router.get('/children/:studentId/sessions/:sessionId/report', authenticate, requ
       classifications: classRes.rows,
       drills: drillsRes.rows,
       improvementPlan,
-      hasStudentRecording: Boolean(session.audio_file_path && fs.existsSync(session.audio_file_path)),
+      hasStudentRecording,
     });
   } catch (error) {
     console.error('Error fetching parent session report:', error);
@@ -240,7 +252,7 @@ router.get('/children/:studentId/sessions/:sessionId/student-audio', authenticat
     }
 
     const sessionRes = await query(
-      `SELECT audio_file_path, transcript FROM reading_sessions
+      `SELECT audio_file_path, audio_base64, transcript FROM reading_sessions
        WHERE id = $1 AND student_id = $2 AND deleted_at IS NULL`,
       [sessionId, studentId]
     );
@@ -249,17 +261,36 @@ router.get('/children/:studentId/sessions/:sessionId/student-audio', authenticat
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Session not found' } });
     }
 
-    const { audio_file_path, transcript } = sessionRes.rows[0];
+    const { audio_file_path, audio_base64, transcript } = sessionRes.rows[0];
 
-    // 1. Serve actual recorded student voice file if stored on disk
-    if (audio_file_path && fs.existsSync(audio_file_path)) {
-      const ext = path.extname(audio_file_path).toLowerCase();
-      const mimeType = ext.includes('webm') ? 'audio/webm' : ext.includes('wav') ? 'audio/wav' : 'audio/mpeg';
-      res.setHeader('Content-Type', mimeType);
-      return res.sendFile(path.resolve(audio_file_path));
+    // 1. Serve persistent Base64 audio directly from PostgreSQL if available
+    if (audio_base64 && audio_base64.startsWith('data:audio/')) {
+      const matches = audio_base64.match(/^data:(audio\/[a-zA-Z0-9-]+);base64,(.+)$/);
+      if (matches) {
+        const mimeType = matches[1];
+        const buffer = Buffer.from(matches[2], 'base64');
+        res.setHeader('Content-Type', mimeType);
+        res.setHeader('Content-Length', buffer.length);
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.send(buffer);
+      }
     }
 
-    // 2. Synthesize TTS speech if no physical recording file exists
+    // 2. Serve actual recorded student voice file if stored on server disk
+    const diskPath = audio_file_path
+      ? (fs.existsSync(audio_file_path)
+          ? audio_file_path
+          : path.resolve(process.cwd(), 'uploads', path.basename(audio_file_path)))
+      : null;
+
+    if (diskPath && fs.existsSync(diskPath)) {
+      const ext = path.extname(diskPath).toLowerCase();
+      const mimeType = ext.includes('webm') ? 'audio/webm' : ext.includes('wav') ? 'audio/wav' : 'audio/mpeg';
+      res.setHeader('Content-Type', mimeType);
+      return res.sendFile(path.resolve(diskPath));
+    }
+
+    // 3. Fallback to TTS synthesis if no physical recording file exists
     if (transcript && transcript.trim()) {
       const result = await synthesizeSpeech(transcript);
       if (Buffer.isBuffer(result)) {

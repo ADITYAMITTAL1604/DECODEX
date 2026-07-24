@@ -89,12 +89,14 @@ CREATE TABLE IF NOT EXISTS reading_sessions (
     transcript TEXT,                          -- STT output
     alignment_result JSONB,                  -- Full alignment diff
     audio_file_path VARCHAR(512),            -- Path to student's recorded audio file
+    audio_base64 TEXT,                       -- Base64 encoded student audio recording
     status VARCHAR(20) DEFAULT 'in_progress'
         CHECK (status IN ('in_progress', 'completed', 'abandoned', 'error')),
     deleted_at TIMESTAMPTZ                   -- soft-delete support
 );
 
 ALTER TABLE reading_sessions ADD COLUMN IF NOT EXISTS audio_file_path VARCHAR(512);
+ALTER TABLE reading_sessions ADD COLUMN IF NOT EXISTS audio_base64 TEXT;
 
 -- Error classifications
 -- NOTE: 'UNC' (Uncertain) is a valid fallback when the LLM is not confident.
