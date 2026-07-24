@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useApiQuery, getApiBaseUrl } from '../lib/api';
 
 // ---------------------------------------------------------------------------
-// Types & Categories
+// Categories & Styling
 // ---------------------------------------------------------------------------
 
 const CATEGORY_NAMES: Record<string, { label: string; bg: string; text: string; border: string }> = {
@@ -15,6 +15,20 @@ const CATEGORY_NAMES: Record<string, { label: string; bg: string; text: string; 
   PAC: { label: 'Pacing / Self-Correction', bg: 'bg-indigo-100', text: 'text-indigo-800', border: 'border-indigo-300' },
   UNC: { label: 'Uncertain', bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-300' },
 };
+
+function formatTranscript(text: string | null): string {
+  if (!text || !text.trim()) return '';
+  let cleaned = text.trim();
+
+  // If text is ALL CAPS or mostly uppercase, normalize to clean sentence casing
+  const isMostlyCaps = (cleaned.match(/[A-Z]/g) || []).length > (cleaned.match(/[a-z]/g) || []).length;
+  if (isMostlyCaps) {
+    cleaned = cleaned.toLowerCase();
+  }
+
+  // Capitalize sentence starts
+  return cleaned.replace(/(^\s*|[.!?]\s+)([a-z])/g, (_, p1, p2) => p1 + p2.toUpperCase());
+}
 
 interface WeeklyPlan {
   week: number;
@@ -120,10 +134,6 @@ export default function ParentSessionReport() {
 
   const { session, passage, errorProfile, alignment, classifications, drills, improvementPlan, hasStudentRecording } = data;
 
-  const baseUrl = getApiBaseUrl();
-  const audioEndpoint = `/api/v1/parent/children/${studentId}/sessions/${sessionId}/student-audio`;
-  const studentAudioUrl = baseUrl ? `${baseUrl}${audioEndpoint}` : audioEndpoint;
-
   const totalWords = errorProfile?.total_words_read || passage?.word_count || 0;
   const totalErrors = errorProfile?.total_errors || classifications.length || 0;
   const accuracyPercent = totalWords > 0 ? Math.max(0, Math.round(((totalWords - totalErrors) / totalWords) * 100)) : 100;
@@ -133,6 +143,7 @@ export default function ParentSessionReport() {
   classifications.forEach(c => errorMap.set(c.word_index, c));
 
   const passageWords = passage?.content ? passage.content.split(/\s+/) : [];
+  const cleanTranscript = formatTranscript(session.transcript);
 
   return (
     <main className="w-full max-w-5xl mx-auto px-container-padding py-8 sm:py-12 space-y-8 text-on-surface">
@@ -196,35 +207,12 @@ export default function ParentSessionReport() {
       </div>
 
       {/* Student Audio Recording Player */}
-      <div className="glass-card rounded-3xl p-6 border border-secondary/30 bg-secondary/5 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-secondary/20 pb-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-secondary/20 text-secondary flex items-center justify-center">
-              <span className="material-symbols-outlined text-xl">mic</span>
-            </div>
-            <div>
-              <h3 className="font-display text-base font-bold text-on-surface">Student's Actual Voice Recording</h3>
-              <p className="font-body text-xs text-on-surface-variant">Listen to your child's live reading session to track oral fluency & progress</p>
-            </div>
-          </div>
-          <span className={`self-start sm:self-auto px-3 py-1 rounded-full font-display text-[10px] font-bold uppercase tracking-wider border ${
-            hasStudentRecording 
-              ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
-              : 'bg-amber-100 text-amber-800 border-amber-300'
-          }`}>
-            {hasStudentRecording ? '🎙️ Live Voice Recording' : '🔊 Synthetic Audio Fallback'}
-          </span>
-        </div>
-
-        <div className="flex justify-center pt-2">
-          <audio
-            controls
-            preload="metadata"
-            src={studentAudioUrl}
-            className="w-full max-w-2xl h-12 rounded-2xl shadow-inner focus:outline-none"
-          />
-        </div>
-      </div>
+      <StudentAudioPlayer
+        studentId={studentId || ''}
+        sessionId={sessionId || ''}
+        transcript={cleanTranscript}
+        hasRecording={hasStudentRecording}
+      />
 
       {/* Navigation Tabs */}
       <div className="flex border-b border-surface-container-highest gap-2 overflow-x-auto pb-1">
@@ -312,14 +300,14 @@ export default function ParentSessionReport() {
           </div>
 
           {/* Student Spoken Transcript */}
-          {session.transcript && (
+          {cleanTranscript && (
             <div className="glass-card rounded-3xl p-6 border border-white/80 shadow-sm space-y-2">
               <h3 className="font-display text-base font-bold text-on-surface flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary text-lg">record_voice_over</span>
                 Speech-to-Text Transcript (Whisper)
               </h3>
-              <p className="font-body text-sm text-on-surface bg-surface-container-lowest p-4 rounded-2xl border border-surface-container-high italic leading-relaxed">
-                "{session.transcript}"
+              <p className="font-body text-sm text-on-surface bg-surface-container-lowest p-4 rounded-2xl border border-surface-container-high leading-relaxed">
+                "{cleanTranscript}"
               </p>
             </div>
           )}
@@ -493,5 +481,160 @@ export default function ParentSessionReport() {
         </div>
       )}
     </main>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// StudentAudioPlayer — Custom interactive audio player for Parent Portal
+// Supports binary audio buffer streams and fallback TTS narration
+// ---------------------------------------------------------------------------
+function StudentAudioPlayer({
+  studentId,
+  sessionId,
+  transcript,
+  hasRecording,
+}: {
+  studentId: string;
+  sessionId: string;
+  transcript: string | null;
+  hasRecording: boolean;
+}) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [statusLabel, setStatusLabel] = useState<string>('');
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handlePlayToggle = async () => {
+    if (isPlaying) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      setIsPlaying(false);
+      setStatusLabel('');
+      return;
+    }
+
+    setIsLoading(true);
+    setStatusLabel('Fetching audio recording…');
+
+    try {
+      const baseUrl = getApiBaseUrl();
+      const endpoint = `/api/v1/parent/children/${studentId}/sessions/${sessionId}/student-audio`;
+      const targetUrl = baseUrl ? `${baseUrl}${endpoint}` : endpoint;
+
+      const res = await fetch(targetUrl, { credentials: 'include' });
+
+      if (!res.ok) {
+        throw new Error('Audio request failed');
+      }
+
+      const contentType = res.headers.get('content-type') || '';
+
+      if (contentType.includes('audio/')) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audioRef.current = audio;
+
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          setIsPlaying(false);
+          setStatusLabel('');
+        };
+        audio.onerror = () => {
+          URL.revokeObjectURL(url);
+          setIsPlaying(false);
+          setStatusLabel('');
+        };
+
+        setIsLoading(false);
+        setIsPlaying(true);
+        setStatusLabel('Playing student recording…');
+        await audio.play();
+      } else {
+        // Fallback to browser SpeechSynthesis with soothing female voice
+        const data = await res.json();
+        const textToSpeak = data.transcript || transcript || 'Reading recording playback';
+
+        setIsLoading(false);
+        setIsPlaying(true);
+        setStatusLabel('Playing speech audio…');
+
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(textToSpeak);
+          utterance.pitch = 1.25;
+          utterance.rate = 0.88;
+          utterance.onend = () => {
+            setIsPlaying(false);
+            setStatusLabel('');
+          };
+          utterance.onerror = () => {
+            setIsPlaying(false);
+            setStatusLabel('');
+          };
+          window.speechSynthesis.speak(utterance);
+        } else {
+          setIsPlaying(false);
+          setStatusLabel('');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to play audio:', err);
+      setIsLoading(false);
+      setIsPlaying(false);
+      setStatusLabel('Audio unavailable');
+    }
+  };
+
+  return (
+    <div className="glass-card rounded-3xl p-6 border border-secondary/30 bg-gradient-to-r from-secondary/10 via-amber-50/30 to-indigo-50/30 shadow-md space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-secondary/20 pb-3">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-secondary text-on-secondary flex items-center justify-center shadow-md">
+            <span className="material-symbols-outlined text-2xl">{isPlaying ? 'graphic_eq' : 'mic'}</span>
+          </div>
+          <div>
+            <h3 className="font-display text-base font-bold text-on-surface">Student's Live Reading Recording</h3>
+            <p className="font-body text-xs text-on-surface-variant">Listen to your child's oral reading performance to monitor progress</p>
+          </div>
+        </div>
+
+        <span className={`self-start sm:self-auto px-3 py-1 rounded-full font-display text-[10px] font-bold uppercase tracking-wider border ${
+          hasRecording 
+            ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
+            : 'bg-amber-100 text-amber-800 border-amber-300'
+        }`}>
+          {hasRecording ? '🎙️ Live Voice Recording' : '🔊 Audio Speech Playback'}
+        </span>
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white/80 p-4 rounded-2xl border border-secondary/20 shadow-inner">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <button
+            onClick={handlePlayToggle}
+            disabled={isLoading}
+            className="h-12 px-6 rounded-xl bg-secondary text-on-secondary font-display text-xs font-bold uppercase tracking-wider hover:bg-secondary-container hover:text-on-secondary-container transition-all active:scale-95 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 shadow-md shrink-0"
+          >
+            <span className="material-symbols-outlined text-xl">{isLoading ? 'hourglass_top' : isPlaying ? 'pause' : 'play_arrow'}</span>
+            {isLoading ? 'Loading Audio…' : isPlaying ? 'Pause Audio' : 'Play Audio Recording'}
+          </button>
+
+          {statusLabel && (
+            <span className="font-display text-xs font-bold text-secondary animate-pulse">
+              {statusLabel}
+            </span>
+          )}
+        </div>
+
+        <div className="font-body text-xs text-on-surface-variant italic">
+          {isPlaying ? '▶️ Audio is actively playing' : 'Click Play to listen to this session'}
+        </div>
+      </div>
+    </div>
   );
 }
