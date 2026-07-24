@@ -266,8 +266,11 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
       setCurrentChunkIdx(i);
       const chunk = chunks[i];
       let chunkPassed = false;
+      let attempts = 0;
 
-      while (!chunkPassed && narrationActive.current) {
+      while (!chunkPassed && narrationActive.current && attempts < 2) {
+        attempts++;
+
         // 1. Dex reads 3-4 words aloud
         setStatusMessage(`${TUTOR_NAME} is reading: "${chunk}"`);
         await dex.speak(chunk);
@@ -293,10 +296,16 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
           chunkPassed = true;
           setStatusMessage(`🎉 Great job! Words mastered.`);
           await dex.speak("Great job!");
-        } else {
-          setStatusMessage(`Let's practice these words again!`);
+        } else if (attempts < 2) {
+          setStatusMessage(`Let's practice these words once more!`);
           await dex.speak("Let me read it again, then you repeat.");
-          await new Promise(r => setTimeout(r, 400));
+          await new Promise(r => setTimeout(r, 300));
+        } else {
+          // Encourage effort & move forward after 2 attempts so child is never stuck!
+          chunkPassed = true;
+          setStatusMessage(`🌟 Wonderful effort! Moving to next words.`);
+          await dex.speak("Awesome effort! Let's read the next words!");
+          await new Promise(r => setTimeout(r, 300));
         }
       }
     }
@@ -320,6 +329,14 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
       }
     };
   }, []);
+
+  // Allow student/parent to tap any 3-4 word phrase to hear Dex recite it immediately
+  const handleSelectChunk = async (idx: number) => {
+    setCurrentChunkIdx(idx);
+    const chunk = chunks[idx];
+    setStatusMessage(`${TUTOR_NAME} reciting: "${chunk}"`);
+    await dex.speak(chunk);
+  };
 
   return (
     <div ref={containerRef} className="glass-card rounded-3xl p-8 sm:p-10 border border-secondary/30 shadow-xl bg-white/80 mb-10 animate-in fade-in space-y-6">
@@ -378,28 +395,41 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
       </div>
 
       {/* Dyslexia-Friendly Pacing Guidance Banner */}
-      <div className="p-3 px-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-display flex items-center gap-2">
-        <span className="material-symbols-outlined text-amber-600 text-base">psychology</span>
-        <span>
-          <strong>Dyslexia Reading Support:</strong> Dex recites short 3–4 word phrases so you can read smoothly without getting overwhelmed!
-        </span>
+      <div className="p-3 px-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-display flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-amber-600 text-base">psychology</span>
+          <span>
+            <strong>Dyslexia Support:</strong> Dex recites 3–4 word phrases! Tap any phrase to hear Dex read it aloud!
+          </span>
+        </div>
+        {currentChunkIdx >= 0 && (
+          <button
+            onClick={() => handleSelectChunk(currentChunkIdx)}
+            className="px-3 py-1 rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-900 font-display text-[10px] font-bold uppercase tracking-wider transition-colors shrink-0 flex items-center gap-1 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-xs">volume_up</span>
+            Re-read Phrase
+          </button>
+        )}
       </div>
 
       {/* Story content with 3-4 word phrase chunk highlighting */}
-      <div className="font-body text-xl leading-relaxed text-on-surface tracking-wide bg-surface-container-lowest p-6 rounded-2xl border border-surface-container-high shadow-inner flex flex-wrap gap-2 items-center">
+      <div className="font-body text-xl leading-relaxed text-on-surface tracking-wide bg-surface-container-lowest p-6 rounded-2xl border border-surface-container-high shadow-inner flex flex-wrap gap-2.5 items-center">
         {chunks.map((chunk, i) => (
-          <span
+          <button
             key={i}
-            className={`inline-block px-3 py-1.5 rounded-xl transition-all duration-300 ${
+            onClick={() => handleSelectChunk(i)}
+            title="Click to hear Dex recite these words!"
+            className={`px-3 py-1.5 rounded-xl transition-all duration-300 cursor-pointer text-left ${
               i === currentChunkIdx
                 ? 'bg-primary text-on-primary font-extrabold shadow-md scale-105 ring-2 ring-primary/40'
                 : i < currentChunkIdx
-                ? 'bg-emerald-50 text-emerald-800 font-medium border border-emerald-200'
+                ? 'bg-emerald-50 text-emerald-800 font-medium border border-emerald-200 hover:bg-emerald-100'
                 : 'bg-surface-container-high/60 text-on-surface hover:bg-surface-container-high'
             }`}
           >
             {chunk}
-          </span>
+          </button>
         ))}
       </div>
 

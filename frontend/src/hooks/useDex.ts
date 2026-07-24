@@ -89,140 +89,6 @@ export function useDex(): DexHook {
     setState('idle');
   }, []);
 
-  // ------- listenShort -------
-  // Single-word / short phrase speech recognition mode.
-  const listenShort = useCallback((): Promise<string> => {
-    return new Promise((resolve) => {
-      setState('listening');
-
-      const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-      if (!SpeechRec) {
-        setState('idle');
-        resolve('');
-        return;
-      }
-
-      let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-      const cleanup = () => {
-        if (timeoutId) clearTimeout(timeoutId);
-      };
-
-      try {
-        const recognition = new SpeechRec();
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        recognition.lang = 'en-US';
-
-        // 6-second max safety timeout
-        timeoutId = setTimeout(() => {
-          try { recognition.abort(); } catch { /* ignore */ }
-          cleanup();
-          setState('idle');
-          resolve('');
-        }, 6000);
-
-        recognition.onresult = (event: any) => {
-          cleanup();
-          const transcript = event.results[0][0].transcript || '';
-          setState('idle');
-          resolve(transcript);
-        };
-
-        recognition.onerror = () => {
-          cleanup();
-          setState('idle');
-          resolve('');
-        };
-
-        recognition.onend = () => {
-          cleanup();
-          setState('idle');
-        };
-
-        // Cancel any ongoing TTS to prevent mic lockup
-        if ('speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
-        }
-
-        recognition.start();
-      } catch {
-        cleanup();
-        setState('idle');
-        resolve('');
-      }
-    });
-  }, []);
-
-  // ------- listenSentence -------
-  // Continuous speech recognition mode for full sentence lines.
-  // Accumulates all spoken words across mid-sentence pauses for 9 seconds
-  // so the user has ample time to read full sentences without getting cut off early.
-  const listenSentence = useCallback((durationMs = 9000): Promise<string> => {
-    return new Promise((resolve) => {
-      setState('listening');
-
-      const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-      if (!SpeechRec) {
-        setState('idle');
-        resolve('');
-        return;
-      }
-
-      let timeoutId: ReturnType<typeof setTimeout> | null = null;
-      let fullTranscript = '';
-
-      const cleanup = () => {
-        if (timeoutId) clearTimeout(timeoutId);
-        setState('idle');
-      };
-
-      try {
-        const recognition = new SpeechRec();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'en-US';
-
-        recognition.onresult = (event: any) => {
-          let text = '';
-          for (let i = 0; i < event.results.length; i++) {
-            text += event.results[i][0].transcript + ' ';
-          }
-          fullTranscript = text.trim();
-        };
-
-        recognition.onerror = () => {
-          /* ignore non-fatal speech errors to keep accumulated text */
-        };
-
-        recognition.onend = () => {
-          cleanup();
-          resolve(fullTranscript);
-        };
-
-        // Complete listening after durationMs
-        timeoutId = setTimeout(() => {
-          try { recognition.stop(); } catch { /* ignore */ }
-          cleanup();
-          resolve(fullTranscript);
-        }, durationMs);
-
-        // Cancel TTS audio so mic isn't blocked
-        if ('speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
-        }
-
-        recognition.start();
-      } catch {
-        cleanup();
-        setState('idle');
-        resolve('');
-      }
-    });
-  }, []);
-
   // ------- listen('long') -------
   // Records audio via MediaRecorder, POSTs to /api/v1/dex/transcribe,
   // returns the Whisper transcript.
@@ -293,6 +159,157 @@ export function useDex(): DexHook {
       }
     });
   }, []);
+
+  // ------- listenShort -------
+  // Single-word / short phrase speech recognition mode.
+  const listenShort = useCallback((): Promise<string> => {
+    return new Promise((resolve) => {
+      setState('listening');
+
+      const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+      if (!SpeechRec) {
+        listenLong().then(resolve);
+        return;
+      }
+
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      let startDelayId: ReturnType<typeof setTimeout> | null = null;
+      let isResolved = false;
+
+      const finish = (resultText: string) => {
+        if (isResolved) return;
+        isResolved = true;
+        if (timeoutId) clearTimeout(timeoutId);
+        if (startDelayId) clearTimeout(startDelayId);
+        setState('idle');
+        resolve(resultText.trim());
+      };
+
+      try {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+
+        startDelayId = setTimeout(() => {
+          try {
+            const recognition = new SpeechRec();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+
+            timeoutId = setTimeout(() => {
+              try { recognition.abort(); } catch { /* ignore */ }
+              finish('');
+            }, 5000);
+
+            recognition.onresult = (event: any) => {
+              const transcript = event.results[0]?.[0]?.transcript || '';
+              finish(transcript);
+            };
+
+            recognition.onerror = () => {
+              finish('');
+            };
+
+            recognition.onend = () => {
+              finish('');
+            };
+
+            recognition.start();
+          } catch {
+            listenLong().then(resolve);
+          }
+        }, 150);
+      } catch {
+        listenLong().then(resolve);
+      }
+    });
+  }, [listenLong]);
+
+  // ------- listenSentence -------
+  // Continuous speech recognition mode for short 3-4 word phrases / sentence lines.
+  // Uses 1.2s post-speech silence detection and 150ms audio buffer to avoid mic lockups.
+  const listenSentence = useCallback((durationMs = 5000): Promise<string> => {
+    return new Promise((resolve) => {
+      setState('listening');
+
+      const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+      if (!SpeechRec) {
+        listenLong().then(resolve);
+        return;
+      }
+
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      let silenceTimerId: ReturnType<typeof setTimeout> | null = null;
+      let startDelayId: ReturnType<typeof setTimeout> | null = null;
+      let fullTranscript = '';
+      let isResolved = false;
+
+      const finish = (resultText: string) => {
+        if (isResolved) return;
+        isResolved = true;
+        if (timeoutId) clearTimeout(timeoutId);
+        if (silenceTimerId) clearTimeout(silenceTimerId);
+        if (startDelayId) clearTimeout(startDelayId);
+        setState('idle');
+        resolve(resultText.trim());
+      };
+
+      try {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+
+        startDelayId = setTimeout(() => {
+          try {
+            const recognition = new SpeechRec();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = (event: any) => {
+              let text = '';
+              for (let i = 0; i < event.results.length; i++) {
+                text += event.results[i][0].transcript + ' ';
+              }
+              fullTranscript = text.trim();
+
+              // Reset silence timer on speech detection — resolve 1.2s after speech finishes
+              if (silenceTimerId) clearTimeout(silenceTimerId);
+              silenceTimerId = setTimeout(() => {
+                try { recognition.stop(); } catch { /* ignore */ }
+                finish(fullTranscript);
+              }, 1200);
+            };
+
+            recognition.onerror = () => {
+              if (fullTranscript.length > 0) {
+                finish(fullTranscript);
+              }
+            };
+
+            recognition.onend = () => {
+              finish(fullTranscript);
+            };
+
+            // Safety maximum duration timeout
+            timeoutId = setTimeout(() => {
+              try { recognition.stop(); } catch { /* ignore */ }
+              finish(fullTranscript);
+            }, durationMs);
+
+            recognition.start();
+          } catch {
+            listenLong().then(resolve);
+          }
+        }, 150);
+      } catch {
+        listenLong().then(resolve);
+      }
+    });
+  }, [listenLong]);
 
   // ------- listen() dispatcher -------
   const listen = useCallback(async (mode: 'short' | 'sentence' | 'long'): Promise<string> => {
