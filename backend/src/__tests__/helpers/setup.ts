@@ -67,6 +67,18 @@ vi.mock('../../queue/consentErasure', () => ({
   eraseConsentDataForLink: vi.fn(),
 }));
 
+vi.mock('../../services/tts', () => ({
+  synthesizeSpeech: vi.fn().mockResolvedValue({ audioBuffer: Buffer.from('fake-audio'), useBrowserTts: false }),
+}));
+
+vi.mock('../../services/dexTutor', () => ({
+  gradeSpokenAnswer: vi.fn().mockResolvedValue({ correct: true, feedback: 'Great job!' }),
+}));
+
+vi.mock('../../services/openai', () => ({
+  transcribeAudio: vi.fn().mockResolvedValue('hello world'),
+}));
+
 vi.mock('../../db/init', () => ({
   initDB: vi.fn().mockResolvedValue(undefined),
 }));

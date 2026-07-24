@@ -23,6 +23,10 @@ import riskScreeningRoutes from './routes/riskScreening';
 import classroomAnalyticsRoutes from './routes/classroomAnalytics';
 import parentDashboardRoutes from './routes/parentDashboard';
 
+// V2 Dex Voice-First Tutor
+import ttsRoutes from './routes/tts';
+import dexRoutes from './routes/dex';
+
 // Initialize DB schema & migrations
 import { initDB } from './db/init';
 
@@ -112,6 +116,10 @@ app.use('/api/v1/gamification', gamificationRoutes);
 app.use('/api/v1/risk-screening', riskScreeningRoutes);
 app.use('/api/v1/classroom', classroomAnalyticsRoutes);
 app.use('/api/v1/parent', parentDashboardRoutes);
+
+// Routes — Dex Voice-First Tutor
+app.use('/api/v1/tts', ttsRoutes);
+app.use('/api/v1/dex', dexRoutes);
 
 // Root route redirect to frontend app
 app.get('/', (req, res) => {

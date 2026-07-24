@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useApiQuery, apiFetch } from '../lib/api';
 import { Target, ArrowRight, CheckCircle2, Volume2, Sparkles, X, ChevronRight, Mic, RefreshCw, Award, XCircle, ArrowLeft } from 'lucide-react';
+import { useDex } from '../hooks/useDex';
+import DexAvatar from '../components/DexAvatar';
+import { TUTOR_NAME } from '../lib/constants';
 
 interface WordDetail {
   word: string;
@@ -39,6 +42,7 @@ export default function PracticePage() {
   const [micStatus, setMicStatus] = useState<'idle' | 'listening'>('idle');
   const [speechFeedback, setSpeechFeedback] = useState<{ correct: boolean; spoken: string; message: string } | null>(null);
 
+  const dex = useDex();
   const recognitionRef = useRef<any>(null);
 
   const session = data?.session;
@@ -81,14 +85,13 @@ export default function PracticePage() {
 
   const currentWord = activeWords[Math.min(currentWordIdx, activeWords.length - 1)];
 
+  // --- Use Dex for word audio instead of raw browser speechSynthesis ---
+  // NOTE: Could swap dex.listen('short') for dex.listen('long') (Whisper) here
+  // for better accuracy, but browser SpeechRecognition is kept for per-word
+  // practice because Whisper adds ~2-3s latency per word, which hurts the
+  // rapid-fire practice flow's responsiveness.
   const playWordAudio = (word: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(word);
-      utterance.rate = 0.75;
-      utterance.pitch = 1.0;
-      window.speechSynthesis.speak(utterance);
-    }
+    dex.speak(word);
   };
 
   useEffect(() => {
@@ -167,16 +170,20 @@ export default function PracticePage() {
         const isMatch = spoken === target || spokenWords.some((w: string) => w === target);
 
         if (isMatch) {
+          // Dex celebrates and gives spoken positive feedback
+          dex.speak(`Great job! You said ${spoken} perfectly!`);
           setSpeechFeedback({
             correct: true,
             spoken,
             message: `🎉 Perfect Pronunciation! You correctly said "${spoken}"!`
           });
         } else {
+          // Dex gives encouraging feedback and prompts retry
+          dex.speak(`Not quite. Let's try saying ${target} again!`);
           setSpeechFeedback({
             correct: false,
             spoken,
-            message: `❌ You said "${spoken}". Target is "${target}". Listen to the audio and try again!`
+            message: `You said "${spoken}". Target is "${target}". Listen again and try!`
           });
         }
       };
@@ -270,6 +277,14 @@ export default function PracticePage() {
           <h1 className="font-display text-5xl sm:text-7xl font-extrabold text-primary tracking-wide">
             {currentWord.word}
           </h1>
+
+          {/* Dex Avatar — shows speaking/listening/celebrating/concerned state */}
+          <div className="flex justify-center mt-4">
+            <DexAvatar
+              state={micStatus === 'listening' ? 'listening' : dex.state}
+              caption={dex.caption}
+            />
+          </div>
 
           {currentWord.spoken && (
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-900 font-body text-xs mt-2">

@@ -1,7 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiFetch, useApiQuery } from '../lib/api';
+import { useDex } from '../hooks/useDex';
+import DexAvatar from '../components/DexAvatar';
+import { TUTOR_NAME } from '../lib/constants';
 
 interface ActiveActivity {
   pathId: string;
@@ -21,9 +24,27 @@ export default function LearningPathPage() {
   const [generating, setGenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeActivity, setActiveActivity] = useState<ActiveActivity | null>(null);
+  const dex = useDex();
+  const hasNarrated = useRef(false);
 
   const { data, loading, error, refetch } = useApiQuery<any>(`/learning-paths/${studentId}`);
   const learningPath = data?.learningPath;
+
+  // Auto-narrate learning path summary when page loads with valid data
+  useEffect(() => {
+    if (hasNarrated.current || !learningPath || !learningPath.weeks?.length) return;
+    hasNarrated.current = true;
+
+    const currentWeek = learningPath.weeks.find(
+      (w: any) => w.weekNumber === learningPath.currentWeek
+    );
+    const focusArea = currentWeek?.focusArea || 'your reading skills';
+    const narration = learningPath.planSummary
+      ? `Here's your learning path! This week we're focusing on ${focusArea}. ${learningPath.planSummary}`
+      : `Welcome to your learning path! This week we're working on ${focusArea}.`;
+
+    dex.speak(narration);
+  }, [learningPath]);
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -102,6 +123,9 @@ export default function LearningPathPage() {
           </div>
           <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-on-surface">Your Reading Learning Path</h1>
           <p className="font-body text-base text-on-surface-variant mt-1">A day-by-day plan tailored to your diagnostic assessment context</p>
+          <div className="mt-3">
+            <DexAvatar state={dex.state} caption={dex.caption} />
+          </div>
         </div>
 
         {hasPath && (
@@ -437,14 +461,11 @@ function InteractiveActivityModal({
     setVoicePassed(false);
   }, [step, currentQ]);
 
+  // Use the Dex tutor hook for speech — falls back to browser TTS automatically
+  const modalDex = useDex();
+
   const speakText = (text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.85;
-      utterance.pitch = 1.0;
-      window.speechSynthesis.speak(utterance);
-    }
+    modalDex.speak(text);
   };
 
   const startVoiceInput = () => {
