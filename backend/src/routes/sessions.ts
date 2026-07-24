@@ -109,23 +109,46 @@ router.post('/:id/audio', authenticate, requireConsent, upload.single('audio'), 
 });
 
 // GET /api/v1/sessions/:id/status/stream
-router.get('/:id/status/stream', authenticate, (req, res) => {
+// SECURITY: Ownership check — students can only stream their own sessions.
+router.get('/:id/status/stream', authenticate, async (req: AuthRequest, res) => {
   const { id } = req.params;
+  const requesterId = req.user?.id;
+  const requesterRole = req.user?.role;
 
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
+  try {
+    // Verify session exists and check ownership
+    const sessionRes = await query(
+      'SELECT student_id FROM reading_sessions WHERE id = $1',
+      [id]
+    );
 
-  // Register client
-  sseClients.set(id as string, res);
+    if (sessionRes.rows.length === 0) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Session not found' } });
+    }
 
-  // Send initial connected event
-  res.write(`event: connected\ndata: ${JSON.stringify({ message: 'SSE connection established' })}\n\n`);
+    // IDOR guard: student can only stream their own session
+    if (requesterRole === 'student' && sessionRes.rows[0].student_id !== requesterId) {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } });
+    }
 
-  // Handle client disconnect
-  req.on('close', () => {
-    sseClients.delete(id as string);
-  });
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    // Register client
+    sseClients.set(id as string, res);
+
+    // Send initial connected event
+    res.write(`event: connected\ndata: ${JSON.stringify({ message: 'SSE connection established' })}\n\n`);
+
+    // Handle client disconnect
+    req.on('close', () => {
+      sseClients.delete(id as string);
+    });
+  } catch (error) {
+    console.error('Error setting up SSE stream:', error);
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to establish stream' } });
+  }
 });
 
 // GET /api/v1/sessions/:id/status — Polling endpoint for session processing status.
@@ -257,18 +280,41 @@ router.post('/:id/classifications/:errorIndex/feedback', authenticate, async (re
 });
 
 // POST /api/v1/sessions/drills/:id/complete
+// SECURITY: Ownership check — students can only complete their own drills.
 router.post('/drills/:id/complete', authenticate, async (req: AuthRequest, res) => {
   const { id } = req.params;
+  const requesterId = req.user?.id;
+  const requesterRole = req.user?.role;
+
   try {
-    const result = await query(
-      `UPDATE drills SET completed = TRUE, completed_at = NOW() WHERE id = $1 RETURNING *`,
-      [id]
-    );
+    let result;
+
+    if (requesterRole === 'teacher' || requesterRole === 'admin') {
+      // Teachers/admins can complete any drill
+      result = await query(
+        `UPDATE drills SET completed = TRUE, completed_at = NOW() WHERE id = $1 RETURNING *`,
+        [id]
+      );
+    } else {
+      // Students can only complete drills belonging to their own sessions
+      result = await query(
+        `UPDATE drills SET completed = TRUE, completed_at = NOW()
+         WHERE id = $1
+         AND EXISTS (
+           SELECT 1 FROM reading_sessions rs
+           WHERE rs.id = drills.session_id AND rs.student_id = $2
+         )
+         RETURNING *`,
+        [id, requesterId]
+      );
+    }
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Drill not found' } });
     }
     res.json({ success: true, drill: result.rows[0] });
   } catch (error) {
+    console.error('Error completing drill:', error);
     res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to complete drill' } });
   }
 });

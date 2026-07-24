@@ -1,67 +1,200 @@
-# Decodex — AI Reading Diagnostic & Dyslexia Clinic Companion 📖✨
+# Decodex — AI-Powered Diagnostic Reading Platform for Dyslexia Education
+
+![CI](https://github.com/ADITYAMITTAL1604/DECODEX/actions/workflows/ci.yml/badge.svg)
+
+Decodex captures student reading aloud, transcribes via Whisper, aligns against source text with Needleman-Wunsch DP, classifies errors using Orton-Gillingham taxonomy (GPT-4o-mini), generates personalized practice drills, and gives teachers and parents actionable analytics with human-in-the-loop override capability.
 
 ---
 
-## 🏆 The Problem & Solution
+## Live Demo
 
-EdTech tools help students read text aloud (Text-to-Speech), but they fail to explain **why** a student is struggling. Without costly, multi-month formal clinical assessments, educators and parents cannot detect actionable error patterns (such as visual letter/word reversals versus phoneme blending breakdowns).
+| Component | URL |
+|-----------|-----|
+| **Frontend** | [decodex-app.vercel.app](https://decodex-app.vercel.app) |
+| **Backend Health** | [decodex-backend.onrender.com/health](https://decodex-backend.onrender.com/health) |
 
-**Decodex** solves this by creating an end-to-end diagnostic and remediation loop:
-1. **Student Speech Capture**: The student reads a diagnostic passage aloud in the browser with real-time Web Audio API voice clarity metering.
-2. **Needleman-Wunsch DP Speech Alignment**: Aligns Whisper speech transcripts against the source passage using Needleman-Wunsch matrix sequence alignment to eliminate false omissions caused by hesitations.
-3. **Orton-Gillingham (O-G) Taxonomy Classification**: Uses **GPT-4o** / **GPT-4o-mini** with strict Orton-Gillingham prompts to categorize error root causes (`REV` Reversals, `SUB` Substitutions, `BLD` Blend breakdowns, `OMI` Omissions, `INS` Insertions).
-4. **Interactive Sight Word Practice Clinic**: Auto-generates personalized sight word drills with letter-by-letter spelling, phonics sound breakdowns, TTS audio, and real-time Speech-to-Text pronunciation verification.
-5. **Teacher & Parent Portal**: Human-in-the-loop overrides, WPM and accuracy analytics, and in-app parent-student consent authorization.
+This is a fully deployed full-stack application. The frontend is served by Vercel, the backend runs on Render, and the database is hosted on Supabase.
 
----
-
-## ✨ Key Features
-
-- **Needleman-Wunsch Sequence Alignment**: Dynamic programming alignment matrix (`MATCH=0`, `SUB=0.8`, `GAP=1.0`) prevents false omissions when students pause or self-correct.
-- **Interactive Practice Clinic Page (`/sessions/:id/practice`)**: Full-screen dedicated practice page matching Decodex light mode theme (`#006474` primary teal, glassmorphism cards).
-- **Real-Time Speech Pronunciation Verification**: Uses live Speech-to-Text to evaluate student pronunciation in real time with strict word token verification, 6-second auto-reset safety timeouts, and TTS audio cancellation.
-- **Voice-Synced Mic Intensity & Clarity Meter**: Web Audio API frequency visualizer syncing microphone animation with voice volume.
-- **Parent Consent In-App Notification System**: Webpage invite code authorization eliminating email dependency.
-- **Resilient AI Pipeline**: Opossum circuit breakers fallback gracefully to an Orton-Gillingham rule engine if offline or rate-limited.
-- **Redis Caching Layer**: Caches repeat error classifications, reducing LLM latency from ~2000ms to ~5ms.
+**Test accounts:** `student@decodex.com` / `teacher@decodex.com` / `parent@decodex.com` — password `password123`
 
 ---
 
-## 🏗️ Architecture Stack
+## Architecture
 
-- **AI Infrastructure**: Codex, OpenAI Whisper, OpenAI GPT-4o / GPT-4o-mini (with Groq API support).
-- **Frontend**: React 19, Vite, TypeScript, Tailwind CSS 4, React Router 7, Recharts, Lucide Icons.
-- **Backend**: Node.js, Express 5, TypeScript, Bull (Redis Queue), Opossum (Circuit Breaker).
-- **Database & Cache**: PostgreSQL (Analytics, Sessions, Classifications), Redis (Queue & LLM Cache).
-- **Orchestrator**: Single-command Python runner (`app.py`).
+```mermaid
+graph LR
+    subgraph Client
+        A[React Frontend<br/>Vercel]
+    end
+    subgraph Backend
+        B[Express API<br/>Render]
+        C[Bull Worker<br/>Async Pipeline]
+    end
+    subgraph Data
+        D[(PostgreSQL<br/>Supabase)]
+        E[(Redis<br/>Queue + Cache)]
+    end
+    subgraph AI
+        F[OpenAI Whisper<br/>Speech-to-Text]
+        G[GPT-4o-mini<br/>Error Classification]
+    end
 
----
-
-## ⚡ Quickstart — Run the Complete Project (One Command)
-
-> Requires Python 3.8+, Node.js, PostgreSQL (port `5433` or `5432`), and Redis (port `6379`).
-
-```bash
-python app.py
+    A -- HTTPS / httpOnly cookie --> B
+    A -. SSE status stream .-> B
+    B --> D
+    B --> E
+    B -- enqueue --> C
+    C --> E
+    C --> F
+    C --> G
+    C -- save results --> D
 ```
 
-`app.py` automatically:
-1. Verifies `backend/.env` environment configuration (`GROQ_API_KEY` / `OPENAI_API_KEY`).
-2. Checks PostgreSQL and Redis infrastructure connectivity.
-3. Installs missing npm dependencies for `backend/` and `frontend/`.
-4. Starts the Express API Server + Bull AI Background Worker (`http://localhost:3000`).
-5. Starts the Vite React Frontend App (`http://localhost:5173`).
+**Audio processing flow:** Student records → audio uploaded to Express → job enqueued in Redis/Bull → worker transcribes (Whisper) → aligns transcript to source (Needleman-Wunsch) → classifies errors (GPT-4o-mini with O-G taxonomy prompt) → saves results → generates drills → pushes status via SSE to frontend.
 
 ---
 
-## 🚀 Hackathon Judge Evaluation Credentials
+## Tech Stack
 
-Access **`http://localhost:5173`** after running `python app.py`:
-
-| Role | Email | Password | Access / Flow |
-|------|-------|----------|---------------|
-| **Student** | `student@decodex.com` | `password123` | Passage selection, audio recording, interactive practice clinic |
-| **Teacher** | `teacher@decodex.com` | `password123` | Classroom analytics, student diagnostic view, error overrides |
-| **Parent** | `parent@decodex.com` | `password123` | In-app parent consent & invite code authorization |
+| Technology | Purpose |
+|------------|---------|
+| **React 19 + Vite** | Fast SPA with HMR; Vite's dev proxy simplifies local API calls |
+| **TypeScript** | End-to-end type safety across frontend and backend |
+| **Tailwind CSS 4** | Utility-first styling with a custom Decodex design system |
+| **Express 5** | Lightweight HTTP framework with native async/await route handlers |
+| **PostgreSQL** | Relational store for users, sessions, classifications, drills, and consent records |
+| **Redis + Bull** | Job queue for async audio processing — decouples expensive transcription and classification from the request/response cycle |
+| **OpenAI Whisper** | Speech-to-text transcription of student reading recordings |
+| **GPT-4o-mini** | Error classification using strict Orton-Gillingham taxonomy prompts with JSON mode |
+| **Opossum** | Circuit breaker around all OpenAI calls — degrades gracefully to a rule-based fallback when the AI provider is unavailable |
+| **Recharts** | Data visualization for teacher dashboards (WPM trends, error category breakdowns) |
+| **Zod** | Runtime schema validation for API request bodies |
+| **bcrypt** | Password hashing with cost factor 12 |
 
 ---
+
+## Key Technical Decisions
+
+### Circuit Breaker Pattern (Opossum)
+
+All OpenAI API calls (Whisper and GPT-4o-mini) are wrapped in Opossum circuit breakers. When the provider is down or rate-limited, the circuit opens and the system falls back to a deterministic Orton-Gillingham rule engine. This prevents cascading failures and ensures students always receive results — even if classification quality is temporarily reduced. Errors classified during fallback are tagged as `UNC` (Uncertain) so teachers can review them.
+
+### Consent-Gating Architecture
+
+Because Decodex processes children's reading data, parental consent is required before any audio recording can occur. The system uses:
+- **Invite codes** for in-app parent-student linking
+- **Knowledge-based verification** (date of birth) with rate-limited attempts
+- **Consent withdrawal** with a 30-day hard-delete grace period
+- **Data erasure jobs** that purge session data when consent is withdrawn
+
+The `requireConsent` middleware blocks the audio upload endpoint until a valid `parent_student_links` record with `consent_granted = TRUE` exists.
+
+### Role-Based + Relationship-Verified Authorization
+
+Beyond simple role checks (`student`, `teacher`, `parent`, `admin`), data access is scoped by verified relationships:
+- **Students** can only access their own sessions, drills, and results (IDOR guards on every endpoint)
+- **Teachers** can access student data only for students at the same school (`school_id` join)
+- **Parents** can access data only for children linked via `parent_student_links`
+- **Admins** bypass relationship checks entirely
+
+---
+
+## Local Development Setup
+
+### Prerequisites
+
+- Node.js 20+
+- Docker (for PostgreSQL and Redis) or local PostgreSQL 14+ and Redis 6+
+
+### 1. Start infrastructure
+
+```bash
+docker compose up -d   # Starts PostgreSQL (port 5432) and Redis (port 6379)
+```
+
+### 2. Backend
+
+```bash
+cd backend
+cp .env.example .env
+# Edit .env — set JWT_SECRET (min 32 chars), DATABASE_URL, OPENAI_API_KEY or GROQ_API_KEY
+npm install
+npm run dev            # Starts on http://localhost:3000
+```
+
+### 3. Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev            # Starts on http://localhost:5173, proxies /api to backend
+```
+
+### 4. Run tests
+
+```bash
+cd backend && npm test
+cd frontend && npm test
+```
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `JWT_SECRET` | **Yes** | Random string ≥32 chars. Generate with `openssl rand -base64 32` |
+| `DATABASE_URL` | **Yes** | PostgreSQL connection string |
+| `REDIS_URL` | **Yes** | Redis connection string |
+| `OPENAI_API_KEY` | Yes* | OpenAI API key for Whisper + GPT-4o-mini |
+| `GROQ_API_KEY` | Yes* | Alternative free-tier API key (Groq) |
+| `FRONTEND_URL` | No | Frontend origin for CORS (defaults to `http://localhost:5173`) |
+| `GMAIL_USER` | No | Gmail address for consent email delivery |
+| `GMAIL_APP_PASSWORD` | No | Google App Password for email |
+
+*At least one of `OPENAI_API_KEY` or `GROQ_API_KEY` is required.
+
+---
+
+## Security
+
+- **Parameterized SQL queries** — all database access uses parameterized queries; no string interpolation of user input
+- **bcrypt password hashing** — cost factor 12, no plaintext passwords stored
+- **httpOnly cookie authentication** — JWT stored in httpOnly, secure, sameSite cookie; no localStorage token storage
+- **Rate limiting** — strict limits on auth endpoints (10 req/15 min), moderate global limit on all API routes (60 req/15 min)
+- **Relationship-verified data access** — students, teachers, and parents can only access data they have a verified relationship to
+- **Consent gating** — audio recording is blocked until verifiable parental consent is on file
+- **Error message masking** — internal error details are not exposed to clients in production
+- **CORS allowlist** — only the deployed frontend origin and preview deployments are permitted
+
+---
+
+## Project Structure
+
+```
+├── backend/
+│   ├── src/
+│   │   ├── routes/        # Express route handlers
+│   │   ├── middleware/     # Auth, RBAC, consent, upload
+│   │   ├── services/      # Business logic (alignment, classification, drills)
+│   │   ├── queue/          # Bull worker for async audio pipeline
+│   │   ├── db/             # Schema, migrations, seed data
+│   │   └── __tests__/      # Backend test suite
+│   └── vitest.config.ts
+├── frontend/
+│   ├── src/
+│   │   ├── pages/          # Route page components
+│   │   ├── components/     # Shared UI components
+│   │   ├── hooks/          # Custom hooks (SSE, API queries)
+│   │   ├── lib/            # API client, utilities
+│   │   ├── context/        # AuthContext provider
+│   │   └── __tests__/      # Frontend test suite
+│   └── vite.config.ts
+├── documents/              # PRD, TRD, specs, feature tickets
+├── .github/workflows/      # CI pipeline
+└── docker-compose.yml      # Local dev infrastructure
+```
+
+---
+
+## License
+
+ISC

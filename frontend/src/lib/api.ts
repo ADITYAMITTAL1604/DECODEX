@@ -30,15 +30,10 @@ export async function apiFetch<T>(endpoint: string, options?: RequestInit): Prom
     ? `${baseUrl}/api/v1${cleanEndpoint}` 
     : `/api/v1${cleanEndpoint}`;
 
-  const token = localStorage.getItem('decodex_token');
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options?.headers as Record<string, string> || {}),
   };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
 
   try {
     const response = await fetch(targetUrl, {
@@ -49,12 +44,7 @@ export async function apiFetch<T>(endpoint: string, options?: RequestInit): Prom
 
     const data = await response.json().catch(() => ({}));
 
-    if (data?.token) {
-      localStorage.setItem('decodex_token', data.token);
-    }
-
     if (response.status === 401) {
-      localStorage.removeItem('decodex_token');
       window.dispatchEvent(new Event('auth:expired'));
     }
 

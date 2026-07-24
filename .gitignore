@@ -1,6 +1,8 @@
 node_modules/
 dist/
 .env
+.env.local
+coverage/
 uploads/
 *.log
 .DS_Store
@@ -8,3 +10,4 @@ uploads/
 __pycache__/
 dump.rdb
 scratch/
+

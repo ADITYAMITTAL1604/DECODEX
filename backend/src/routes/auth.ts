@@ -6,7 +6,7 @@ import { query } from '../db';
 import { authenticate, AuthRequest } from '../middleware/auth';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
+const JWT_SECRET = process.env.JWT_SECRET!;
 
 const getCookieOptions = () => {
   const isProd = process.env.NODE_ENV === 'production';
@@ -65,7 +65,7 @@ router.post('/register', async (req, res) => {
       return res.status(409).json({ error: { code: 'CONFLICT', message: 'Email already exists' } });
     }
     console.error('Auth register error:', error);
-    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: error.message || 'Server error' } });
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: process.env.NODE_ENV === 'production' ? 'An internal error occurred' : (error.message || 'Server error') } });
   }
 });
 
@@ -108,7 +108,7 @@ router.post('/register/parent', async (req, res) => {
       return res.status(409).json({ error: { code: 'CONFLICT', message: 'Email already exists' } });
     }
     console.error('Auth register parent error:', error);
-    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: (error as Error).message || 'Server error' } });
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: process.env.NODE_ENV === 'production' ? 'An internal error occurred' : ((error as Error).message || 'Server error') } });
   }
 });
 
@@ -148,7 +148,7 @@ router.post('/login', async (req, res) => {
     });
   } catch (error: any) {
     console.error('Auth login error:', error);
-    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: error.message || 'Server error' } });
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: process.env.NODE_ENV === 'production' ? 'An internal error occurred' : (error.message || 'Server error') } });
   }
 });
 
@@ -168,7 +168,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res) => {
     res.json({ user: result.rows[0] });
   } catch (error: any) {
     console.error('Auth me error:', error);
-    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: error.message || 'Server error' } });
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: process.env.NODE_ENV === 'production' ? 'An internal error occurred' : (error.message || 'Server error') } });
   }
 });
 

@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
+const JWT_SECRET = process.env.JWT_SECRET!;
 
 export interface AuthRequest extends Request {
   user?: {
@@ -14,11 +14,9 @@ export interface AuthRequest extends Request {
 }
 
 export const authenticate = (req: AuthRequest, res: Response, next: NextFunction) => {
-  const authHeader = req.headers.authorization;
-  const bearerToken = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null;
-  // Also accept token from query parameter (needed for SSE EventSource which cannot set custom headers)
+  // Read token from httpOnly cookie (primary) or query param (SSE fallback)
   const queryToken = typeof req.query.token === 'string' ? req.query.token : null;
-  const token = req.cookies.token || bearerToken || queryToken;
+  const token = req.cookies.token || queryToken;
 
   if (!token) {
     return res.status(401).json({

@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 
 import authRoutes from './routes/auth';
@@ -30,6 +31,13 @@ import './queue/worker';
 
 dotenv.config();
 
+// --- Startup validation ---
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+  console.error('FATAL: JWT_SECRET is missing or too short (minimum 32 characters).');
+  console.error('Generate one with: openssl rand -base64 32');
+  process.exit(1);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -48,15 +56,40 @@ app.use(
       if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
         callback(null, true);
       } else {
-        callback(null, true);
+        callback(new Error('Not allowed by CORS'));
       }
     },
     credentials: true,
   })
 );
 
+// --- Rate limiting (Section 1e) ---
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMITED', message: 'Too many requests, please try again later' } },
+});
+
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMITED', message: 'Too many requests, please try again later' } },
+});
+
 app.use(express.json());
 app.use(cookieParser());
+
+// Apply strict rate limiter to auth endpoints
+app.use('/api/v1/auth/register', authLimiter);
+app.use('/api/v1/auth/register/parent', authLimiter);
+app.use('/api/v1/auth/login', authLimiter);
+
+// Apply moderate global rate limiter to all API routes
+app.use('/api/v1', globalLimiter);
 
 // Routes — V1 Core
 app.use('/api/v1/auth', authRoutes);
@@ -98,3 +131,5 @@ initDB().then(() => {
     console.log(`Server listening on port ${PORT} (DB init failed)`);
   });
 });
+
+export default app;

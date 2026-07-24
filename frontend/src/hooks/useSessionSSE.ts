@@ -24,8 +24,8 @@ export function useSessionSSE(sessionId: string | null) {
     completedRef.current = false;
 
     const baseUrl = getApiBaseUrl();
-    const token = localStorage.getItem('decodex_token');
-    const sseUrl = `${baseUrl}/api/v1/sessions/${sessionId}/status/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+    // SSE uses withCredentials for cookie auth; no localStorage token needed
+    const sseUrl = `${baseUrl}/api/v1/sessions/${sessionId}/status/stream`;
 
     let eventSource: EventSource | null = null;
     let sseConnected = false;

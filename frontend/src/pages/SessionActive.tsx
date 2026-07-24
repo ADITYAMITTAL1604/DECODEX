@@ -44,17 +44,11 @@ export default function SessionActive() {
       // Build absolute URL for deployed environments (Vercel → Render, etc.)
       const baseUrl = getApiBaseUrl();
       const uploadUrl = `${baseUrl}/api/v1/sessions/${sessionId}/audio`;
-      const token = localStorage.getItem('decodex_token');
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
 
       const response = await fetch(uploadUrl, {
         method: 'POST',
         body: formData,
         credentials: 'include',
-        headers,
       });
       
       if (!response.ok) throw new Error('Upload failed');
