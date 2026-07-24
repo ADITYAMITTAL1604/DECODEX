@@ -32,9 +32,27 @@ function editDistance(s1: string, s2: string): number {
   return dp[m][n];
 }
 
+/**
+ * Checks if a single spoken word matches a target word.
+ * 1. Exact match (e.g. "cat" === "cat")
+ * 2. Edit distance <= 1 for words length >= 4 with length diff <= 1 (e.g. "small" vs "smal")
+ * 3. Prefix/stem match for words length >= 4 with length diff <= 2 (e.g. "jumped" vs "jump")
+ * NO substring matching across arbitrary words to prevent false passes!
+ */
+function isWordMatch(tw: string, sw: string): boolean {
+  if (tw === sw) return true;
+  if (tw.length >= 4 && sw.length >= 4 && Math.abs(tw.length - sw.length) <= 1) {
+    if (editDistance(tw, sw) <= 1) return true;
+  }
+  if (tw.length >= 4 && sw.length >= 3 && Math.abs(tw.length - sw.length) <= 2) {
+    if (tw.startsWith(sw) || sw.startsWith(tw)) return true;
+  }
+  return false;
+}
+
 // ---------------------------------------------------------------------------
 // Helper: Evaluate if spoken text matches target sentence
-// Fair 65% threshold with fuzzy matching so correct readings are never flagged as wrong.
+// Fair 75% threshold with position-aware word consumption.
 // ---------------------------------------------------------------------------
 function evaluateSentenceRead(sentence: string, spoken: string): boolean {
   if (!spoken || spoken.trim().length === 0) return false;
@@ -44,22 +62,24 @@ function evaluateSentenceRead(sentence: string, spoken: string): boolean {
 
   if (targetWords.length === 0) return true;
 
+  const usedSpokenIndices = new Set<number>();
   let matchedCount = 0;
-  for (const tw of targetWords) {
-    const isMatched = spokenWords.some(sw => {
-      if (sw === tw) return true;
-      if (tw.length >= 3 && (sw.includes(tw) || tw.includes(sw))) return true;
-      if (tw.length >= 4 && sw.length >= 4 && editDistance(tw, sw) <= 1) return true;
-      return false;
-    });
 
-    if (isMatched) {
-      matchedCount++;
+  for (const tw of targetWords) {
+    for (let j = 0; j < spokenWords.length; j++) {
+      if (usedSpokenIndices.has(j)) continue;
+
+      if (isWordMatch(tw, spokenWords[j])) {
+        usedSpokenIndices.add(j);
+        matchedCount++;
+        break;
+      }
     }
   }
 
-  // Pass threshold: 65% of words matched
-  return (matchedCount / targetWords.length) >= 0.65;
+  const ratio = matchedCount / targetWords.length;
+  // Require 75% accuracy — fair evaluation that requires reading the line correctly
+  return ratio >= 0.75;
 }
 
 export default function StoryReaderPage() {
