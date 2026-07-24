@@ -79,6 +79,14 @@ vi.mock('../../services/openai', () => ({
   transcribeAudio: vi.fn().mockResolvedValue('hello world'),
 }));
 
+vi.mock('../../services/cache', () => ({
+  getCache: vi.fn().mockResolvedValue(null),
+  setCache: vi.fn().mockResolvedValue(undefined),
+  generateHashKey: vi.fn().mockReturnValue('mock-hash'),
+}));
+
+delete process.env.GROQ_API_KEY;
+
 vi.mock('../../db/init', () => ({
   initDB: vi.fn().mockResolvedValue(undefined),
 }));

@@ -20,7 +20,7 @@ export interface ClassificationResult {
 const classificationPrompt = `
 You are an expert reading specialist trained in the Orton-Gillingham approach.
 Given a list of reading errors (insertions, omissions, substitutions), classify each error into ONE of the following categories:
-- REV: Reversal (e.g., 'was' for 'saw', 'b' for 'd')
+- REV: Reversal or Transposition (e.g., 'was' for 'saw', 'no' for 'on', 'from' for 'form', 'b' for 'd', 'p' for 'q', 'w' for 'm')
 - SUB: Substitution (e.g., 'house' for 'horse' due to visual similarity, or completely different word)
 - OMI: Omission (skipped a word)
 - INS: Insertion (added a word)
@@ -28,11 +28,41 @@ Given a list of reading errors (insertions, omissions, substitutions), classify 
 - PAC: Pacing/Self-correction (stumbling, repeating, then fixing)
 - UNC: Uncertain (cannot determine with confidence)
 
+IMPORTANT RULE FOR REV (Reversals):
+If the spoken word is a string reversal (e.g. 'was' for 'saw'), a letter transposition (e.g. 'from' for 'form', 'felt' for 'flet'), or a directional letter swap (e.g. 'big' for 'dig', 'bad' for 'dad'), you MUST classify it as REV.
+
 Respond ONLY with a JSON object containing a single key "classifications" whose value is an array of objects.
 Each object must have exactly these keys: "index" (integer), "category" (string, one of the codes above), "rationale" (string, ≤30 words).
 Example response format:
-{"classifications": [{"index": 0, "category": "SUB", "rationale": "Student said 'house' for 'horse', visually similar."}]}
+{"classifications": [{"index": 0, "category": "REV", "rationale": "Reversed letter order: read 'was' for 'saw'."}]}
 `;
+
+function isReversal(src: string, spk: string): boolean {
+  if (!src || !spk) return false;
+  const s1 = src.toLowerCase().trim();
+  const s2 = spk.toLowerCase().trim();
+
+  // 1. Direct string reversal: "was" <-> "saw", "no" <-> "on", "top" <-> "pot"
+  if (s1.length > 1 && s1.split('').reverse().join('') === s2) return true;
+
+  // 2. Letter transposition / anagram: "from" <-> "form", "barn" <-> "bran", "felt" <-> "flet"
+  if (s1.length >= 3 && s2.length >= 3 && Math.abs(s1.length - s2.length) <= 1) {
+    const sorted1 = s1.split('').sort().join('');
+    const sorted2 = s2.split('').sort().join('');
+    if (sorted1 === sorted2) return true;
+  }
+
+  // 3. Directional letter swap anywhere in the word (b/d, p/q, m/w, n/u):
+  // e.g. "big" <-> "dig", "bad" <-> "dad", "pat" <-> "qat", "mom" <-> "wow"
+  const hasDirectionalChar = /[bdpqmwnu]/.test(s1) || /[bdpqmwnu]/.test(s2);
+  if (hasDirectionalChar) {
+    const norm1 = s1.replace(/[bdpqmwnu]/g, '_');
+    const norm2 = s2.replace(/[bdpqmwnu]/g, '_');
+    if (norm1 === norm2) return true;
+  }
+
+  return false;
+}
 
 function applyRuleBasedOGClassification(errors: AlignmentResult[]): ClassificationResult[] {
   return errors.map(e => {
@@ -49,17 +79,7 @@ function applyRuleBasedOGClassification(errors: AlignmentResult[]): Classificati
       const src = e.sourceWord.toLowerCase().trim();
       const spk = e.spokenWord.toLowerCase().trim();
 
-      const isLetterReversal = src.length > 1 && src.split('').reverse().join('') === spk;
-      const isDirectionalSwap = (
-        (src.includes('b') && spk.includes('d')) ||
-        (src.includes('d') && spk.includes('b')) ||
-        (src.includes('p') && spk.includes('q')) ||
-        (src.includes('q') && spk.includes('p')) ||
-        (src.includes('m') && spk.includes('w')) ||
-        (src.includes('w') && spk.includes('m'))
-      ) && src.replace(/[bdpqmw]/g, '') === spk.replace(/[bdpqmw]/g, '');
-
-      if (isLetterReversal || isDirectionalSwap) {
+      if (isReversal(src, spk)) {
         category = 'REV';
         rationale = `Directional/letter reversal: read "${e.spokenWord}" for "${e.sourceWord}".`;
       } else {
@@ -117,12 +137,13 @@ const _classifyErrors = async (errors: AlignmentResult[]): Promise<Classificatio
 
     return errors.map(e => {
       const classification = parsed.classifications?.find((c: any) => c.index === e.index);
+      const fallbackCat = (e.sourceWord && e.spokenWord && isReversal(e.sourceWord, e.spokenWord)) ? 'REV' : 'SUB';
       return {
         index: e.index,
         sourceWord: e.sourceWord,
         spokenWord: e.spokenWord,
-        category: (classification?.category as ErrorCategory) || 'SUB',
-        rationale: classification?.rationale || 'Rule-based classification applied.',
+        category: (classification?.category as ErrorCategory) || fallbackCat,
+        rationale: classification?.rationale || 'Orton-Gillingham classification applied.',
       };
     });
   } catch (err: any) {

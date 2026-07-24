@@ -46,11 +46,19 @@ const _transcribeAudio = async ({ filePath, passageText }: { filePath: string; p
   const { client, model } = getGroqSttClient();
 
   try {
+    // Verbatim prompt prevents Whisper from auto-correcting/smoothing dyslexic misreadings,
+    // letter reversals, transposed letters, and mispronunciations into standard English.
+    const verbatimPrompt = passageText
+      ? `Transcribe exact verbatim speech from a child reading this passage aloud: "${passageText}". Do NOT autocorrect mispronunciations, letter reversals, transposed letters, stumbles, partial words, or non-standard spellings. Keep spoken words exactly as articulated.`
+      : `Transcribe exact verbatim speech from a child reading aloud. Do NOT autocorrect mispronunciations, letter reversals, transposed letters, stumbles, or phonetic errors. Keep spoken words exactly as articulated.`;
+
     const transcription = await client.audio.transcriptions.create({
       file: fs.createReadStream(filePath),
       model,
       response_format: 'text',
       language: 'en',
+      prompt: verbatimPrompt,
+      temperature: 0.0, // Force deterministic verbatim output, disable LLM hallucination
     });
 
     return transcription as unknown as string;

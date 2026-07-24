@@ -35,6 +35,35 @@ function editDistance(s1: string, s2: string): number {
 }
 
 /**
+ * Detects whether two words represent a reversal, letter transposition, or directional swap.
+ * Returns true if w1 and w2 are string reversals (was/saw), anagrams/transpositions (from/form),
+ * or directional letter swaps (b/d, p/q, m/w, n/u).
+ */
+function isReversalOrTransposition(w1: string, w2: string): boolean {
+  if (!w1 || !w2 || w1.length < 2 || w2.length < 2) return false;
+
+  // 1. Direct string reversal: "was" <-> "saw", "on" <-> "no", "top" <-> "pot", "star" <-> "rats"
+  if (w1.split('').reverse().join('') === w2) return true;
+
+  // 2. Letter transposition / anagram: "from" <-> "form", "felt" <-> "flet", "barn" <-> "bran"
+  if (Math.abs(w1.length - w2.length) <= 1) {
+    const s1 = w1.split('').sort().join('');
+    const s2 = w2.split('').sort().join('');
+    if (s1 === s2) return true;
+  }
+
+  // 3. Directional letter swap: b/d, p/q, m/w, n/u (e.g. "big" <-> "dig", "bad" <-> "dad", "pat" <-> "qat")
+  const hasDirectionalChar = /[bdpqmwnu]/.test(w1) || /[bdpqmwnu]/.test(w2);
+  if (hasDirectionalChar) {
+    const norm1 = w1.replace(/[bdpqmwnu]/g, '_');
+    const norm2 = w2.replace(/[bdpqmwnu]/g, '_');
+    if (norm1 === norm2) return true;
+  }
+
+  return false;
+}
+
+/**
  * Needleman-Wunsch Global Word Alignment for Speech Diagnostics
  */
 export const alignText = (original: string, spoken: string): AlignmentResult[] => {
@@ -77,7 +106,7 @@ export const alignText = (original: string, spoken: string): AlignmentResult[] =
         const dist = editDistance(w1, w2);
         const maxLen = Math.max(w1.length, w2.length);
         const sim = 1 - dist / Math.max(1, maxLen);
-        if (sim >= 0.6 || dist <= 2) {
+        if (isReversalOrTransposition(w1, w2) || sim >= 0.5 || dist <= 2) {
           matchCost = SUB_COST;
         } else {
           matchCost = GAP_COST * 1.5;
@@ -109,7 +138,7 @@ export const alignText = (original: string, spoken: string): AlignmentResult[] =
         const dist = editDistance(w1, w2);
         const maxLen = Math.max(w1.length, w2.length);
         const sim = 1 - dist / Math.max(1, maxLen);
-        if (sim >= 0.6 || dist <= 2) matchCost = SUB_COST;
+        if (isReversalOrTransposition(w1, w2) || sim >= 0.5 || dist <= 2) matchCost = SUB_COST;
         else matchCost = GAP_COST * 1.5;
       }
 
