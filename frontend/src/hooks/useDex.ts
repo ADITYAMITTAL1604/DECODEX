@@ -13,7 +13,7 @@ export interface DexHook {
   state: DexState;
   caption: string;
   speak: (text: string) => Promise<void>;
-  listen: (mode: 'short' | 'long') => Promise<string>;
+  listen: (mode: 'short' | 'sentence' | 'long') => Promise<string>;
   ask: (question: string, expectedAnswer: string) => Promise<{ correct: boolean; feedback: string }>;
 }
 
@@ -89,8 +89,8 @@ export function useDex(): DexHook {
     setState('idle');
   }, []);
 
-  // ------- listen('short') -------
-  // Uses browser SpeechRecognition (extracted from PracticePage.tsx inline logic).
+  // ------- listenShort -------
+  // Single-word / short phrase speech recognition mode.
   const listenShort = useCallback((): Promise<string> => {
     return new Promise((resolve) => {
       setState('listening');
@@ -155,14 +155,77 @@ export function useDex(): DexHook {
     });
   }, []);
 
+  // ------- listenSentence -------
+  // Continuous speech recognition mode for full sentence lines.
+  // Accumulates all spoken words across mid-sentence pauses for 9 seconds
+  // so the user has ample time to read full sentences without getting cut off early.
+  const listenSentence = useCallback((durationMs = 9000): Promise<string> => {
+    return new Promise((resolve) => {
+      setState('listening');
+
+      const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+      if (!SpeechRec) {
+        setState('idle');
+        resolve('');
+        return;
+      }
+
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      let fullTranscript = '';
+
+      const cleanup = () => {
+        if (timeoutId) clearTimeout(timeoutId);
+        setState('idle');
+      };
+
+      try {
+        const recognition = new SpeechRec();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+
+        recognition.onresult = (event: any) => {
+          let text = '';
+          for (let i = 0; i < event.results.length; i++) {
+            text += event.results[i][0].transcript + ' ';
+          }
+          fullTranscript = text.trim();
+        };
+
+        recognition.onerror = () => {
+          /* ignore non-fatal speech errors to keep accumulated text */
+        };
+
+        recognition.onend = () => {
+          cleanup();
+          resolve(fullTranscript);
+        };
+
+        // Complete listening after durationMs
+        timeoutId = setTimeout(() => {
+          try { recognition.stop(); } catch { /* ignore */ }
+          cleanup();
+          resolve(fullTranscript);
+        }, durationMs);
+
+        // Cancel TTS audio so mic isn't blocked
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+
+        recognition.start();
+      } catch {
+        cleanup();
+        setState('idle');
+        resolve('');
+      }
+    });
+  }, []);
+
   // ------- listen('long') -------
   // Records audio via MediaRecorder, POSTs to /api/v1/dex/transcribe,
   // returns the Whisper transcript.
-  //
-  // NOTE: This uses the existing Whisper STT pipeline on the backend, which
-  // provides higher accuracy than browser SpeechRecognition at the cost of
-  // additional latency. Suitable for comprehension answers but NOT for
-  // per-word practice (where responsiveness matters more than accuracy).
   const listenLong = useCallback((): Promise<string> => {
     return new Promise(async (resolve) => {
       setState('listening');
@@ -177,9 +240,7 @@ export function useDex(): DexHook {
         };
 
         mediaRecorder.onstop = async () => {
-          // Stop all tracks to release mic
           stream.getTracks().forEach(t => t.stop());
-
           const blob = new Blob(chunks, { type: 'audio/webm' });
 
           setState('thinking');
@@ -221,7 +282,6 @@ export function useDex(): DexHook {
 
         mediaRecorder.start();
 
-        // Auto-stop after 10 seconds to bound recording length
         setTimeout(() => {
           if (mediaRecorder.state === 'recording') {
             mediaRecorder.stop();
@@ -235,25 +295,20 @@ export function useDex(): DexHook {
   }, []);
 
   // ------- listen() dispatcher -------
-  const listen = useCallback(async (mode: 'short' | 'long'): Promise<string> => {
+  const listen = useCallback(async (mode: 'short' | 'sentence' | 'long'): Promise<string> => {
+    if (mode === 'sentence') return listenSentence();
     return mode === 'short' ? listenShort() : listenLong();
-  }, [listenShort, listenLong]);
+  }, [listenShort, listenSentence, listenLong]);
 
   // ------- ask() -------
   // Full cycle: speak question → listen for answer → grade → speak feedback.
-  // Updates state through the full lifecycle. Can be called again for retry
-  // without needing to reconstruct any state.
   const ask = useCallback(async (
     question: string,
     expectedAnswer: string,
   ): Promise<{ correct: boolean; feedback: string }> => {
-    // 1. Speak the question
     await speak(question);
-
-    // 2. Listen for the answer (long mode = Whisper for accuracy)
     const transcript = await listen('long');
 
-    // 3. Grade the answer
     setState('thinking');
 
     let result: { correct: boolean; feedback: string };
@@ -274,7 +329,6 @@ export function useDex(): DexHook {
       if (res.ok) {
         result = await res.json();
       } else {
-        // Fallback if grading endpoint fails
         result = {
           correct: transcript.toLowerCase().includes(expectedAnswer.toLowerCase()),
           feedback: transcript.toLowerCase().includes(expectedAnswer.toLowerCase())
@@ -291,13 +345,8 @@ export function useDex(): DexHook {
       };
     }
 
-    // 4. Show celebrating or concerned state
     setState(result.correct ? 'celebrating' : 'concerned');
-
-    // 5. Speak the feedback
     await speak(result.feedback);
-
-    // 6. Return to idle
     setState('idle');
 
     return result;

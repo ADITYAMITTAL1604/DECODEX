@@ -18,6 +18,7 @@ function splitIntoSentences(text: string): string[] {
 
 // ---------------------------------------------------------------------------
 // Helper: Evaluate if spoken text matches target sentence
+// Strict threshold: Student must read at least 80% of content words in sentence
 // ---------------------------------------------------------------------------
 function evaluateSentenceRead(sentence: string, spoken: string): boolean {
   if (!spoken || spoken.trim().length === 0) return false;
@@ -27,7 +28,6 @@ function evaluateSentenceRead(sentence: string, spoken: string): boolean {
 
   if (targetWords.length === 0) return true;
 
-  // Count how many target words were spoken
   let matchedCount = 0;
   for (const tw of targetWords) {
     if (spokenWords.some(sw => sw === tw || sw.includes(tw) || tw.includes(sw))) {
@@ -35,8 +35,8 @@ function evaluateSentenceRead(sentence: string, spoken: string): boolean {
     }
   }
 
-  // Pass if student got at least 50% of content words right
-  return (matchedCount / targetWords.length) >= 0.5;
+  // Student MUST read at least 80% of content words in sentence line
+  return (matchedCount / targetWords.length) >= 0.80;
 }
 
 export default function StoryReaderPage() {
@@ -191,11 +191,8 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
       setCurrentSentenceIdx(i);
       const sentence = sentences[i];
       let linePassed = false;
-      let attemptCount = 0;
 
       while (!linePassed && narrationActive.current) {
-        attemptCount++;
-
         // 1. Dex reads the line aloud
         setStatusMessage(`${TUTOR_NAME} is reading the line…`);
         await dex.speak(sentence);
@@ -208,13 +205,13 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
 
         if (!narrationActive.current) break;
 
-        // 3. Listen for student's voice input
-        setStatusMessage(`Listening for your speech…`);
-        const spoken = await dex.listen('short');
+        // 3. Listen for full sentence speech (continuous 9-second window)
+        setStatusMessage(`Listening for your full sentence reading… (speak clearly into mic)`);
+        const spoken = await dex.listen('sentence');
 
         if (!narrationActive.current) break;
 
-        // 4. Evaluate spoken text against current sentence line
+        // 4. Evaluate spoken text against current sentence line (80% threshold required)
         const passed = evaluateSentenceRead(sentence, spoken);
 
         if (passed) {
@@ -222,7 +219,7 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
           setStatusMessage(`🎉 Great job! Line mastered.`);
           await dex.speak("Great job! You read that line effortlessly!");
         } else {
-          setStatusMessage(`Not quite — let's practice this line again!`);
+          setStatusMessage(`Not quite — let's practice reading this line again!`);
           await dex.speak("Not quite! Let me read it again, then you repeat after me.");
           await new Promise(r => setTimeout(r, 500));
         }
