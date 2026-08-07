@@ -5,6 +5,10 @@ import CircuitBreaker from 'opossum';
 
 dotenv.config();
 
+// Supported STT languages (matching Whisper/Groq capabilities)
+// 'en' = English, 'hi' = Hindi
+export type SttLanguage = 'en' | 'hi' | string;
+
 // Groq API Client for Whisper Speech-To-Text
 const getGroqSttClient = () => {
   const apiKey = process.env.GROQ_API_KEY || 'dummy_groq_key';
@@ -35,7 +39,15 @@ function generateHighPrecisionFallback(passageText?: string): string {
   return resultWords.join(' ');
 }
 
-const _transcribeAudio = async ({ filePath, passageText }: { filePath: string; passageText?: string }): Promise<string> => {
+const _transcribeAudio = async ({
+  filePath,
+  passageText,
+  language = 'en'
+}: {
+  filePath: string;
+  passageText?: string;
+  language?: SttLanguage;
+}): Promise<string> => {
   const hasGroq = Boolean(process.env.GROQ_API_KEY);
 
   if (!hasGroq) {
@@ -56,7 +68,7 @@ const _transcribeAudio = async ({ filePath, passageText }: { filePath: string; p
       file: fs.createReadStream(filePath),
       model,
       response_format: 'text',
-      language: 'en',
+      language,
       prompt: verbatimPrompt,
       temperature: 0.0, // Force deterministic verbatim output, disable LLM hallucination
     });
@@ -69,18 +81,26 @@ const _transcribeAudio = async ({ filePath, passageText }: { filePath: string; p
 };
 
 const breakerOptions = {
-  timeout: 15000, 
+  timeout: 15000,
   errorThresholdPercentage: 50,
   resetTimeout: 30000,
 };
 
 const whisperBreaker = new CircuitBreaker(_transcribeAudio, breakerOptions);
 
-whisperBreaker.fallback(({ passageText }: { filePath: string; passageText?: string }) => {
+whisperBreaker.fallback(({ filePath, passageText, language }: {
+  filePath: string;
+  passageText?: string;
+  language?: SttLanguage;
+}) => {
   console.warn('Whisper circuit breaker OPEN or timeout. Using passage-aware fallback transcript.');
   return generateHighPrecisionFallback(passageText);
 });
 
-export const transcribeAudio = async (filePath: string, passageText?: string): Promise<string> => {
-  return await whisperBreaker.fire({ filePath, passageText });
+export const transcribeAudio = async (
+  filePath: string,
+  passageText?: string,
+  language?: SttLanguage
+): Promise<string> => {
+  return await whisperBreaker.fire({ filePath, passageText, language });
 };

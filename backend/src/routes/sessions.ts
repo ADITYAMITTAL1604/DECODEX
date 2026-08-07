@@ -6,6 +6,7 @@ import { requireConsent } from '../middleware/consent';
 import { upload } from '../middleware/upload';
 import { audioQueue } from '../queue';
 import { processAudioJob } from '../queue/worker';
+import { getCache, deleteCache } from '../services/cache';
 
 const router = Router();
 
@@ -275,6 +276,19 @@ router.post('/:id/classifications/:errorIndex/feedback', authenticate, async (re
   }
 
   try {
+    // First, fetch the original classification to get source_word and spoken_word for cache invalidation
+    const classificationRes = await query(
+      `SELECT source_word, spoken_word FROM error_classifications WHERE session_id = $1 AND word_index = $2`,
+      [id, errorIndex]
+    );
+
+    if (classificationRes.rows.length === 0) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Classification not found' } });
+    }
+
+    const { source_word, spoken_word } = classificationRes.rows[0];
+
+    // Save the correction
     const result = await query(
       `INSERT INTO classification_corrections (error_id, teacher_id, original_category, corrected_category)
        SELECT ec.id, $3, ec.category, $4
@@ -287,6 +301,23 @@ router.post('/:id/classifications/:errorIndex/feedback', authenticate, async (re
     if (result.rows.length === 0) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Classification not found' } });
     }
+
+    // Invalidate the classification cache for this error pattern
+    // Use the same key normalization logic as getClassificationCacheKey in classifier.ts
+    const src = (source_word || '').toLowerCase().trim();
+    const spk = (spoken_word || '').toLowerCase().trim();
+
+    let cacheKey: string;
+    if (!src && spk) {
+      cacheKey = `classify:ins:${spk}`;
+    } else if (src && !spk) {
+      cacheKey = `classify:omi:${src}`;
+    } else {
+      cacheKey = `classify:sub:${src}:${spk}`;
+    }
+
+    await deleteCache(cacheKey);
+    console.log(`[Cache Invalidation] Deleted classification cache key: ${cacheKey}`);
 
     res.json({ success: true, correction: result.rows[0] });
   } catch (error) {

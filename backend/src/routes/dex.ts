@@ -3,8 +3,9 @@ import rateLimit from 'express-rate-limit';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { requireConsent } from '../middleware/consent';
 import { upload } from '../middleware/upload';
-import { gradeSpokenAnswer } from '../services/dexTutor';
+import { gradeSpokenAnswer, type DexLanguage } from '../services/dexTutor';
 import { transcribeAudio } from '../services/openai';
+import { query } from '../db';
 import fs from 'fs';
 
 const router = Router();
@@ -42,11 +43,15 @@ router.post('/grade-answer', authenticate, dexLimiter, async (req: AuthRequest, 
     });
   }
 
+  // Use the student's preferred_language from JWT (or fetch from DB for freshness)
+  const studentPreferredLanguage = (req.user as any)?.preferredLanguage as DexLanguage || 'en';
+
   try {
     const result = await gradeSpokenAnswer(
       question.trim(),
       expectedAnswer.trim(),
       studentTranscript.trim(),
+      studentPreferredLanguage,
     );
     res.json(result);
   } catch (err) {

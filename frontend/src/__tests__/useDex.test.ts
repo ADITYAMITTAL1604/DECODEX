@@ -152,14 +152,28 @@ describe('useDex', () => {
         onresult: any = null;
         onerror: any = null;
         onend: any = null;
+        abort = vi.fn();
         start = vi.fn(() => {
+          // Fire onresult with isFinal=true, then fire onend so listenShort resolves
           setTimeout(() => {
             if (this.onresult) {
-              this.onresult({ results: [[{ transcript: 'hello world' }]] });
+              this.onresult({
+                resultIndex: 0,
+                results: Object.assign(
+                  [[Object.assign({ transcript: 'hello world' }, { isFinal: true })]],
+                  { 0: Object.assign(
+                    [{ transcript: 'hello world' }],
+                    { isFinal: true }
+                  ) }
+                ),
+              });
             }
+            // Give the hook a tick to call finish(), then fire onend
+            setTimeout(() => {
+              if (this.onend) this.onend();
+            }, 5);
           }, 5);
         });
-        abort = vi.fn();
         constructor() {}
       };
 
@@ -176,11 +190,22 @@ describe('useDex', () => {
       expect(result.current.state).toBe('idle');
 
       delete (window as any).SpeechRecognition;
-    });
+    }, 10000);
 
     it('should return empty string when SpeechRecognition is unavailable', async () => {
       delete (window as any).SpeechRecognition;
       delete (window as any).webkitSpeechRecognition;
+
+      // listenShort falls back to listenLong which calls getUserMedia.
+      // Mock it to reject immediately so listenLong resolves with ''.
+      const mediaDevicesMock = {
+        getUserMedia: vi.fn().mockRejectedValue(new Error('not available')),
+      };
+      Object.defineProperty(navigator, 'mediaDevices', {
+        value: mediaDevicesMock,
+        writable: true,
+        configurable: true,
+      });
 
       const { result } = renderHook(() => useDex());
 

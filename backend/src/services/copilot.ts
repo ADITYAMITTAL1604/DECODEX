@@ -33,6 +33,9 @@ export interface Exercise {
   estimatedMinutes: number;
 }
 
+// Supported languages for parent communication
+export type ParentLanguage = 'en' | 'hi' | string;
+
 // O-G category full names for readable output
 const CATEGORY_NAMES: Record<string, string> = {
   REV: 'Letter Reversals',
@@ -168,10 +171,21 @@ export async function generateStrategy(
     topWeaknesses, avgWpm, errors.session_count || 0
   );
 
-  // 10. Generate parent communication draft
+  // 10. Fetch parent's preferred_language for the communication draft
+  const parentLangRes = await query(
+    `SELECT u.preferred_language
+     FROM parent_student_links psl
+     JOIN users u ON u.id = psl.parent_id
+     WHERE psl.student_id = $1 AND psl.withdrawn_at IS NULL AND u.deleted_at IS NULL
+     ORDER BY psl.consent_date ASC LIMIT 1`,
+    [studentId]
+  );
+  const parentPreferredLanguage: ParentLanguage = parentLangRes.rows[0]?.preferred_language || 'en';
+
+  // 11. Generate parent communication draft in parent's preferred language
   const parentDraft = generateParentCommunication(
     studentName, gradeLevel, healthScore?.score || 0,
-    topWeaknesses, weeklyRoadmap
+    topWeaknesses, weeklyRoadmap, parentPreferredLanguage
   );
 
   const strategy: CopilotStrategy = {
@@ -288,7 +302,8 @@ function generateSummary(
 
 function generateParentCommunication(
   name: string, grade: number, score: number,
-  weaknesses: [string, number][], roadmap: WeeklyPlan[]
+  weaknesses: [string, number][], roadmap: WeeklyPlan[],
+  language: ParentLanguage = 'en'
 ): string {
   const weaknessText = weaknesses
     .map(([cat, count]) => `${CATEGORY_NAMES[cat]?.toLowerCase() || cat} (${count} occurrences)`)
@@ -298,31 +313,61 @@ function generateParentCommunication(
     .map(w => `  • Week ${w.week}: ${w.focus}`)
     .join('\n');
 
-  return `Dear Parent/Guardian,
+  // Language-specific templates
+  const templates: Record<string, {
+    greeting: string;
+    intro: (name: string, score: number) => string;
+    focus: string;
+    plan: string;
+    help: string;
+    closing: string;
+    signature: string;
+  }> = {
+    en: {
+      greeting: 'Dear Parent/Guardian,',
+      intro: (name: string, score: number) =>
+        `I wanted to share an update on ${name}'s reading progress in our Decodex program.\n\n` +
+        `${name} is currently reading at a Health Score of ${score} out of 100. ` +
+        (score >= 75
+          ? `This represents strong progress, and we're working to build on these achievements.`
+          : score >= 60
+            ? `This shows developing skills with specific areas where targeted practice can make a real difference.`
+            : `We've identified some patterns that will benefit from structured, targeted practice.`),
+      focus: 'The areas we\'re focusing on include:',
+      plan: 'Here\'s our 4-week improvement plan:',
+      help: `How you can help at home:\n` +
+        `  • Encourage daily reading practice (if not a whole story, reading even a small part of a story daily is essential!)\n` +
+        `  • Listen to ${name} read aloud and praise effort (not just accuracy)\n` +
+        `  • Use the Decodex parent dashboard to track weekly progress\n` +
+        `  • Celebrate milestones — every improvement matters!`,
+      closing: `Please don't hesitate to reach out if you have questions about ${name}'s progress or the intervention plan.`,
+      signature: 'Warm regards,\nThe Decodex Teaching Team',
+    },
+    hi: {
+      greeting: 'प्रिय अभिभावक/पालक,',
+      intro: (name: string, score: number) =>
+        `मैं ${name} की रीडिंग प्रगति पर हमारे डिकोडेक्स प्रोग्राम में एक अपडेट साझा करना चाहता/चाहती हूँ।\n\n` +
+        `${name} वर्तमान में 100 में से ${score} के हेल्थ स्कोर पर पढ़ रहे हैं। ` +
+        (score >= 75
+          ? `यह मजबूत प्रगति दर्शाता है, और हम इन उपलब्धियों को आगे बढ़ाने के लिए काम कर रहे हैं।`
+          : score >= 60
+            ? `यह विकासशील कौशल दिखाता है जहां लक्षित अभ्यास वास्तविक अंतर ला सकता है।`
+            : `हमने कुछ पैटर्न पहचाने हैं जो संरचित, लक्षित अभ्यास से लाभान्वित होंगे।`),
+      focus: 'हम जिन क्षेत्रों पर ध्यान केंद्रित कर रहे हैं उनमें शामिल हैं:',
+      plan: 'यह हमारी 4-सप्ताह की सुधार योजना है:',
+      help: `घर पर आप कैसे मदद कर सकते हैं:\n` +
+        `  • दैनिक रीडिंग अभ्यास को प्रोत्साहित करें (यदि पूरी कहानी नहीं, तो कहानी का एक छोटा सा हिस्सा भी रोज पढ़ना आवश्यक है!)\n` +
+        `  • ${name} को जोर से पढ़ते हुए सुनें और प्रयास की सराहना करें (सिर्फ सटीकता की नहीं)\n` +
+        `  • साप्ताहिक प्रगति ट्रैक करने के लिए डिकोडेक्स पेरेंट डैशबोर्ड का उपयोग करें\n` +
+        `  • उपलब्धियों का जश्न मनाएं — हर सुधार मायने रखता है!`,
+      closing: `यदि आपके ${name} की प्रगति या हस्तक्षेप योजना के बारे में कोई प्रश्न हैं, तो कृपया संपर्क करने में संकोच न करें।`,
+      signature: 'सादर,\nडिकोडेक्स टीचिंग टीम',
+    },
+  };
 
-I wanted to share an update on ${name}'s reading progress in our Decodex program.
+  const t = templates[language] ?? templates.en;
 
-${name} is currently reading at a Health Score of ${score} out of 100. ${score >= 75
-    ? `This represents strong progress, and we're working to build on these achievements.`
-    : score >= 60
-      ? `This shows developing skills with specific areas where targeted practice can make a real difference.`
-      : `We've identified some patterns that will benefit from structured, targeted practice.`}
-
-The areas we're focusing on include: ${weaknessText}.
-
-Here's our 4-week improvement plan:
-${weekSummary}
-
-How you can help at home:
-  • Encourage daily reading practice (if not a whole story, reading even a small part of a story daily is essential!)
-  • Listen to ${name} read aloud and praise effort (not just accuracy)
-  • Use the Decodex parent dashboard to track weekly progress
-  • Celebrate milestones — every improvement matters!
-
-Please don't hesitate to reach out if you have questions about ${name}'s progress or the intervention plan.
-
-Warm regards,
-The Decodex Teaching Team`;
+  return `${t.greeting}\n\n${t.intro(name, score)}\n\n${t.focus} ${weaknessText}.\n\n${t.plan}\n${weekSummary}\n\n${t.help}\n\n${t.closing}\n\n${t.signature}`;
 }
 
 /**

@@ -49,17 +49,26 @@ router.post('/register', async (req, res) => {
     const invite_code = randomBytes(3).toString('hex').toUpperCase();
     
     const result = await query(
-      `INSERT INTO users (email, password_hash, role, display_name, grade_level, invite_code) 
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, role, display_name`,
+      `INSERT INTO users (email, password_hash, role, display_name, grade_level, invite_code)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, role, display_name, preferred_language`,
       [email, password_hash, role, display_name, grade_level ?? null, invite_code]
     );
 
     const user = result.rows[0];
-    const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user.id, role: user.role, preferredLanguage: user.preferred_language }, JWT_SECRET, { expiresIn: '7d' });
 
     res.cookie('token', token, getCookieOptions());
 
-    res.status(201).json({ user, token });
+    res.status(201).json({
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        display_name: user.display_name,
+        preferredLanguage: user.preferred_language
+      },
+      token
+    });
   } catch (error: any) {
     if (error.code === '23505') {
       return res.status(409).json({ error: { code: 'CONFLICT', message: 'Email already exists' } });
@@ -93,16 +102,25 @@ router.post('/register/parent', async (req, res) => {
 
     const result = await query(
       `INSERT INTO users (email, password_hash, role, display_name)
-       VALUES ($1, $2, $3, $4) RETURNING id, email, role, display_name`,
+       VALUES ($1, $2, $3, $4) RETURNING id, email, role, display_name, preferred_language`,
       [email, password_hash, role, display_name]
     );
 
     const user = result.rows[0];
-    const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user.id, role: user.role, preferredLanguage: user.preferred_language }, JWT_SECRET, { expiresIn: '7d' });
 
     res.cookie('token', token, getCookieOptions());
 
-    res.status(201).json({ user, token });
+    res.status(201).json({
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        display_name: user.display_name,
+        preferredLanguage: user.preferred_language
+      },
+      token
+    });
   } catch (error: unknown) {
     if (isPostgresUniqueViolation(error)) {
       return res.status(409).json({ error: { code: 'CONFLICT', message: 'Email already exists' } });
@@ -128,12 +146,12 @@ router.post('/login', async (req, res) => {
 
     const user = result.rows[0];
     const match = await bcrypt.compare(password, user.password_hash);
-    
+
     if (!match) {
       return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' } });
     }
 
-    const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user.id, role: user.role, preferredLanguage: user.preferred_language }, JWT_SECRET, { expiresIn: '7d' });
 
     res.cookie('token', token, getCookieOptions());
 
@@ -142,7 +160,8 @@ router.post('/login', async (req, res) => {
         id: user.id,
         email: user.email,
         role: user.role,
-        display_name: user.display_name
+        display_name: user.display_name,
+        preferredLanguage: user.preferred_language
       },
       token
     });
@@ -175,13 +194,76 @@ router.post('/logout', (req, res) => {
 // GET /api/v1/auth/me
 router.get('/me', authenticate, async (req: AuthRequest, res) => {
   try {
-    const result = await query('SELECT id, email, role, display_name FROM users WHERE id = $1', [req.user?.id]);
+    const result = await query('SELECT id, email, role, display_name, preferred_language FROM users WHERE id = $1', [req.user?.id]);
     if (result.rows.length === 0) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'User not found' } });
     }
-    res.json({ user: result.rows[0] });
+    const user = result.rows[0];
+    res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        display_name: user.display_name,
+        preferredLanguage: user.preferred_language
+      }
+    });
   } catch (error: any) {
     console.error('Auth me error:', error);
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: process.env.NODE_ENV === 'production' ? 'An internal error occurred' : (error.message || 'Server error') } });
+  }
+});
+
+// PATCH /api/v1/auth/me
+// Update authenticated user's preferred_language.
+// Validates against supported languages. Reads fresh from DB on GET /me (no JWT re-issue needed).
+// Language is not an auth claim, so DB read-through is simpler and consistent with /me behavior.
+const SUPPORTED_LANGUAGES = ['en', 'hi'] as const;
+type SupportedLanguage = typeof SUPPORTED_LANGUAGES[number];
+
+router.patch('/me', authenticate, async (req: AuthRequest, res) => {
+  const { preferredLanguage } = req.body;
+
+  if (preferredLanguage === undefined || preferredLanguage === null) {
+    return res.status(400).json({
+      error: { code: 'VALIDATION_ERROR', message: 'preferredLanguage is required' },
+    });
+  }
+
+  if (typeof preferredLanguage !== 'string') {
+    return res.status(400).json({
+      error: { code: 'VALIDATION_ERROR', message: 'preferredLanguage must be a string' },
+    });
+  }
+
+  if (!SUPPORTED_LANGUAGES.includes(preferredLanguage as SupportedLanguage)) {
+    return res.status(400).json({
+      error: { code: 'VALIDATION_ERROR', message: `Unsupported language. Supported: ${SUPPORTED_LANGUAGES.join(', ')}` },
+    });
+  }
+
+  try {
+    const result = await query(
+      `UPDATE users SET preferred_language = $1, updated_at = NOW() WHERE id = $2 RETURNING id, email, role, display_name, preferred_language`,
+      [preferredLanguage, req.user?.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'User not found' } });
+    }
+
+    const user = result.rows[0];
+    res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        display_name: user.display_name,
+        preferredLanguage: user.preferred_language
+      }
+    });
+  } catch (error: any) {
+    console.error('Auth update me error:', error);
     res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: process.env.NODE_ENV === 'production' ? 'An internal error occurred' : (error.message || 'Server error') } });
   }
 });

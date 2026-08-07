@@ -12,11 +12,27 @@ export const initDB = async () => {
     console.log('Schema V1 applied successfully (idempotent).');
 
     // Apply V2 Migration (Health Scores, Risk Screenings, Learning Paths, Copilot, Gamification, IEPs, Stories)
-    const migrationPath = path.join(__dirname, 'migration_v2.sql');
-    if (fs.existsSync(migrationPath)) {
-      const migration = fs.readFileSync(migrationPath, 'utf-8');
+    const migrationV2Path = path.join(__dirname, 'migration_v2.sql');
+    if (fs.existsSync(migrationV2Path)) {
+      const migration = fs.readFileSync(migrationV2Path, 'utf-8');
       await query(migration);
       console.log('Migration V2 applied successfully (idempotent).');
+    }
+
+    // Apply V3 Migration (Multi-Language Support: preferred_language on users)
+    const migrationV3Path = path.join(__dirname, 'migration_v3.sql');
+    if (fs.existsSync(migrationV3Path)) {
+      const migration = fs.readFileSync(migrationV3Path, 'utf-8');
+      await query(migration);
+      console.log('Migration V3 applied successfully (idempotent).');
+    }
+
+    // Apply V4 Migration (Streak Freeze Mechanism)
+    const migrationV4Path = path.join(__dirname, 'migration_v4.sql');
+    if (fs.existsSync(migrationV4Path)) {
+      const migration = fs.readFileSync(migrationV4Path, 'utf-8');
+      await query(migration);
+      console.log('Migration V4 applied successfully (idempotent).');
     }
 
     // Only seed when the users table is empty to avoid duplicate-key errors on restart.

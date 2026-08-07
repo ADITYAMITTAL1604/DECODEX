@@ -19,7 +19,11 @@ export interface GradingResult {
   feedback: string;
 }
 
-const gradingPrompt = `
+// Supported languages for Dex's conversational responses
+export type DexLanguage = 'en' | 'hi' | string;
+
+// Base grading prompt (English) — the O-G diagnostic logic stays English-only
+const gradingPromptBase = `
 You are a warm, encouraging reading tutor for children with dyslexia.
 A student was asked a question and gave a spoken answer. Decide if the answer is correct.
 Respond ONLY with a JSON object: {"correct": true/false, "feedback": "..."}
@@ -32,6 +36,20 @@ Examples of good feedback:
 - Correct: "That's exactly right, great job!"
 - Incorrect: "Close, but not quite — give it another try!"
 `;
+
+/**
+ * Build the system prompt with language directive for Dex's conversational response.
+ * The O-G classification logic remains English-only; this only affects the feedback language.
+ */
+function buildGradingPrompt(language: DexLanguage = 'en'): string {
+  const languageDirectives: Record<string, string> = {
+    en: '',
+    hi: '\nIMPORTANT: Respond with feedback in Hindi (Devanagari script). Keep the JSON structure but translate the feedback sentence to Hindi. For example: "बहुत बढ़िया, बिल्कुल सही!" or "नहीं, चलो फिर से कोशिश करते हैं!"',
+  };
+
+  const directive = languageDirectives[language] ?? languageDirectives.en;
+  return gradingPromptBase + directive;
+}
 
 /**
  * Non-AI fallback grading — simple case-insensitive substring match.
@@ -98,10 +116,12 @@ const _gradeSpokenAnswer = async ({
   question,
   expectedAnswer,
   studentTranscript,
+  language = 'en'
 }: {
   question: string;
   expectedAnswer: string;
   studentTranscript: string;
+  language?: DexLanguage;
 }): Promise<GradingResult> => {
   const hasGroq = Boolean(process.env.GROQ_API_KEY);
 
@@ -115,7 +135,7 @@ const _gradeSpokenAnswer = async ({
     const response = await client.chat.completions.create({
       model,
       messages: [
-        { role: 'system', content: gradingPrompt },
+        { role: 'system', content: buildGradingPrompt(language) },
         {
           role: 'user',
           content: JSON.stringify({ question, expectedAnswer, studentTranscript }),
@@ -153,10 +173,11 @@ const breakerOptions = {
 
 const gradingBreaker = new CircuitBreaker(_gradeSpokenAnswer, breakerOptions);
 
-gradingBreaker.fallback(({ expectedAnswer, studentTranscript }: {
+gradingBreaker.fallback(({ expectedAnswer, studentTranscript, language }: {
   question: string;
   expectedAnswer: string;
   studentTranscript: string;
+  language?: DexLanguage;
 }) => {
   console.warn('Grading circuit breaker OPEN or timeout. Using substring-match fallback.');
   return fallbackGrade(expectedAnswer, studentTranscript);
@@ -166,11 +187,13 @@ gradingBreaker.fallback(({ expectedAnswer, studentTranscript }: {
  * Grade a student's spoken answer against an expected answer.
  * Returns { correct, feedback } — feedback is always short, encouraging,
  * and safe to speak via TTS. Never throws.
+ * The feedback language is determined by the student's preferred_language (en/hi).
  */
 export const gradeSpokenAnswer = async (
   question: string,
   expectedAnswer: string,
   studentTranscript: string,
+  language: DexLanguage = 'en'
 ): Promise<GradingResult> => {
-  return await gradingBreaker.fire({ question, expectedAnswer, studentTranscript });
+  return await gradingBreaker.fire({ question, expectedAnswer, studentTranscript, language });
 };

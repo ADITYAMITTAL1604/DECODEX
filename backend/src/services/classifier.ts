@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 import CircuitBreaker from 'opossum';
 import dotenv from 'dotenv';
 import { AlignmentResult } from './alignment';
-import { getCache, setCache, generateHashKey } from './cache';
+import { getCache, setCache } from './cache';
 
 dotenv.config();
 
@@ -15,6 +15,27 @@ export interface ClassificationResult {
   spokenWord: string | null;
   category: ErrorCategory;
   rationale: string;
+}
+
+/**
+ * Generate a normalized cache key for a single error classification.
+ * Key is based on (target word, detected phonetic error pattern) - lowercase, trimmed.
+ * For omissions/insertions, uses the word type as the pattern.
+ */
+function getClassificationCacheKey(sourceWord: string | null, spokenWord: string | null): string {
+  const src = (sourceWord || '').toLowerCase().trim();
+  const spk = (spokenWord || '').toLowerCase().trim();
+
+  // For omissions: sourceWord exists, spokenWord is null/empty
+  // For insertions: sourceWord is null/empty, spokenWord exists
+  // For substitutions: both exist
+  if (!src && spk) {
+    return `classify:ins:${spk}`;
+  }
+  if (src && !spk) {
+    return `classify:omi:${src}`;
+  }
+  return `classify:sub:${src}:${spk}`;
 }
 
 const classificationPrompt = `
@@ -166,24 +187,57 @@ classifierBreaker.fallback((errors: AlignmentResult[]) => {
   return applyRuleBasedOGClassification(errors);
 });
 
+/**
+ * Classify errors with per-error caching.
+ * Each error is cached individually using a normalized key: (sourceWord, spokenWord) - lowercase, trimmed.
+ * On cache hit, returns cached classification. On miss, calls GPT-4o-mini (via Groq) and caches result with 30-day TTL.
+ * Logs cache hit vs miss for hit-rate tracking.
+ */
 export const classifyErrors = async (alignment: AlignmentResult[]): Promise<ClassificationResult[]> => {
   const errorsOnly = alignment.filter(a => a.type !== 'match');
   if (errorsOnly.length === 0) return [];
 
-  const cacheKey = generateHashKey('classify', errorsOnly);
-  const cached = await getCache(cacheKey);
+  const results: ClassificationResult[] = [];
+  const errorsToClassify: AlignmentResult[] = [];
+  const errorIndices: number[] = [];
 
-  if (cached) {
-    console.log('LLM Cache HIT');
-    return JSON.parse(cached);
+  // Check cache for each error individually
+  for (const error of errorsOnly) {
+    const cacheKey = getClassificationCacheKey(error.sourceWord, error.spokenWord);
+    const cached = await getCache(cacheKey);
+
+    if (cached) {
+      console.log(`[Classifier Cache] HIT: ${cacheKey}`);
+      results.push(JSON.parse(cached));
+    } else {
+      console.log(`[Classifier Cache] MISS: ${cacheKey}`);
+      errorsToClassify.push(error);
+      errorIndices.push(results.length);
+      results.push(null as any); // placeholder
+    }
   }
 
-  console.log('LLM Cache MISS, calling Groq LLM...');
-  const results = await classifierBreaker.fire(errorsOnly);
+  // If there are cache misses, call the LLM for those errors
+  if (errorsToClassify.length > 0) {
+    console.log(`[Classifier] Calling Groq LLM for ${errorsToClassify.length} uncached error(s)...`);
+    const classifiedResults = await classifierBreaker.fire(errorsToClassify);
 
-  const isFallback = results.length > 0 && results[0].rationale === 'Fallback applied due to service timeout/error.';
-  if (!isFallback) {
-    await setCache(cacheKey, JSON.stringify(results));
+    // Store each result in cache and fill in the results array
+    for (let i = 0; i < classifiedResults.length; i++) {
+      const result = classifiedResults[i];
+      const error = errorsToClassify[i];
+      const resultIndex = errorIndices[i];
+
+      const cacheKey = getClassificationCacheKey(error.sourceWord, error.spokenWord);
+
+      // Only cache if not a fallback result (fallback results have generic rationale)
+      const isFallback = result.rationale === 'Fallback applied due to service timeout/error.';
+      if (!isFallback) {
+        await setCache(cacheKey, JSON.stringify(result), 2592000); // 30 days TTL
+      }
+
+      results[resultIndex] = result;
+    }
   }
 
   return results;

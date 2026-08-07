@@ -21,10 +21,18 @@ export async function processAudioJob(data: AudioJobData): Promise<{ success: bo
   const processingStart = Date.now();
 
   try {
-    // 1. Transcribe (STT)
+    // Fetch student's preferred_language for STT (must be before transcription)
+    const sessionRes = await query('SELECT student_id, started_at FROM reading_sessions WHERE id = $1', [sessionId]);
+    const studentId = sessionRes.rows[0].student_id;
+    const startedAt: Date = sessionRes.rows[0].started_at;
+
+    const studentLangRes = await query('SELECT preferred_language FROM users WHERE id = $1', [studentId]);
+    const studentPreferredLanguage = studentLangRes.rows[0]?.preferred_language || 'en';
+
+    // 1. Transcribe (STT) with student's preferred language
     sseClient?.sendEvent('status', { step: 'transcribing', message: 'Converting speech to text...' });
-    const transcript = await transcribeAudio(filePath, passageText);
-    
+    const transcript = await transcribeAudio(filePath, passageText, studentPreferredLanguage);
+
     // 2. Align
     sseClient?.sendEvent('status', { step: 'aligning', message: 'Aligning with original text...' });
     const alignmentResult = alignText(passageText, transcript);
@@ -32,13 +40,9 @@ export async function processAudioJob(data: AudioJobData): Promise<{ success: bo
     // 3. Classify Errors (LLM + Cache)
     sseClient?.sendEvent('status', { step: 'classifying', message: 'Analyzing errors with AI...' });
     const classifications = await classifyErrors(alignmentResult);
-    
+
     // 4. DB Aggregation & Persistence
     sseClient?.sendEvent('status', { step: 'saving', message: 'Saving results...' });
-    
-    const sessionRes = await query('SELECT student_id, started_at FROM reading_sessions WHERE id = $1', [sessionId]);
-    const studentId = sessionRes.rows[0].student_id;
-    const startedAt: Date = sessionRes.rows[0].started_at;
 
     // Compute WPM: total matched/substituted words / (duration in minutes).
     // Use the session's started_at for elapsed time, falling back to job processing time.

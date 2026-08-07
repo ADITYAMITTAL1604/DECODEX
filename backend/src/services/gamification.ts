@@ -16,6 +16,8 @@ export interface GamificationProfile {
   totalStoriesRead: number;
   xpToNextLevel: number;
   levelProgress: number;
+  freezeCount: number;
+  freezeMonth: string | null;
 }
 
 export interface Achievement {
@@ -106,6 +108,8 @@ export async function getProfile(studentId: string): Promise<GamificationProfile
     totalStoriesRead: row.total_stories_read,
     xpToNextLevel: xpToNext,
     levelProgress: progress,
+    freezeCount: row.freeze_count,
+    freezeMonth: row.freeze_month,
   };
 }
 
@@ -138,42 +142,65 @@ export async function awardXP(studentId: string, amount: number, reason: string)
 }
 
 /**
- * Record a session completion and update streak.
+ * Record a session completion and update streak with freeze mechanism.
+ * Allows up to 2 missed days per calendar month before streak resets.
  */
 export async function recordSessionCompletion(studentId: string): Promise<{ xpAwarded: number; newAchievements: string[] }> {
   await ensureProfile(studentId);
   const today = new Date().toISOString().split('T')[0];
+  const todayDate = new Date(today);
+  const currentMonth = todayDate.toISOString().slice(0, 7); // 'YYYY-MM'
 
-  // Get current profile
+  // Get current profile with freeze tracking fields
   const profileRes = await query(
-    `SELECT last_activity_date, current_streak, longest_streak, total_sessions FROM gamification_profiles WHERE student_id = $1`,
+    `SELECT last_activity_date, current_streak, longest_streak, total_sessions,
+            freeze_count, freeze_month
+     FROM gamification_profiles WHERE student_id = $1`,
     [studentId]
   );
   const profile = profileRes.rows[0];
   const lastDate = profile.last_activity_date;
 
   let newStreak = 1;
+  let usedFreeze = false;
+
   if (lastDate) {
     const last = new Date(lastDate);
-    const todayDate = new Date(today);
     const diffDays = Math.floor((todayDate.getTime() - last.getTime()) / (1000 * 60 * 60 * 24));
+
     if (diffDays === 0) {
       newStreak = profile.current_streak; // Same day, don't change
     } else if (diffDays === 1) {
       newStreak = profile.current_streak + 1; // Consecutive day
+    } else {
+      // Gap of 2+ days — check if we can use a freeze day
+      const freezeMonth = profile.freeze_month;
+      const freezeCount = freezeMonth === currentMonth ? profile.freeze_count : 0;
+
+      if (freezeCount < 2) {
+        // Use a freeze day — streak continues
+        newStreak = profile.current_streak + 1;
+        usedFreeze = true;
+      }
+      // else: streak resets to 1 (default)
     }
-    // else streak resets to 1
   }
 
   const newLongest = Math.max(profile.longest_streak, newStreak);
   const newTotalSessions = profile.total_sessions + 1;
 
+  // Prepare freeze tracking updates
+  const nextFreezeMonth = currentMonth;
+  const nextFreezeCount = usedFreeze
+    ? (profile.freeze_month === currentMonth ? profile.freeze_count + 1 : 1)
+    : (profile.freeze_month === currentMonth ? profile.freeze_count : 0);
+
   await query(
     `UPDATE gamification_profiles
-     SET current_streak = $2, longest_streak = $3, last_activity_date = $4,
-         total_sessions = $5, updated_at = NOW()
+       SET current_streak = $2, longest_streak = $3, last_activity_date = $4,
+           total_sessions = $5, freeze_count = $6, freeze_month = $7, updated_at = NOW()
      WHERE student_id = $1`,
-    [studentId, newStreak, newLongest, today, newTotalSessions]
+    [studentId, newStreak, newLongest, today, newTotalSessions, nextFreezeCount, nextFreezeMonth]
   );
 
   // Award XP

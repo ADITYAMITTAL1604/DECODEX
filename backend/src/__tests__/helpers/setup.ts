@@ -34,18 +34,25 @@ vi.mock('../../queue', () => ({
     process: vi.fn(),
     on: vi.fn(),
   },
+  consentErasureQueue: {
+    process: vi.fn(),
+    on: vi.fn(),
+  },
+  AudioJobData: {} as any,
 }));
 
 // ---- Mock the worker module ----
-vi.mock('../../queue/worker', () => ({
-  processAudioJob: vi.fn(),
-}));
+// Don't mock processAudioJob globally - individual tests will mock dependencies as needed
+// vi.mock('../../queue/worker', () => ({
+//   processAudioJob: vi.fn(),
+// }));
 
 // ---- Mock services that hit external APIs ----
-vi.mock('../../services/copilot', () => ({
-  generateStrategy: vi.fn().mockResolvedValue({ summary: 'Test strategy' }),
-  getStrategyHistory: vi.fn().mockResolvedValue([]),
-}));
+// Don't mock copilot globally - individual tests need the real implementation
+// vi.mock('../../services/copilot', () => ({
+//   generateStrategy: vi.fn().mockResolvedValue({ summary: 'Test strategy' }),
+//   getStrategyHistory: vi.fn().mockResolvedValue([]),
+// }));
 
 vi.mock('../../services/healthScore', () => ({
   computeHealthScore: vi.fn(),
@@ -65,10 +72,39 @@ vi.mock('../../services/email', () => ({
 
 vi.mock('../../queue/consentErasure', () => ({
   eraseConsentDataForLink: vi.fn(),
+  scheduleConsentErasureJob: vi.fn().mockResolvedValue(undefined),
+  eraseExpiredConsentData: vi.fn().mockResolvedValue(undefined),
 }));
 
+// Create mock functions that can be configured per test
+const mockSynthesizeSpeech = vi.fn().mockResolvedValue({ audioBuffer: Buffer.from('fake-audio'), useBrowserTts: false });
+const mockSynthesizePhrase = vi.fn().mockResolvedValue({ audioBuffer: Buffer.from('fake-audio'), useBrowserTts: false });
+
+const mockPhraseBank = {
+  good_job: { en: "Great job! You're doing really well.", hi: "शाबाश! आप बहुत अच्छा कर रहे हैं।" },
+  try_again: { en: "Let's try that again. You can do it!", hi: "चलिए फिर से कोशिश करते हैं। आप कर सकते हैं!" },
+  lets_start: { en: "Let's start reading. Take your time.", hi: "चलिए पढ़ना शुरू करते हैं। अपना समय लें।" },
+  keep_going: { en: "Keep going, you're doing great!", hi: "चलते रहें, आप बहुत अच्छा कर रहे हैं!" },
+  almost_there: { en: "Almost there! Just a little more.", hi: "बस थोड़ा सा और! लगभग पूरा हो गया।" },
+  well_done: { en: "Well done! That was excellent reading.", hi: "बहुत बढ़िया! वह बहुत बढ़िया पढ़ाई थी।" },
+  good_effort: { en: "Good effort! Keep practicing.", hi: "अच्छी कोशिश! अभ्यास करते रहें।" },
+  take_your_time: { en: "Take your time. There's no rush.", hi: "अपना समय लें। कोई जल्दी नहीं है।" },
+  nice_work: { en: "Nice work! You're improving every day.", hi: "अच्छा काम! आप हर दिन बेहतर हो रहे हैं।" },
+  lets_practice: { en: "Let's practice this word together.", hi: "चलिए इस शब्द का एक साथ अभ्यास करते हैं।" },
+};
+
+const mockPhraseIds = Object.keys(mockPhraseBank);
+
 vi.mock('../../services/tts', () => ({
-  synthesizeSpeech: vi.fn().mockResolvedValue({ audioBuffer: Buffer.from('fake-audio'), useBrowserTts: false }),
+  synthesizeSpeech: mockSynthesizeSpeech,
+  synthesizePhrase: mockSynthesizePhrase,
+  PHRASE_BANK: mockPhraseBank,
+  isValidPhraseId: vi.fn((id: string) => id in mockPhraseBank),
+  getPhraseText: vi.fn((id: string, language = 'en') => {
+    const phrase = mockPhraseBank[id as keyof typeof mockPhraseBank];
+    return phrase?.[language] ?? phrase?.en ?? '';
+  }),
+  SupportedLanguage: 'en' as const,
 }));
 
 vi.mock('../../services/dexTutor', () => ({
@@ -82,6 +118,7 @@ vi.mock('../../services/openai', () => ({
 vi.mock('../../services/cache', () => ({
   getCache: vi.fn().mockResolvedValue(null),
   setCache: vi.fn().mockResolvedValue(undefined),
+  deleteCache: vi.fn().mockResolvedValue(undefined),
   generateHashKey: vi.fn().mockReturnValue('mock-hash'),
 }));
 

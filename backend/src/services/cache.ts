@@ -53,6 +53,14 @@ export const setCache = async (key: string, value: string, ttlSeconds: number = 
   }
 };
 
+export const deleteCache = async (key: string): Promise<void> => {
+  try {
+    await redis.del(key);
+  } catch (err) {
+    // Silently skip when Redis is unavailable
+  }
+};
+
 export const generateHashKey = (prefix: string, data: any): string => {
   const hash = crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex');
   return `${prefix}:${hash}`;

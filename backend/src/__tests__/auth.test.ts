@@ -183,4 +183,118 @@ describe('Auth Routes', () => {
       expect(res.body.user.id).toBe(TEST_USERS.studentA.id);
     });
   });
+
+  // ---- PATCH /me (Update preferred_language) ----
+  describe('PATCH /api/v1/auth/me', () => {
+    const studentToken = generateTestToken(TEST_USERS.studentA);
+
+    it('should update preferred_language to a valid supported language (hi)', async () => {
+      mockQuery.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_USERS.studentA.id,
+          email: 'student@decodex.com',
+          role: 'student',
+          display_name: 'Test Student',
+          preferred_language: 'hi',
+        }],
+      });
+
+      const res = await request(app)
+        .patch('/api/v1/auth/me')
+        .set('Cookie', `token=${studentToken}`)
+        .send({ preferredLanguage: 'hi' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.user.preferredLanguage).toBe('hi');
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE users SET preferred_language = $1'),
+        ['hi', TEST_USERS.studentA.id]
+      );
+    });
+
+    it('should update preferred_language to en', async () => {
+      mockQuery.mockResolvedValueOnce({
+        rows: [{
+          id: TEST_USERS.studentA.id,
+          email: 'student@decodex.com',
+          role: 'student',
+          display_name: 'Test Student',
+          preferred_language: 'en',
+        }],
+      });
+
+      const res = await request(app)
+        .patch('/api/v1/auth/me')
+        .set('Cookie', `token=${studentToken}`)
+        .send({ preferredLanguage: 'en' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.user.preferredLanguage).toBe('en');
+    });
+
+    it('should reject unsupported language', async () => {
+      const res = await request(app)
+        .patch('/api/v1/auth/me')
+        .set('Cookie', `token=${studentToken}`)
+        .send({ preferredLanguage: 'fr' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(res.body.error.message).toContain('Unsupported language');
+    });
+
+    it('should reject missing preferredLanguage', async () => {
+      const res = await request(app)
+        .patch('/api/v1/auth/me')
+        .set('Cookie', `token=${studentToken}`)
+        .send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(res.body.error.message).toContain('preferredLanguage is required');
+    });
+
+    it('should reject null preferredLanguage', async () => {
+      const res = await request(app)
+        .patch('/api/v1/auth/me')
+        .set('Cookie', `token=${studentToken}`)
+        .send({ preferredLanguage: null });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(res.body.error.message).toContain('preferredLanguage is required');
+    });
+
+    it('should reject non-string preferredLanguage', async () => {
+      const res = await request(app)
+        .patch('/api/v1/auth/me')
+        .set('Cookie', `token=${studentToken}`)
+        .send({ preferredLanguage: 123 });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(res.body.error.message).toContain('must be a string');
+    });
+
+    it('should return 401 when not authenticated', async () => {
+      const res = await request(app)
+        .patch('/api/v1/auth/me')
+        .send({ preferredLanguage: 'hi' });
+
+      expect(res.status).toBe(401);
+      expect(res.body.error.code).toBe('UNAUTHORIZED');
+    });
+
+    it('should return 404 when user not found', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const res = await request(app)
+        .patch('/api/v1/auth/me')
+        .set('Cookie', `token=${studentToken}`)
+        .send({ preferredLanguage: 'hi' });
+
+      expect(res.status).toBe(404);
+      expect(res.body.error.code).toBe('NOT_FOUND');
+    });
+  });
 });
