@@ -20,6 +20,8 @@ import ConsentConfirm from './pages/ConsentConfirm';
 import LearningPathPage from './pages/LearningPathPage';
 import StoryReaderPage from './pages/StoryReaderPage';
 import CopilotPanel from './pages/CopilotPanel';
+import DexNavigationGuide from './components/DexNavigationGuide';
+import DexVoiceCommands from './components/DexVoiceCommands';
 
 function App() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -183,6 +185,8 @@ function App() {
       </header>
 
       <main className="max-w-6xl mx-auto p-4 md:p-8 flex-grow w-full">
+        <DexNavigationGuide />
+        <DexVoiceCommands />
         <Routes>
           {/* Public Front Intro / About Page */}
           <Route path="/" element={<LandingPage />} />
