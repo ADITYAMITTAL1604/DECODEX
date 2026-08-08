@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import type { DexState } from '../hooks/useDex';
 import { TUTOR_NAME } from '../lib/constants';
+import { ConfettiBurst } from './ConfettiBurst';
 
 import idleLottie from '../assets/dex-lottie/idle.lottie?url';
 import speakingLottie from '../assets/dex-lottie/speaking.lottie?url';
@@ -98,6 +99,19 @@ export default function DexAvatar({
 }: DexAvatarProps) {
   const config = STATE_CONFIG[state] || STATE_CONFIG.idle;
 
+  // Fire confetti exactly once each time we enter the 'celebrating' state
+  const prevStateRef = useRef<DexState | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  useEffect(() => {
+    if (state === 'celebrating' && prevStateRef.current !== 'celebrating') {
+      setShowConfetti(true);
+      const t = setTimeout(() => setShowConfetti(false), 1900);
+      return () => clearTimeout(t);
+    }
+    prevStateRef.current = state;
+  }, [state]);
+
   // Size scaling map
   const sizeClasses = {
     sm: 'w-16 h-16',
@@ -108,6 +122,7 @@ export default function DexAvatar({
 
   return (
     <div className="flex flex-col items-center justify-center relative select-none">
+      <ConfettiBurst active={showConfetti} />
       {/* Cartoon Character Frame Container */}
       <div className="relative flex items-center justify-center">
 
