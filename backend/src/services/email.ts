@@ -91,3 +91,25 @@ export const sendDataDeletionEmail = async (to: string, studentName: string): Pr
     ].join('\n'),
   });
 };
+
+export const sendPasswordResetEmail = async (to: string, token: string): Promise<void> => {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const resetLink = frontendUrl + '/set-password/' + token;
+
+  await sendEmail({
+    to,
+    subject: 'Set your password for Decodex parent account',
+    text: [
+      'Hello,',
+      '',
+      'A Decodex parent account has been created for you using this email address.',
+      '',
+      'Click the link below to set your password and access your account:',
+      resetLink,
+      '',
+      'This link expires in 24 hours.',
+      '',
+      'If you did not expect this email, you can ignore it.',
+    ].join('\n'),
+  });
+};

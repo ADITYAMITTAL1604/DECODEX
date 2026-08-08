@@ -1,9 +1,10 @@
 import { Response, Router } from 'express';
 import { randomBytes } from 'crypto';
+import bcrypt from 'bcrypt';
 import { pool, query } from '../db';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
-import { sendConsentEmail, sendConsentWithdrawalEmail } from '../services/email';
+import { sendConsentEmail, sendConsentWithdrawalEmail, sendPasswordResetEmail } from '../services/email';
 import { eraseConsentDataForLink } from '../queue/consentErasure';
 
 const router = Router();
@@ -25,6 +26,11 @@ interface WithdrawConsentBody {
   student_id?: unknown;
 }
 
+interface RequestUnverifiedConsentBody {
+  email?: unknown;
+  invite_code?: unknown;
+}
+
 interface ParentAccount {
   email: string;
 }
@@ -40,8 +46,9 @@ interface PendingConsentLink extends LinkedStudent {
 }
 
 interface ConsentTokenRecord {
-  parent_id: string;
+  parent_id: string | null;
   student_id: string;
+  email: string | null;
   date_of_birth: string | Date | null;
   failed_attempts: number;
 }
@@ -192,6 +199,60 @@ router.post('/request', authenticate, requireRole(['parent', 'admin']), async (r
   }
 });
 
+// POST /api/v1/consent/request-unverified
+// Unauthenticated endpoint: parent provides email + student invite_code.
+// Creates a consent token with parent_id=NULL and email=provided_email.
+// No parent_student_links row is created yet; that happens on confirm.
+router.post('/request-unverified', async (req, res: Response) => {
+  const { email, invite_code } = (req.body as RequestUnverifiedConsentBody) ?? {};
+
+  if (typeof email !== 'string' || !email.trim()) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Email is required' } });
+  }
+  if (typeof invite_code !== 'string' || !invite_code.trim()) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invite code is required' } });
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email.trim())) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid email format' } });
+  }
+
+  try {
+    const studentResult = await query(
+      [
+        'SELECT id, display_name, date_of_birth',
+        'FROM users',
+        "WHERE invite_code = $1 AND role = 'student' AND deleted_at IS NULL",
+      ].join('\n'),
+      [invite_code.trim().toUpperCase()]
+    );
+    const student = studentResult.rows[0] as { id: string; display_name: string; date_of_birth: string | Date | null } | undefined;
+
+    if (!student) {
+      return res.status(404).json({ error: { code: 'INVALID_CODE', message: 'Invalid invite code' } });
+    }
+
+    // Invalidate any existing unused consent tokens for this email+student
+    await query(
+      [
+        'UPDATE consent_tokens',
+        'SET expires_at = NOW()',
+        'WHERE student_id = $1 AND email = $2 AND used_at IS NULL',
+      ].join('\n'),
+      [student.id, email.trim().toLowerCase()]
+    );
+
+    // Issue token with parent_id=NULL, email=provided email
+    await issueConsentToken(null, student.id, email.trim().toLowerCase(), student.display_name);
+
+    res.status(201).json({ consent_email_sent: true });
+  } catch {
+    console.error('Failed to send unverified consent email.');
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Server error' } });
+  }
+});
+
 // GET /api/v1/consent/children
 router.get('/children', authenticate, requireRole(['parent', 'admin']), async (req: AuthRequest, res: Response) => {
   try {
@@ -327,7 +388,7 @@ router.post('/:token/confirm', async (req, res) => {
 
     const tokenResult = await client.query(
       [
-        'SELECT token.parent_id, token.student_id, token.failed_attempts, student.date_of_birth',
+        'SELECT token.parent_id, token.email, token.student_id, token.failed_attempts, student.date_of_birth',
         'FROM consent_tokens token',
         'JOIN users student ON student.id = token.student_id',
         'WHERE token.token = $1 AND token.used_at IS NULL AND token.expires_at > NOW()',
@@ -373,6 +434,51 @@ router.post('/:token/confirm', async (req, res) => {
       });
     }
 
+    // Determine parent_id: use token's parent_id if set, otherwise look up by email
+    // If no parent account exists yet, create a minimal one
+    let parentId = tokenRecord.parent_id;
+    if (!parentId && tokenRecord.email) {
+      const parentLookup = await client.query(
+        'SELECT id FROM users WHERE email = $1 AND role = \'parent\' AND deleted_at IS NULL',
+        [tokenRecord.email]
+      );
+      if (parentLookup.rows.length > 0) {
+        parentId = parentLookup.rows[0].id;
+      } else {
+        // Auto-create minimal parent account with password reset token
+        const resetToken = randomBytes(32).toString('hex');
+        const resetExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        const newParentResult = await client.query(
+          [
+            'INSERT INTO users (email, password_hash, role, display_name, password_reset_token, password_reset_expires)',
+            'VALUES ($1, $2, \'parent\', $3, $4, $5)',
+            'RETURNING id',
+          ].join('\n'),
+          [tokenRecord.email, await bcrypt.hash(randomBytes(32).toString('hex'), 12), 'Parent', resetToken, resetExpires]
+        );
+        parentId = newParentResult.rows[0].id;
+
+        // Send password reset email after transaction commits
+        // We'll do this after the commit by queuing it
+        await sendPasswordResetEmail(tokenRecord.email, resetToken);
+      }
+    }
+
+    if (!parentId) {
+      throw new Error('Unable to determine parent for consent token');
+    }
+
+    // Create parent-student link if it doesn't exist
+    await client.query(
+      [
+        'INSERT INTO parent_student_links (parent_id, student_id)',
+        'VALUES ($1, $2)',
+        'ON CONFLICT (parent_id, student_id) DO NOTHING',
+      ].join('\n'),
+      [parentId, tokenRecord.student_id]
+    );
+
+    // Grant consent
     const consentResult = await client.query(
       [
         'UPDATE parent_student_links',
@@ -381,7 +487,7 @@ router.post('/:token/confirm', async (req, res) => {
         'WHERE parent_id = $2 AND student_id = $3',
         'RETURNING consent_granted, consent_date',
       ].join('\n'),
-      [req.ip, tokenRecord.parent_id, tokenRecord.student_id]
+      [req.ip, parentId, tokenRecord.student_id]
     );
     const consentStatus = consentResult.rows[0] as ConsentStatus | undefined;
 
@@ -411,15 +517,15 @@ router.post('/:token/confirm', async (req, res) => {
 
 export default router;
 
-async function issueConsentToken(parentId: string, studentId: string, parentEmail: string, studentName: string): Promise<void> {
+async function issueConsentToken(parentId: string | null, studentId: string, parentEmail: string, studentName: string): Promise<void> {
   const token = randomBytes(32).toString('hex');
 
   await query(
     [
-      'INSERT INTO consent_tokens (token, parent_id, student_id, expires_at)',
-      "VALUES ($1, $2, $3, NOW() + INTERVAL '48 hours')",
+      'INSERT INTO consent_tokens (token, parent_id, student_id, email, expires_at)',
+      "VALUES ($1, $2, $3, $4, NOW() + INTERVAL '48 hours')",
     ].join('\n'),
-    [token, parentId, studentId]
+    [token, parentId, studentId, parentEmail]
   );
 
   await sendConsentEmail(parentEmail, token, studentName);

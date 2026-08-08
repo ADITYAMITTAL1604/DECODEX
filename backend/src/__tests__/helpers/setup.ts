@@ -68,6 +68,7 @@ vi.mock('../../services/riskScreening', () => ({
 vi.mock('../../services/email', () => ({
   sendConsentEmail: vi.fn(),
   sendConsentWithdrawalEmail: vi.fn(),
+  sendPasswordResetEmail: vi.fn(),
 }));
 
 vi.mock('../../queue/consentErasure', () => ({

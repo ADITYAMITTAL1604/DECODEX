@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS users (
     grade_level INTEGER,
     invite_code VARCHAR(10),                -- nullable for non-student roles
     date_of_birth DATE,                      -- nullable for non-student roles
+    password_reset_token VARCHAR(255),       -- for password reset/set flow
+    password_reset_expires TIMESTAMPTZ,      -- token expiry
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     deleted_at TIMESTAMPTZ                   -- soft-delete support
@@ -30,6 +32,8 @@ CREATE TABLE IF NOT EXISTS users (
 -- Additive schema update for existing databases.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_code VARCHAR(10);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_token VARCHAR(255);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires TIMESTAMPTZ;
 
 -- Parent-Student Links
 CREATE TABLE IF NOT EXISTS parent_student_links (
@@ -54,10 +58,14 @@ ALTER TABLE parent_student_links ADD COLUMN IF NOT EXISTS purged_at TIMESTAMPTZ;
 
 -- One-time email consent links. Knowledge-based verification is completed by the
 -- future consent handler before a token can be marked as used.
+-- parent_id is nullable to support pre-account verification (email + invite_code).
+-- When parent_id is NULL, the token stores the parent's email; on confirm, we
+-- either link to an existing parent account or auto-create one.
 CREATE TABLE IF NOT EXISTS consent_tokens (
     token VARCHAR(255) NOT NULL,
-    parent_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    parent_id UUID REFERENCES users(id) ON DELETE CASCADE,
     student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    email VARCHAR(255),
     expires_at TIMESTAMPTZ NOT NULL,
     used_at TIMESTAMPTZ,
     failed_attempts INTEGER NOT NULL DEFAULT 0,
@@ -65,6 +73,8 @@ CREATE TABLE IF NOT EXISTS consent_tokens (
 );
 
 ALTER TABLE consent_tokens ADD COLUMN IF NOT EXISTS failed_attempts INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE consent_tokens ADD COLUMN IF NOT EXISTS email VARCHAR(255);
+ALTER TABLE consent_tokens ALTER COLUMN parent_id DROP NOT NULL;
 
 -- Passages
 CREATE TABLE IF NOT EXISTS passages (

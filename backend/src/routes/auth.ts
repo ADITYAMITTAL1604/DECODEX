@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
 import { query } from '../db';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { sendPasswordResetEmail } from '../services/email';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET!;
@@ -265,6 +266,97 @@ router.patch('/me', authenticate, async (req: AuthRequest, res) => {
   } catch (error: any) {
     console.error('Auth update me error:', error);
     res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: process.env.NODE_ENV === 'production' ? 'An internal error occurred' : (error.message || 'Server error') } });
+}
+  });
+
+// POST /api/v1/auth/password-reset/request
+// Request a password reset/set link (for accounts that don't have a usable password yet)
+router.post('/password-reset/request', async (req, res) => {
+  const { email } = req.body;
+
+  if (typeof email !== 'string' || !email.trim()) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Email is required' } });
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email.trim())) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid email format' } });
+  }
+
+  try {
+    const result = await query(
+      'SELECT id FROM users WHERE email = $1 AND role = \'parent\' AND deleted_at IS NULL',
+      [email.trim().toLowerCase()]
+    );
+
+    // Always return 200 to avoid email enumeration
+    if (result.rows.length === 0) {
+      return res.json({ password_reset_requested: true });
+    }
+
+    const user = result.rows[0];
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    await query(
+      'UPDATE users SET password_reset_token = $1, password_reset_expires = $2 WHERE id = $3',
+      [token, expiresAt, user.id]
+    );
+
+    await sendPasswordResetEmail(email.trim().toLowerCase(), token);
+
+    res.json({ password_reset_requested: true });
+  } catch {
+    console.error('Failed to request password reset.');
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Server error' } });
+  }
+});
+
+// POST /api/v1/auth/password-reset/confirm
+// Confirm password reset/set with token and new password
+router.post('/password-reset/confirm', async (req, res) => {
+  const { token, password } = req.body;
+
+  if (typeof token !== 'string' || !token.trim()) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Token is required' } });
+  }
+  if (typeof password !== 'string' || password.length < 8) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Password must be at least 8 characters' } });
+  }
+
+  try {
+    const result = await query(
+      'SELECT id FROM users WHERE password_reset_token = $1 AND password_reset_expires > NOW() AND deleted_at IS NULL',
+      [token.trim()]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: { code: 'INVALID_TOKEN', message: 'Invalid or expired reset token' } });
+    }
+
+    const user = result.rows[0];
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    await query(
+      'UPDATE users SET password_hash = $1, password_reset_token = NULL, password_reset_expires = NULL, updated_at = NOW() WHERE id = $2',
+      [passwordHash, user.id]
+    );
+
+    // Issue JWT and set cookie
+    const jwtToken = jwt.sign({ id: user.id, role: 'parent', preferredLanguage: 'en' }, process.env.JWT_SECRET!, { expiresIn: '7d' });
+    const isProd = process.env.NODE_ENV === 'production';
+    res.cookie('token', jwtToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    res.json({ success: true });
+  } catch {
+    console.error('Failed to confirm password reset.');
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Server error' } });
   }
 });
 
