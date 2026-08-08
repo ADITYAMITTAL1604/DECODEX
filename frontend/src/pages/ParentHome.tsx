@@ -181,7 +181,7 @@ export default function ParentHome() {
               </div>
               <div>
                 <h2 className="font-display text-xl font-bold text-on-surface">Preliminary Dyslexia Risk Screening Report</h2>
-                <p className="font-body text-xs text-on-surface-variant">Based on {screening.sessionsAnalyzed} diagnostic reading sessions</p>
+                <p className="font-body text-xs text-on-surface-variant">Based on {screening.sessionsAnalyzed} reading sessions</p>
               </div>
             </div>
             <span className={`inline-block px-4 py-1.5 rounded-full font-display text-xs font-bold uppercase tracking-wider border ${riskBadgeMap[screening.risk] || ''}`}>
@@ -272,7 +272,7 @@ export default function ParentHome() {
           {/* Recent Sessions */}
           {childProgress.recentSessions?.length > 0 && (
             <div className="glass-card rounded-3xl p-6 border border-white/80 shadow-sm">
-              <h3 className="font-display text-lg font-bold text-on-surface mb-3">Recent Diagnostic Sessions</h3>
+              <h3 className="font-display text-lg font-bold text-on-surface mb-3">Recent Reading Sessions</h3>
               <div className="space-y-2">
                 {childProgress.recentSessions.slice(0, 5).map((s: any) => (
                   <Link

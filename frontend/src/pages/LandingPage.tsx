@@ -32,7 +32,7 @@ export default function LandingPage() {
 
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary-container/20 text-primary border border-primary/20 font-display text-xs font-bold uppercase tracking-widest mb-6">
             <span className="material-symbols-outlined text-sm">auto_awesome</span>
-            AI Diagnostic Reading & Dyslexia Intervention Platform
+            AI Reading Screening & Dyslexia Intervention Platform
           </div>
 
           <h1 className="font-display text-4xl sm:text-6xl font-extrabold text-on-surface tracking-tight leading-[1.15] mb-6">
@@ -40,7 +40,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="font-body text-lg sm:text-xl text-on-surface-variant max-w-2xl leading-relaxed mb-8">
-            Decodex transcribes speech in real-time, diagnoses reading difficulties using structured Orton-Gillingham taxonomy, and delivers adaptive multisensory learning plans.
+            Decodex transcribes speech in real-time, screens reading difficulties using structured Orton-Gillingham taxonomy, and delivers adaptive multisensory learning plans.
           </p>
 
           {/* Call to Action Buttons */}
@@ -203,7 +203,7 @@ export default function LandingPage() {
               <div className="w-12 h-12 rounded-full bg-primary text-on-primary font-display text-xl font-bold flex items-center justify-center mb-4 shadow-md">
                 2
               </div>
-              <h4 className="font-display text-lg font-bold text-on-surface mb-2">Diagnostic Risk Screening</h4>
+              <h4 className="font-display text-lg font-bold text-on-surface mb-2">Reading Risk Screening</h4>
               <p className="font-body text-xs text-on-surface-variant leading-relaxed">
                 Parents & teachers view preliminary dyslexia risk reports, error profiles, and legal action guidelines.
               </p>
@@ -227,7 +227,7 @@ export default function LandingPage() {
         <div className="glass-card rounded-3xl p-8 sm:p-12 border border-white/80 max-w-3xl mx-auto shadow-lg">
           <h2 className="font-display text-3xl font-extrabold text-on-surface mb-3">Ready to Help Every Child Read?</h2>
           <p className="font-body text-base text-on-surface-variant mb-6">
-            Get started in seconds with personalized diagnostic reading assessment and {TUTOR_NAME}.
+            Get started in seconds with personalized reading screening and {TUTOR_NAME}.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

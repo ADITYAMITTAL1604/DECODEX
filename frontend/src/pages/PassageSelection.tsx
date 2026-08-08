@@ -41,7 +41,7 @@ export default function PassageSelection() {
             Back to Dashboard
           </Link>
           <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-on-surface">Select a Reading Passage</h1>
-          <p className="font-body text-lg text-on-surface-variant">Choose a passage or generate a fresh AI text to begin your diagnostic assessment.</p>
+          <p className="font-body text-lg text-on-surface-variant">Choose a passage or generate a fresh AI text to begin your reading assessment.</p>
         </div>
 
         {/* Dynamic AI Passage Generator Button */}

@@ -90,7 +90,7 @@ export default function LearningPathPage() {
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-on-surface-variant font-body">Analyzing diagnostic context...</div>;
+  if (loading) return <div className="p-8 text-center text-on-surface-variant font-body">Analyzing reading context...</div>;
   if (error) return <div className="p-8 text-center text-error font-body">Error loading learning path: {error.message}</div>;
 
   const canGenerate = learningPath?.canGenerate ?? true;
@@ -122,7 +122,7 @@ export default function LearningPathPage() {
             Stage {stageNumber} Adaptive Curriculum
           </div>
           <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-on-surface">Your Reading Learning Path</h1>
-          <p className="font-body text-base text-on-surface-variant mt-1">A day-by-day plan tailored to your diagnostic assessment context</p>
+          <p className="font-body text-base text-on-surface-variant mt-1">A day-by-day plan tailored to your reading assessment context</p>
           <div className="mt-3">
             <DexAvatar state={dex.state} caption={dex.caption} />
           </div>
@@ -213,16 +213,16 @@ export default function LearningPathPage() {
           <span className="px-3 py-1 rounded-full bg-amber-200/60 text-amber-900 font-display text-xs font-bold uppercase tracking-wider mb-2">
             Assessment Required ({currentSessions} / {requiredSessions} Completed)
           </span>
-          <h3 className="font-display text-2xl font-bold text-on-surface mb-2">Complete Diagnostic Tests First</h3>
+          <h3 className="font-display text-2xl font-bold text-on-surface mb-2">Complete Reading Assessments First</h3>
           <p className="font-body text-base text-on-surface-variant max-w-lg mb-6 leading-relaxed">
-            To build a truly personalized day-by-day plan, Decodex needs at least {requiredSessions} diagnostic reading sessions to analyze your specific speech, speed, and error patterns.
+            To build a truly personalized day-by-day plan, Decodex needs at least {requiredSessions} reading assessment sessions to analyze your specific speech, speed, and error patterns.
           </p>
           <button
             onClick={() => navigate('/passages')}
             className="h-14 px-8 rounded-2xl bg-primary text-on-primary font-display text-base font-bold uppercase tracking-wider transition-all shadow-lg hover:bg-primary-container hover:text-on-primary-container active:scale-95 cursor-pointer flex items-center gap-2"
           >
             <span className="material-symbols-outlined">mic</span>
-            Take Diagnostic Test #{currentSessions + 1}
+            Take Reading Assessment #{currentSessions + 1}
           </button>
         </div>
       )}
@@ -234,11 +234,11 @@ export default function LearningPathPage() {
             <span className="material-symbols-outlined text-5xl" style={{ fontVariationSettings: "'FILL' 1" }}>map</span>
           </div>
           <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-display text-xs font-bold uppercase tracking-wider mb-2">
-            Context Ready ({currentSessions} Diagnostic Sessions Analyzed)
+             Context Ready ({currentSessions} Reading Sessions Analyzed)
           </span>
           <h3 className="font-display text-2xl font-bold text-on-surface mb-2">Generate Your Stage {stageNumber} Plan</h3>
           <p className="font-body text-base text-on-surface-variant max-w-md mb-6">
-            Click below to construct your custom 4-week, 20-day Orton-Gillingham intervention roadmap based on your diagnostic results.
+            Click below to construct your custom 4-week, 20-day Orton-Gillingham intervention roadmap based on your reading assessment results.
           </p>
           <button
             onClick={handleGenerate}

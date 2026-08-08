@@ -192,7 +192,7 @@ export async function generateLearningPath(studentId: string): Promise<LearningP
   weeks.push(buildWeekData(pathId, 1, `Week 1: ${primaryMeta.title}`, `Focus on reducing ${primaryMeta.focus} errors using Orton-Gillingham techniques.`, primaryCategory, effectiveGradeLevel, riskLevel, levelAdjustment));
   weeks.push(buildWeekData(pathId, 2, `Week 2: ${secondaryMeta.title}`, `Address ${secondaryMeta.focus} patterns and strengthen core phonics.`, secondaryCategory, effectiveGradeLevel, riskLevel, levelAdjustment));
   weeks.push(buildWeekData(pathId, 3, 'Week 3: Fluency & Pacing Building', `Build reading speed toward Grade ${effectiveGradeLevel} benchmarks with repeated exposure.`, 'PAC', effectiveGradeLevel, riskLevel, levelAdjustment));
-  weeks.push(buildWeekData(pathId, 4, 'Week 4: Mastery & Diagnostic Assessment', 'Apply all learned strategies to new passages and complete progress re-assessment.', primaryCategory, effectiveGradeLevel, riskLevel, levelAdjustment));
+  weeks.push(buildWeekData(pathId, 4, 'Week 4: Mastery & Progress Assessment', 'Apply all learned strategies to new passages and complete progress re-assessment.', primaryCategory, effectiveGradeLevel, riskLevel, levelAdjustment));
 
   for (const week of weeks) {
     const weekRes = await query(
@@ -402,9 +402,9 @@ function buildWeekData(
       },
       {
         dayNumber: 5,
-        title: `Day 5: Mid-Point Diagnostic Progress Assessment`,
+        title: `Day 5: Mid-Point Progress Assessment`,
         activityType: 'reading',
-        description: `Complete a diagnostic assessment to re-calculate your dyslexia risk screening & WPM.`,
+        description: `Complete a progress assessment to re-calculate your dyslexia risk screening & WPM.`,
         targetSkill: 'MASTERY',
         targetUrl: '/passages',
         actionLabel: 'Take Assessment',

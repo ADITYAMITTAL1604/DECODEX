@@ -113,7 +113,7 @@ export default function ParentSessionReport() {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-8">
         <span className="material-symbols-outlined text-4xl text-primary animate-spin mb-3">progress_activity</span>
-        <p className="font-body text-on-surface-variant font-medium">Generating Session Diagnostic Report…</p>
+        <p className="font-body text-on-surface-variant font-medium">Generating Session Report…</p>
       </div>
     );
   }
@@ -317,7 +317,7 @@ export default function ParentSessionReport() {
             <div className="glass-card rounded-3xl p-6 border border-primary/20 bg-primary/5 shadow-sm space-y-3">
               <h3 className="font-display text-base font-bold text-primary flex items-center gap-2">
                 <span className="material-symbols-outlined text-lg">auto_awesome</span>
-                AI Diagnostic Summary for Parents
+                AI Reading Summary for Parents
               </h3>
               <p className="font-body text-sm text-on-surface leading-relaxed">
                 {improvementPlan.summary}

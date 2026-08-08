@@ -102,7 +102,7 @@ export default function SessionResults() {
         <div className="lg:col-span-2 space-y-6">
           <div className="glass-card rounded-3xl border border-white/80 shadow-sm bg-white/40 relative">
             <div className="px-6 sm:px-8 py-5 border-b border-white/60 bg-white/20 backdrop-blur-md flex justify-between items-center rounded-t-3xl">
-              <h2 className="font-display text-[20px] sm:text-[24px] font-bold text-on-surface">Diagnostic View</h2>
+              <h2 className="font-display text-[20px] sm:text-[24px] font-bold text-on-surface">Detailed Error Analysis</h2>
             </div>
             
             <div className="px-6 sm:px-8 md:px-10 py-6 sm:py-10 bg-transparent">
