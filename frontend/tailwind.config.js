@@ -27,6 +27,11 @@ export default {
         'primary-container': '#2d7d8e',
         'on-primary-container': '#f3fcff',
         'inverse-primary': '#87d2e4',
+        // Kid theme colors
+        'kid-primary': '#00A8B5',
+        'kid-primary-container': '#4FD8E3',
+        'kid-secondary': '#FF8A00',
+        'kid-secondary-container': '#FFC157',
         secondary: '#865300',
         'on-secondary': '#ffffff',
         'secondary-container': '#fea520',

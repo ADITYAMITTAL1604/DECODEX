@@ -12,6 +12,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@lottiefiles/dotlottie-react": "^0.19.13",
     "@tailwindcss/postcss": "^4.3.3",
     "lucide-react": "^1.25.0",
     "react": "^19.2.7",
