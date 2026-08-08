@@ -85,13 +85,17 @@ export default function Dashboard() {
     return <Navigate to="/teacher/dashboard" replace />;
   }
 
-  const handleApproveConsent = async () => {
+  const handleRequestConsentEmail = async () => {
     setApproving(true);
     try {
-      await apiFetch('/consent/approve', { method: 'POST' });
+      // Sends a consent email to the linked parent so they can complete
+      // date-of-birth verification via the secure email link.
+      // POST /consent/approve has been removed — consent can only be granted
+      // by a parent through the token-based email flow.
+      await apiFetch('/consent/request', { method: 'POST', body: JSON.stringify({ student_id: user!.id }) });
       fetchConsentStatus();
     } catch (err) {
-      console.error('Failed to approve consent', err);
+      console.error('Failed to request consent email', err);
     } finally {
       setApproving(false);
     }
@@ -166,11 +170,11 @@ export default function Dashboard() {
             <p className="font-body text-sm text-on-surface-variant mt-1">Your parent ({consentStatus.pending_parent_email}) linked to your account and requested voice recording consent.</p>
           </div>
           <button
-            onClick={handleApproveConsent}
+            onClick={handleRequestConsentEmail}
             disabled={approving}
             className="h-12 px-6 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-display text-sm font-bold uppercase tracking-[0.08em] transition-all shadow-md active:scale-95 disabled:opacity-60 flex-shrink-0 cursor-pointer"
           >
-            {approving ? 'Approving…' : 'Approve Recording Consent'}
+            {approving ? 'Sending Email…' : 'Send Consent Email to Parent'}
           </button>
         </section>
       ) : null}

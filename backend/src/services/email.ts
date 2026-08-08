@@ -50,7 +50,7 @@ export const sendConsentEmail = async (to: string, token: string, studentName: s
       '',
       'Decodex is an educational reading platform that helps students practise and understand reading patterns.',
       '',
-      studentName + "'s account needs your consent before voice recording can be used. Decodex processes recordings into text for reading analysis and does not keep raw audio after processing.",
+      studentName + "'s account needs your consent before voice recording can be used. Decodex retains the recorded audio to allow you to review " + studentName + "'s reading progress over time. You may request deletion of this data at any time by contacting Decodex support or withdrawing consent.",
       '',
       'Review the consent information and verify your relationship here:',
       consentLink,

@@ -81,18 +81,22 @@ export default function ParentHome() {
     }
   }, [selectedChildId]);
 
-  const grantConsentInApp = async (studentId: string, studentName: string) => {
+  const requestConsentEmail = async (studentId: string, studentName: string) => {
     setError('');
     setResendingId(studentId);
     try {
-      await apiFetch('/consent/approve', {
+      // POST /consent/approve was removed (security bypass — no DOB check).
+      // Use POST /consent/request to send the parent an email with a
+      // time-limited link; they must enter the student's date of birth to
+      // complete consent (/consent/:token/confirm).
+      await apiFetch('/consent/request', {
         method: 'POST',
         body: JSON.stringify({ student_id: studentId }),
       });
-      setNotice({ studentId, message: `Recording consent was granted for ${studentName}.` });
+      setNotice({ studentId, message: `A consent verification email was sent to you for ${studentName}. Please check your inbox and complete the date-of-birth step.` });
       await loadChildren();
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Unable to grant consent.');
+      setError(requestError instanceof Error ? requestError.message : 'Unable to send consent email.');
     } finally {
       setResendingId(null);
     }
@@ -351,11 +355,11 @@ export default function ParentHome() {
                 <div className="flex gap-2">
                   {!isGranted && (
                     <button
-                      onClick={() => void grantConsentInApp(child.id, child.display_name)}
+                      onClick={() => void requestConsentEmail(child.id, child.display_name)}
                       disabled={resendingId === child.id}
                       className="rounded-xl bg-primary px-4 py-2 font-display text-xs font-bold uppercase tracking-wider text-on-primary cursor-pointer"
                     >
-                      Grant Consent
+                      {resendingId === child.id ? 'Sending…' : 'Send Consent Email'}
                     </button>
                   )}
                   {isGranted && (

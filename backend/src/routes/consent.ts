@@ -134,44 +134,18 @@ router.post('/link', authenticate, requireRole(['parent', 'admin']), async (req:
   }
 });
 
-// POST /api/v1/consent/approve
-// Approves consent directly on the web app for a linked student
-router.post('/approve', authenticate, async (req: AuthRequest, res: Response) => {
-  const { student_id } = req.body ?? {};
-  const targetStudentId = req.user!.role === 'student' ? req.user!.id : (student_id || req.user!.id);
-
-  try {
-    let result = await query(
-      [
-        'UPDATE parent_student_links',
-        'SET consent_granted = TRUE, consent_date = NOW(), withdrawn_at = NULL, hard_delete_at = NULL',
-        'WHERE student_id = $1 AND consent_granted = FALSE',
-        'RETURNING id, consent_granted, consent_date',
-      ].join('\n'),
-      [targetStudentId]
-    );
-
-    if (result.rows.length === 0 && req.user!.role !== 'student') {
-      result = await query(
-        [
-          'UPDATE parent_student_links',
-          'SET consent_granted = TRUE, consent_date = NOW(), withdrawn_at = NULL, hard_delete_at = NULL',
-          'WHERE parent_id = $1 AND student_id = $2',
-          'RETURNING id, consent_granted, consent_date',
-        ].join('\n'),
-        [req.user!.id, targetStudentId]
-      );
-    }
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No pending consent link found' } });
-    }
-
-    res.json({ consent_granted: true, consent_date: new Date().toISOString() });
-  } catch (err) {
-    console.error('Failed to approve consent.', err);
-    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Server error' } });
-  }
+// POST /api/v1/consent/approve — REMOVED (security: was a consent bypass with no DOB check)
+// This endpoint is permanently gone. Consent may only be granted through
+// POST /consent/:token/confirm which requires a time-limited token + date-of-birth verification.
+// Returns 410 Gone so callers get an explicit "this is intentionally removed" signal.
+router.post('/approve', (_req, res: Response) => {
+  return res.status(410).json({
+    error: {
+      code: 'ENDPOINT_REMOVED',
+      message:
+        'POST /consent/approve has been removed. Parental consent must be granted through the email verification link (POST /consent/:token/confirm), which requires date-of-birth verification.',
+    },
+  });
 });
 
 // POST /api/v1/consent/request
