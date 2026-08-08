@@ -81,6 +81,9 @@ Parental consent is required before any audio recording. Uses invite codes for p
 - **Parents**: Only children linked via `parent_student_links`
 - **Admins**: Bypass relationship checks
 
+### Mascot States & Celebrations
+The student companion avatar (`DexAvatar.tsx`) dynamically renders state-based visuals (idle, speaking, listening, thinking, celebrating, concerned) with smooth CSS transforms and border highlights. Transitioning into the `'celebrating'` state automatically triggers a lightweight, canvas-based particle burst (`ConfettiBurst.tsx`) for 1.8 seconds. This requires no external libraries and handles canvas resizing, canvas clear, and requestAnimationFrame garbage collection cleanly.
+
 ---
 
 ## Project Structure
@@ -99,7 +102,7 @@ Parental consent is required before any audio recording. Uses invite codes for p
 ├── frontend/
 │   ├── src/
 │   │   ├── pages/          # Route page components
-│   │   ├── components/     # Shared UI components
+│   │   ├── components/     # Shared UI components (ConfettiBurst, DexAvatar, AnnotatedText, etc.)
 │   │   ├── hooks/          # Custom hooks (useDex, useSessionSSE)
 │   │   ├── lib/            # API client, constants
 │   │   ├── context/        # AuthContext provider
@@ -173,6 +176,8 @@ Parental consent is required before any audio recording. Uses invite codes for p
 - `src/hooks/useDex.ts` — Speech recognition, recording, SSE handling
 - `src/hooks/useSessionSSE.ts` — Server-sent events for real-time status
 - `src/lib/api.ts` — API client with interceptors
+- `src/components/DexAvatar.tsx` — Student avatar companion and animation container
+- `src/components/ConfettiBurst.tsx` — Lightweight canvas confetti celebration controller
 - `src/pages/SessionActive.tsx` — Active recording session UI
 - `src/pages/PracticePage.tsx` — Drill practice interface
 
