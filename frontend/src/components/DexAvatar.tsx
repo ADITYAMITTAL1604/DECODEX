@@ -1,7 +1,14 @@
 import React from 'react';
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import type { DexState } from '../hooks/useDex';
 import { TUTOR_NAME } from '../lib/constants';
-import dexCharacterImg from '../assets/dex-character.png';
+
+import idleLottie from '../assets/dex-lottie/idle.lottie?url';
+import speakingLottie from '../assets/dex-lottie/speaking.lottie?url';
+import listeningLottie from '../assets/dex-lottie/listening.lottie?url';
+import thinkingLottie from '../assets/dex-lottie/thinking.lottie?url';
+import celebratingLottie from '../assets/dex-lottie/celebrating.lottie?url';
+import concernedLottie from '../assets/dex-lottie/concerned.lottie?url';
 
 // ---------------------------------------------------------------------------
 // DexAvatar — Official Cartoon Companion Character for Dex
@@ -74,6 +81,15 @@ const STATE_CONFIG: Record<DexState, {
   },
 };
 
+const lottieMap: Record<DexState, string> = {
+  idle: idleLottie,
+  speaking: speakingLottie,
+  listening: listeningLottie,
+  thinking: thinkingLottie,
+  celebrating: celebratingLottie,
+  concerned: concernedLottie,
+};
+
 export default function DexAvatar({
   state,
   caption,
@@ -93,18 +109,17 @@ export default function DexAvatar({
   return (
     <div className="flex flex-col items-center justify-center relative select-none">
       {/* Cartoon Character Frame Container */}
-      <div className={`relative flex items-center justify-center ${config.animationClass}`}>
-        
-        {/* Dex Mascot Character Image Card */}
+      <div className="relative flex items-center justify-center">
+
+        {/* Dex Mascot Lottie Card */}
         <div
           className={`relative ${sizeClasses} rounded-3xl overflow-hidden p-2 bg-gradient-to-b from-white via-amber-50/50 to-indigo-50/50 border-2 ${config.borderColor} shadow-lg backdrop-blur-md flex items-center justify-center`}
         >
-          <img
-            src={dexCharacterImg}
-            alt={TUTOR_NAME}
-            className={`w-full h-full object-contain filter drop-shadow-md transition-transform duration-300 ${
-              state === 'celebrating' ? 'scale-105' : ''
-            }`}
+          <DotLottieReact
+            src={lottieMap[state]}
+            loop
+            autoplay
+            style={{ width: '100%', height: '100%' }}
           />
         </div>
 
