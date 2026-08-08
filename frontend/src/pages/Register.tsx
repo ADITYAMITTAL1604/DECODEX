@@ -14,6 +14,7 @@ export default function Register() {
     display_name: '',
     grade_level: 1,
   });
+  const [agreeTerms, setAgreeTerms] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
@@ -21,6 +22,12 @@ export default function Register() {
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError('');
+
+    if (!agreeTerms) {
+      setError('You must agree to the Terms of Service and Privacy Policy to create an account.');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -130,6 +137,28 @@ export default function Register() {
               </select>
             </Field>
           ) : null}
+
+          <div className="flex items-start gap-3 mt-1">
+            <input
+              id="agree-terms"
+              type="checkbox"
+              checked={agreeTerms}
+              onChange={(event) => setAgreeTerms(event.target.checked)}
+              required
+              className="mt-1 h-5 w-5 rounded border-2 border-surface-variant text-primary focus:ring-primary cursor-pointer shrink-0"
+            />
+            <label htmlFor="agree-terms" className="font-body text-xs text-on-surface-variant leading-relaxed">
+              I agree to the{' '}
+              <Link to="/terms" target="_blank" className="text-primary font-bold hover:underline">
+                Terms of Service
+              </Link>{' '}
+              and acknowledge the{' '}
+              <Link to="/privacy" target="_blank" className="text-primary font-bold hover:underline">
+                Privacy Policy
+              </Link>.
+            </label>
+          </div>
+
           <button disabled={submitting} className="mt-2 h-14 rounded-2xl bg-primary font-display text-lg font-bold text-on-primary transition-all duration-200 hover:bg-on-primary-fixed-variant disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98] shadow-lg shadow-primary/20 cursor-pointer">
             {submitting ? 'Creating account…' : `Create ${accountType} Account`}
           </button>

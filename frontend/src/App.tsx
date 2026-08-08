@@ -16,6 +16,8 @@ import StudentDetail from './pages/StudentDetail';
 import ParentHome from './pages/ParentHome';
 import ParentSessionReport from './pages/ParentSessionReport';
 import ConsentConfirm from './pages/ConsentConfirm';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
 
 import LearningPathPage from './pages/LearningPathPage';
 import StoryReaderPage from './pages/StoryReaderPage';
@@ -194,6 +196,8 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/consent/:token" element={<ConsentConfirm />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
 
           {/* Student Protected Routes */}
           <Route element={<ProtectedRoute allowedRoles={['student', 'admin']} />}>
@@ -223,6 +227,16 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+
+      <footer className="w-full bg-white/70 backdrop-blur-md border-t border-surface-container-highest py-6 px-container-padding text-center text-xs font-body text-on-surface-variant">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p>© {new Date().getFullYear()} Decodex. Educational screening & practice platform.</p>
+          <div className="flex items-center gap-6 font-display font-bold uppercase tracking-[0.08em] text-[12px]">
+            <Link to="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link>
+            <Link to="/terms" className="hover:text-primary transition-colors">Terms of Service</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

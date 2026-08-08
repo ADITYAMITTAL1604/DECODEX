@@ -1,0 +1,136 @@
+﻿import React from 'react';
+import { Link } from 'react-router-dom';
+
+export default function PrivacyPolicy() {
+  return (
+    <main className="flex-grow w-full max-w-[900px] mx-auto px-container-padding py-8 sm:py-12 text-on-surface">
+      <Link to="/" className="inline-flex items-center gap-2 text-on-surface-variant hover:text-primary font-display text-sm font-bold tracking-[0.08em] uppercase transition-all group mb-6">
+        <span className="material-symbols-outlined text-[18px] group-hover:-translate-x-1 transition-transform">arrow_back</span>
+        Back to Home
+      </Link>
+
+      <article className="glass-card rounded-3xl p-6 sm:p-12 border border-white/80 shadow-lg space-y-8">
+        {/* Header */}
+        <header className="border-b border-surface-container-highest pb-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-container/20 text-primary font-display text-xs font-bold uppercase tracking-widest mb-3">
+            <span className="material-symbols-outlined text-sm">shield</span>
+            Legal & Regulatory Compliance
+          </div>
+          <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-primary">Decodex Privacy Policy</h1>
+          <p className="font-body text-sm text-on-surface-variant mt-2">
+            <strong>Effective Date:</strong> August 8, 2026 | <strong>Jurisdiction:</strong> India (DPDP Act, 2023)
+          </p>
+        </header>
+
+        {/* Disclaimer Banner */}
+        <section className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-5 text-on-surface">
+          <h2 className="font-display text-base font-bold text-amber-800 flex items-center gap-2 mb-1">
+            <span className="material-symbols-outlined text-amber-600">warning</span>
+            Educational Screening Tool — Not a Medical Diagnosis
+          </h2>
+          <p className="font-body text-xs sm:text-sm text-on-surface-variant leading-relaxed">
+            Decodex is an educational screening and practice tool. It does <strong>not</strong> provide a clinical or medical diagnosis of dyslexia or any other neurological, developmental, or medical condition. For formal diagnostic assessment, consult a qualified speech-language pathologist, educational psychologist, or medical specialist.
+          </p>
+        </section>
+
+        {/* Section 1 */}
+        <section className="space-y-3">
+          <h2 className="font-display text-xl font-bold text-primary">1. Identity of Data Fiduciary & Grievance Redressal Officer</h2>
+          <p className="font-body text-sm sm:text-base leading-relaxed text-on-surface-variant">
+            Under the Digital Personal Data Protection Act, 2023 ("DPDP Act"), Decodex acts as the <strong>Data Fiduciary</strong> responsible for determining the purpose and means of processing personal data.
+          </p>
+          <div className="bg-surface-container-low rounded-2xl p-4 border border-surface-container-high text-xs sm:text-sm space-y-1 font-body">
+            <p><strong>Attn:</strong> Data Protection & Grievance Redressal Officer</p>
+            <p><strong>Division:</strong> Decodex Legal & Privacy Division</p>
+            <p><strong>Email:</strong> <a href="mailto:privacy@decodex.com" className="text-primary font-bold hover:underline">privacy@decodex.com</a> / <a href="mailto:grievance@decodex.com" className="text-primary font-bold hover:underline">grievance@decodex.com</a></p>
+            <p><strong>Response SLA:</strong> Acknowledgement within 24 hours; resolution within 7 business days.</p>
+          </div>
+        </section>
+
+        {/* Section 2 */}
+        <section className="space-y-3">
+          <h2 className="font-display text-xl font-bold text-primary">2. Special Provisions for Children’s Data (DPDP Act §9 Compliance)</h2>
+          <p className="font-body text-sm sm:text-base leading-relaxed text-on-surface-variant">
+            In compliance with Section 2(f) of the DPDP Act, 2023, any individual who has not completed 18 years of age is defined as a child. Decodex is designed for primary and middle school students (ages 6–14):
+          </p>
+          <ul className="list-disc pl-5 font-body text-xs sm:text-sm text-on-surface-variant space-y-2 leading-relaxed">
+            <li><strong>Verifiable Parental Consent (VPC):</strong> We do not collect, process, or record personal data or voice audio from any child without prior, verifiable consent from a parent or lawful guardian.</li>
+            <li><strong>Prohibition of Behavioral Tracking & Ads:</strong> In strict compliance with Section 9(2) of the DPDP Act, Decodex does <em>not</em> conduct behavioral tracking, serve targeted ads to children, or sell student data.</li>
+            <li><strong>No Detrimental Processing:</strong> We do not process children's data in any manner likely to cause detrimental effects on a child's well-being.</li>
+          </ul>
+        </section>
+
+        {/* Section 3 */}
+        <section className="space-y-3">
+          <h2 className="font-display text-xl font-bold text-primary">3. Personal Data We Collect</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-body text-xs sm:text-sm">
+            <div className="p-4 rounded-2xl bg-surface-container-low border border-surface-container-high space-y-2">
+              <h3 className="font-display text-sm font-bold text-on-surface">Account & Relationship Data</h3>
+              <p className="text-on-surface-variant leading-relaxed">Display name, email address, password hash (bcrypt cost 12), grade level, preferred language, date of birth (verification), invite codes, and parent-student linkage records.</p>
+            </div>
+            <div className="p-4 rounded-2xl bg-surface-container-low border border-surface-container-high space-y-2">
+              <h3 className="font-display text-sm font-bold text-on-surface">Voice Audio & Transcripts</h3>
+              <p className="text-on-surface-variant leading-relaxed">Raw audio recordings stored in base64 format (<code className="text-xs bg-surface-container px-1 py-0.5 rounded">audio_base64</code>) for playback, and verbatim speech-to-text transcripts generated via Whisper/Groq.</p>
+            </div>
+            <div className="p-4 rounded-2xl bg-surface-container-low border border-surface-container-high space-y-2">
+              <h3 className="font-display text-sm font-bold text-on-surface">Error Profiles & Health Scores</h3>
+              <p className="text-on-surface-variant leading-relaxed">Needleman-Wunsch word alignment diffs, Orton-Gillingham error classifications (REV, SUB, OMI, INS, BLD, PAC, UNC), WPM metrics, and 0–100 reading health scores.</p>
+            </div>
+            <div className="p-4 rounded-2xl bg-surface-container-low border border-surface-container-high space-y-2">
+              <h3 className="font-display text-sm font-bold text-on-surface">Special Education & IEP Records</h3>
+              <p className="text-on-surface-variant leading-relaxed">Individualized Education Program (IEP) strategies, Copilot intervention histories, teacher notes, decodable stories, and gamification XP/streaks.</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Section 4 */}
+        <section className="space-y-3">
+          <h2 className="font-display text-xl font-bold text-primary">4. Audio Recording Storage & Retention Policy</h2>
+          <p className="font-body text-sm sm:text-base leading-relaxed text-on-surface-variant">
+            Decodex currently stores raw student voice recordings permanently in base64 format within our PostgreSQL database (<code className="text-xs bg-surface-container px-1.5 py-0.5 rounded">reading_sessions.audio_base64</code>). This audio remains stored for as long as the student account remains active to enable historical audio playback for linked parents and teachers.
+          </p>
+          <p className="font-body text-xs sm:text-sm leading-relaxed text-on-surface-variant">
+            Parents have the right to listen to all recorded sessions, request immediate audio deletion, or withdraw parental consent (which triggers account-wide hard deletion within 30 days).
+          </p>
+        </section>
+
+        {/* Section 5 */}
+        <section className="space-y-3">
+          <h2 className="font-display text-xl font-bold text-primary">5. Subprocessors & Cross-Border Data Transfers</h2>
+          <p className="font-body text-sm sm:text-base leading-relaxed text-on-surface-variant">
+            Decodex relies on trusted infrastructure sub-processors. In compliance with Section 16 of the DPDP Act, cross-border data transfer outside India is permitted subject to technical safeguards and parental notice:
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left font-body text-xs sm:text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-surface-container-highest text-on-surface">
+                  <th className="py-2 pr-4 font-display font-bold">Subprocessor</th>
+                  <th className="py-2 pr-4 font-display font-bold">Purpose</th>
+                  <th className="py-2 font-display font-bold">Region</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-container-high text-on-surface-variant">
+                <tr><td className="py-2 pr-4 font-bold text-on-surface">Render Services Inc.</td><td className="py-2 pr-4">Backend API hosting</td><td className="py-2">Oregon, USA</td></tr>
+                <tr><td className="py-2 pr-4 font-bold text-on-surface">Supabase Inc. / AWS</td><td className="py-2 pr-4">PostgreSQL database hosting</td><td className="py-2">Virginia / Oregon, USA</td></tr>
+                <tr><td className="py-2 pr-4 font-bold text-on-surface">OpenAI LLC</td><td className="py-2 pr-4">Whisper STT & GPT-4o-mini classification (No student PII in prompts)</td><td className="py-2">California, USA</td></tr>
+                <tr><td className="py-2 pr-4 font-bold text-on-surface">Groq Inc.</td><td className="py-2 pr-4">Whisper Large v3 STT fallback</td><td className="py-2">California, USA</td></tr>
+                <tr><td className="py-2 pr-4 font-bold text-on-surface">Google LLC (Gmail)</td><td className="py-2 pr-4">Consent verification & notification emails</td><td className="py-2">Global / USA</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* Section 6 */}
+        <section className="space-y-3">
+          <h2 className="font-display text-xl font-bold text-primary">6. Data Principal Rights & Contact</h2>
+          <p className="font-body text-sm sm:text-base leading-relaxed text-on-surface-variant">
+            Parents (on behalf of child Data Principals) and adult account holders possess the rights to access, correction, erasure, consent withdrawal, and grievance redressal under Sections 11–14 of the DPDP Act.
+          </p>
+          <p className="font-body text-xs sm:text-sm text-on-surface-variant">
+            To exercise any data rights, please contact our Grievance Officer at <a href="mailto:privacy@decodex.com" className="text-primary font-bold hover:underline">privacy@decodex.com</a>.
+          </p>
+        </section>
+      </article>
+    </main>
+  );
+}

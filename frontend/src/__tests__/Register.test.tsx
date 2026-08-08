@@ -48,6 +48,7 @@ describe('Register Page', () => {
     await user.type(screen.getByLabelText(/student name|your name/i), 'Test User');
     await user.type(screen.getByLabelText(/email address/i), 'test@example.com');
     await user.type(screen.getByLabelText(/password/i), 'securepass123');
+    await user.click(screen.getByRole('checkbox', { name: /terms of service/i }));
     
     const submitBtn = screen.getByRole('button', { name: /create.*account/i });
     await user.click(submitBtn);
@@ -67,6 +68,7 @@ describe('Register Page', () => {
     await user.type(screen.getByLabelText(/student name|your name/i), 'Test User');
     await user.type(screen.getByLabelText(/email address/i), 'test@example.com');
     await user.type(screen.getByLabelText(/password/i), 'securepass123');
+    await user.click(screen.getByRole('checkbox', { name: /terms of service/i }));
     
     const submitBtn = screen.getByRole('button', { name: /create.*account/i });
     await user.click(submitBtn);
@@ -91,5 +93,13 @@ describe('Register Page', () => {
     await user.click(studentTab);
     
     expect(screen.getByLabelText(/grade level/i)).toBeInTheDocument();
+  });
+
+  it('should render terms of service and privacy policy checkbox', () => {
+    renderRegister();
+    
+    const termsCheckbox = screen.getByRole('checkbox', { name: /terms of service/i });
+    expect(termsCheckbox).toBeInTheDocument();
+    expect(termsCheckbox).toBeRequired();
   });
 });

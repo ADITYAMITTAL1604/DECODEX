@@ -1,5 +1,5 @@
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { type ApiError, apiFetch } from '../lib/api';
 
 interface ConsentTokenData {
@@ -87,9 +87,9 @@ export default function ConsentConfirm() {
           <dl className="mt-5 grid gap-4 font-body text-on-surface-variant">
             <div><dt className="font-display font-bold text-on-surface">What data is collected</dt><dd className="mt-1">Voice → text, no audio.</dd></div>
             <div><dt className="font-display font-bold text-on-surface">How it is used</dt><dd className="mt-1">Error analysis and drill generation.</dd></div>
-            <div><dt className="font-display font-bold text-on-surface">Retention</dt><dd className="mt-1">The consent form explains how long it is retained.</dd></div>
-            <div><dt className="font-display font-bold text-on-surface">Who can access it</dt><dd className="mt-1">Teacher, parent, and student.</dd></div>
-            <div><dt className="font-display font-bold text-on-surface">Your choices</dt><dd className="mt-1">You can withdraw consent or delete data later. Consent can be withdrawn at any time → data deleted.</dd></div>
+            <div><dt className="font-display font-bold text-on-surface">Retention & Subprocessors</dt><dd className="mt-1">The <Link to="/privacy" target="_blank" className="text-primary font-bold hover:underline">Privacy Policy</Link> explains data retention, base64 audio storage, and named subprocessors (OpenAI, Groq, Gmail, Render, Supabase).</dd></div>
+            <div><dt className="font-display font-bold text-on-surface">Who can access it</dt><dd className="mt-1">Assigned teacher, parent, and student.</dd></div>
+            <div><dt className="font-display font-bold text-on-surface">Your choices</dt><dd className="mt-1">You can withdraw consent or delete data at any time via the Parent Portal.</dd></div>
           </dl>
         </section>
 
@@ -100,8 +100,14 @@ export default function ConsentConfirm() {
         </div>
 
         <label className="mt-6 flex cursor-pointer gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-4 font-body text-on-surface">
-          <input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} className="mt-1 h-5 w-5 accent-primary" required />
-          <span>I have read this information and agree to consent for this student’s use of Decodex recording features.</span>
+          <input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} className="mt-1 h-5 w-5 accent-primary shrink-0" required />
+          <span className="text-xs sm:text-sm leading-relaxed">
+            I am the parent or legal guardian of {tokenData.student.display_name}. I have read and agree to the{' '}
+            <Link to="/privacy" target="_blank" className="text-primary font-bold hover:underline">Privacy Policy</Link>{' '}
+            and{' '}
+            <Link to="/terms" target="_blank" className="text-primary font-bold hover:underline">Terms of Service</Link>,
+            and confirm verifiable parental consent for voice recording and reading analysis for educational screening.
+          </span>
         </label>
         {error ? <div role="alert" className="mt-5 rounded-xl bg-error-container p-4 font-body text-on-error-container">{error}</div> : null}
         <button disabled={submitting || attemptsRemaining === 0} className="mt-6 h-14 w-full rounded-xl bg-primary font-body text-lg font-bold text-on-primary transition-colors hover:bg-on-primary-fixed-variant disabled:cursor-not-allowed disabled:opacity-60">{submitting ? 'Confirming…' : 'Confirm consent'}</button>

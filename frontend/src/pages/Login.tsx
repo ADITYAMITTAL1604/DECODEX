@@ -84,12 +84,17 @@ export default function Login() {
           </button>
         </form>
 
-        <div className="mt-2 text-center">
+        <div className="mt-2 text-center space-y-2">
           <p className="font-body text-base text-on-surface-variant">
             Don't have an account?{' '}
             <Link to="/register" className="text-primary font-bold hover:text-on-primary-fixed-variant underline decoration-2 underline-offset-4 transition-colors">
               Register
             </Link>
+          </p>
+          <p className="font-body text-xs text-on-surface-variant">
+            <Link to="/terms" className="hover:text-primary underline">Terms of Service</Link>
+            {' · '}
+            <Link to="/privacy" className="hover:text-primary underline">Privacy Policy</Link>
           </p>
         </div>
       </main>
