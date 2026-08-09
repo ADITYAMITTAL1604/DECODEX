@@ -34,6 +34,8 @@ services:
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=production_hackathon_super_secret_key_change_me
       - OPENAI_API_KEY=${OPENAI_API_KEY} # Must be provided in .env or shell
+      - AUDIO_STORAGE_PROVIDER=local
+      - AUDIO_STORAGE_PATH=/app/audio-storage
     ports:
       - "3000:3000"
     depends_on:
@@ -43,6 +45,7 @@ services:
         condition: service_started
     volumes:
       - backend_uploads:/app/uploads
+      - backend_audio:/app/audio-storage
 
   frontend:
     build:
@@ -57,3 +60,4 @@ volumes:
   pgdata:
   redisdata:
   backend_uploads:
+  backend_audio:

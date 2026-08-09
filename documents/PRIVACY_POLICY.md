@@ -53,7 +53,7 @@ We collect only the personal data necessary to provide reading screening, error 
 * **Parent & Teacher Accounts:** Email address, password hash (encrypted using `bcrypt` with cost factor 12), display name, role (`parent`, `teacher`, `admin`), preferred language, and assigned school ID (`school_id`).
 
 ### 4.2 Voice Audio Recordings & Speech Transcripts
-* **Raw Audio Recordings (`audio_base64`):** When a student reads a passage aloud, their voice recording is captured by the browser microphone and transmitted to our server. **Decodex stores the raw audio recording permanently in base64 format within our PostgreSQL database** (`reading_sessions.audio_base64`) to allow parents and verified teachers to listen to past reading attempts.
+* **Raw Audio Recordings:** When a student reads a passage aloud, their voice recording is captured by the browser microphone and transmitted to our server. **Decodex stores the raw audio recording in a private object storage bucket** (local disk by default, or Supabase Storage when configured) — **not in the PostgreSQL database**. Audio is referenced in the database by a storage key (`reading_sessions.audio_storage_key`), MIME type, size, and provider. Legacy `audio_base64` and `audio_file_path` columns are deprecated and no longer written for new uploads.
 * **Speech-to-Text (STT) Transcripts:** Text transcriptions generated from student voice recordings via speech-to-text engines (OpenAI Whisper / Groq).
 
 ### 4.3 Educational & Error Analysis Data
@@ -84,8 +84,13 @@ Under Section 4 of the DPDP Act, 2023, we process personal data strictly for law
 
 ## 6. Audio Recording Storage & Retention Policy
 
-### 6.1 Persistent Audio Storage Disclosure
-Contrary to transient processing models, **Decodex currently stores raw student voice recordings permanently in base64 format** (`reading_sessions.audio_base64`) inside our primary PostgreSQL database. This audio remains stored for as long as the student account remains active, enabling historical audio playback for linked parents and teachers.
+### 6.1 Object Storage Architecture (V5)
+As of V5, Decodex stores student voice recordings in a **private object storage bucket** rather than as base64 blobs in PostgreSQL. The storage backend is configurable:
+* **Local Disk (default for development/testing):** Files stored under `./audio-storage/{studentId}/{sessionId}.{ext}` with access restricted to the application process.
+* **Supabase Storage (production):** Files stored in a private Supabase Storage bucket (`decodex-audio` by default) with row-level security and signed URL access.
+* **Future S3-compatible:** The storage abstraction layer supports pluggable providers.
+
+Audio is referenced in the database by a canonical storage key (`reading_sessions.audio_storage_key`), MIME type (`audio_mime_type`), size in bytes (`audio_size_bytes`), and provider (`audio_storage_provider`). Legacy columns `audio_base64` and `audio_file_path` are retained for backward compatibility with pre-V5 sessions but are **no longer written for new uploads** (set to `NULL`).
 
 ### 6.2 Parental Rights Over Audio
 Parents have the absolute right to:
@@ -105,6 +110,7 @@ To deliver real-time speech processing and cloud database management, Decodex sh
 |--------------|---------|------------------|-------------------|
 | **Render Services Inc.** | Backend API Application Hosting | Encrypted web requests, transient processing payloads | Oregon, USA (`us-west-2`) |
 | **Supabase Inc. / AWS** | Managed PostgreSQL Database Hosting | All persistent database records (encrypted at rest) | Virginia / Oregon, USA |
+| **Supabase Storage** | Private Audio Object Storage (when configured) | Student voice recordings (encrypted at rest, private bucket) | Virginia / Oregon, USA |
 | **OpenAI LLC** | Speech-to-Text (Whisper) & Error Classification (GPT-4o-mini) | Audio files (for STT) and anonymized word alignment diffs. **No student names or PII are included in LLM prompts.** | California, USA |
 | **Groq Inc.** | High-speed Whisper STT Fallback Processing | Audio files (for STT) | California, USA |
 | **Google LLC (Gmail SMTP)** | Consent Verification & Notification Email Delivery | Parent email address, student display name, verification link | Global / USA |

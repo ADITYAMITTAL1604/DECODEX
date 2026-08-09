@@ -1,6 +1,7 @@
 import { consentErasureQueue } from './index';
 import { pool, query } from '../db';
 import { sendDataDeletionEmail } from '../services/email';
+import { getAudioStorage } from '../services/audioStorage';
 
 export type ConsentErasureResult = 'purged' | 'skipped_active_consent' | 'not_eligible';
 
@@ -143,6 +144,29 @@ export const eraseConsentDataForLink = async (linkId: string, bypassSchedule = f
 
     await client.query('COMMIT');
     transactionStarted = false;
+
+    // Delete audio files from object storage (best-effort, non-blocking)
+    try {
+      const storage = await getAudioStorage();
+      const deletedCount = await storage.deleteByStudentId(link.student_id);
+      if (deletedCount > 0) {
+        console.log(`[ConsentErasure] Deleted ${deletedCount} audio files from object storage for student ${link.student_id}`);
+      }
+      // Also explicitly delete any remaining keys from reading_sessions (in case some weren't in student folder)
+      const keyRes = await query(
+        `SELECT audio_storage_key FROM reading_sessions WHERE student_id = $1 AND audio_storage_key IS NOT NULL`,
+        [link.student_id]
+      );
+      for (const row of keyRes.rows) {
+        try {
+          await storage.delete(row.audio_storage_key);
+        } catch (keyErr) {
+          console.warn(`[ConsentErasure] Failed to delete audio key ${row.audio_storage_key}:`, keyErr);
+        }
+      }
+    } catch (storageErr) {
+      console.warn('[ConsentErasure] Object storage cleanup failed (non-fatal):', storageErr);
+    }
 
     await sendDataDeletionEmail(link.parent_email, link.student_name);
     return 'purged';

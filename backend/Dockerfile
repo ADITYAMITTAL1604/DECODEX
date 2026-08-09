@@ -24,7 +24,7 @@ RUN npm ci --only=production
 COPY --from=builder /app/dist ./dist
 
 # Create uploads directory (needed for multer)
-RUN mkdir -p uploads
+RUN mkdir -p uploads audio-storage
 
 # Expose port
 EXPOSE 3000

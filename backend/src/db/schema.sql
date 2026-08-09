@@ -98,8 +98,12 @@ CREATE TABLE IF NOT EXISTS reading_sessions (
     words_per_minute REAL,
     transcript TEXT,                          -- STT output
     alignment_result JSONB,                  -- Full alignment diff
-    audio_file_path VARCHAR(512),            -- Path to student's recorded audio file
-    audio_base64 TEXT,                       -- Base64 encoded student audio recording
+    audio_file_path VARCHAR(512),            -- DEPRECATED: Path to temp audio file (moved to object storage)
+    audio_base64 TEXT,                       -- DEPRECATED: Base64 encoded audio (moved to object storage)
+    audio_storage_key TEXT,                  -- Object storage key (e.g., studentId/sessionId.webm)
+    audio_mime_type VARCHAR(50),             -- MIME type of stored audio
+    audio_size_bytes INTEGER,                -- Size of stored audio in bytes
+    audio_storage_provider VARCHAR(20) DEFAULT 'local', -- Storage provider: 'local' or 'supabase'
     status VARCHAR(20) DEFAULT 'in_progress'
         CHECK (status IN ('in_progress', 'completed', 'abandoned', 'error')),
     deleted_at TIMESTAMPTZ                   -- soft-delete support
@@ -107,6 +111,11 @@ CREATE TABLE IF NOT EXISTS reading_sessions (
 
 ALTER TABLE reading_sessions ADD COLUMN IF NOT EXISTS audio_file_path VARCHAR(512);
 ALTER TABLE reading_sessions ADD COLUMN IF NOT EXISTS audio_base64 TEXT;
+-- New object storage columns (V5)
+ALTER TABLE reading_sessions ADD COLUMN IF NOT EXISTS audio_storage_key TEXT;
+ALTER TABLE reading_sessions ADD COLUMN IF NOT EXISTS audio_mime_type VARCHAR(50);
+ALTER TABLE reading_sessions ADD COLUMN IF NOT EXISTS audio_size_bytes INTEGER;
+ALTER TABLE reading_sessions ADD COLUMN IF NOT EXISTS audio_storage_provider VARCHAR(20) DEFAULT 'local';
 
 -- Error classifications
 -- NOTE: 'UNC' (Uncertain) is a valid fallback when the LLM is not confident.
@@ -184,3 +193,7 @@ CREATE INDEX IF NOT EXISTS idx_parent_student_links_hard_delete_at ON parent_stu
 -- Partial indexes for soft-delete filtering
 CREATE INDEX IF NOT EXISTS idx_users_active ON users(id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_sessions_active ON reading_sessions(student_id, started_at DESC) WHERE deleted_at IS NULL;
+
+-- V5: Audio storage indexes
+CREATE INDEX IF NOT EXISTS idx_sessions_storage_key ON reading_sessions(audio_storage_key) WHERE audio_storage_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_sessions_student_storage ON reading_sessions(student_id, started_at DESC) WHERE audio_storage_key IS NOT NULL;

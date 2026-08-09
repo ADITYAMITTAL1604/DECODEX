@@ -123,6 +123,37 @@ vi.mock('../../services/cache', () => ({
   generateHashKey: vi.fn().mockReturnValue('mock-hash'),
 }));
 
+// Mock audioStorage service
+const mockAudioStorage = {
+  upload: vi.fn().mockResolvedValue({
+    storageKey: 'test-student/test-session.webm',
+    mimeType: 'audio/webm',
+    sizeBytes: 1024,
+    provider: 'local',
+  }),
+  getBuffer: vi.fn().mockResolvedValue(Buffer.from('fake-audio')),
+  getStream: vi.fn().mockResolvedValue(null),
+  exists: vi.fn().mockResolvedValue(true),
+  delete: vi.fn().mockResolvedValue(undefined),
+  deleteByStudentId: vi.fn().mockResolvedValue(0),
+  getMimeType: vi.fn().mockReturnValue('audio/webm'),
+};
+
+vi.mock('../../services/audioStorage', () => ({
+  getAudioStorage: vi.fn().mockResolvedValue(mockAudioStorage),
+  generateStorageKey: vi.fn((studentId: string, sessionId: string, mimeType: string) => {
+    const ext = mimeType.includes('wav') ? 'wav' : mimeType.includes('mp4') ? 'm4a' : mimeType.includes('ogg') ? 'ogg' : mimeType.includes('mpeg') ? 'mp3' : 'webm';
+    return `${studentId}/${sessionId}.${ext}`;
+  }),
+  isBase64DataUri: vi.fn((str: string | null | undefined) => {
+    if (!str) return false;
+    return str.startsWith('data:audio/') && str.includes(';base64,');
+  }),
+  resetAudioStorage: vi.fn(),
+  // Export the mock for tests to configure
+  __mockAudioStorage: mockAudioStorage,
+}));
+
 delete process.env.GROQ_API_KEY;
 
 vi.mock('../../db/init', () => ({

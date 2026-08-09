@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import fs from 'fs';
+import path from 'path';
 import { query } from '../db';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { requireConsent } from '../middleware/consent';
@@ -7,6 +8,7 @@ import { upload } from '../middleware/upload';
 import { audioQueue } from '../queue';
 import { processAudioJob } from '../queue/worker';
 import { getCache, deleteCache } from '../services/cache';
+import { getAudioStorage, generateStorageKey, isBase64DataUri } from '../services/audioStorage';
 
 const router = Router();
 
@@ -57,7 +59,7 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
 
 // POST /api/v1/sessions/:id/audio
 router.post('/:id/audio', authenticate, requireConsent, upload.single('audio'), async (req: AuthRequest, res) => {
-  const { id } = req.params;
+  const sessionId: string = req.params.id as string;
   const file = req.file;
 
   if (!file) {
@@ -67,34 +69,64 @@ router.post('/:id/audio', authenticate, requireConsent, upload.single('audio'), 
   try {
     // Verify the session belongs to the requesting student
     const sessionRes = await query(
-      `SELECT p.content FROM reading_sessions rs 
-       JOIN passages p ON rs.passage_id = p.id 
+      `SELECT rs.student_id, p.content FROM reading_sessions rs
+       JOIN passages p ON rs.passage_id = p.id
        WHERE rs.id = $1 AND rs.student_id = $2`,
-      [id, req.user?.id]
+      [sessionId, req.user?.id]
     );
 
     if (sessionRes.rows.length === 0) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Session not found' } });
     }
 
-    // Save persistent audio_base64 and relative audio_file_path to reading_sessions for parent/teacher playback
-    let base64Audio: string | null = null;
+    const studentId: string = sessionRes.rows[0].student_id;
+    const passageText = sessionRes.rows[0].content;
+
+    // Read audio buffer and upload to object storage
+    let storageKey: string | null = null;
+    let storageMimeType: string | null = null;
+    let storageSizeBytes: number | null = null;
+    let storageProvider: string | null = null;
+    let uploadFailed = false;
+
     try {
       const audioBuffer = fs.readFileSync(file.path);
-      const mimeType = file.mimetype || 'audio/webm';
-      base64Audio = `data:${mimeType};base64,${audioBuffer.toString('base64')}`;
-    } catch (readErr) {
-      console.warn('Could not read audio file buffer for base64 storage:', readErr);
+      const rawMimeType = Array.isArray(file.mimetype) ? file.mimetype[0] : file.mimetype;
+      const mimeTypeValue: string = (rawMimeType || 'audio/webm') as string;
+      const key = generateStorageKey(studentId, sessionId, mimeTypeValue);
+
+      const storage = await getAudioStorage();
+      const result = await storage.upload(key, audioBuffer, mimeTypeValue);
+
+      storageKey = result.storageKey;
+      storageMimeType = result.mimeType;
+      storageSizeBytes = result.sizeBytes;
+      storageProvider = result.provider;
+    } catch (storageErr) {
+      console.error('Object storage upload failed:', storageErr);
+      uploadFailed = true;
     }
 
-    await query(
-      `UPDATE reading_sessions SET audio_file_path = $1, audio_base64 = $2 WHERE id = $3`,
-      [file.filename || file.path, base64Audio, id]
-    );
+    // Update session with storage info (or legacy fallback if upload failed)
+    if (!uploadFailed && storageKey) {
+      await query(
+        `UPDATE reading_sessions
+         SET audio_storage_key = $1, audio_mime_type = $2, audio_size_bytes = $3, audio_storage_provider = $4,
+             audio_base64 = NULL, audio_file_path = $5
+         WHERE id = $6`,
+        [storageKey, storageMimeType, storageSizeBytes, storageProvider, file.filename || file.path, sessionId]
+      );
+    } else {
+      // Fallback: store legacy fields only so pipeline can still run
+      await query(
+        `UPDATE reading_sessions SET audio_file_path = $1, audio_base64 = NULL WHERE id = $2`,
+        [file.filename || file.path, sessionId]
+      );
+    }
 
     const jobData = {
-      sessionId: String(id),
-      passageText: sessionRes.rows[0].content,
+      sessionId: String(sessionId),
+      passageText,
       filePath: file.path,
     };
 
@@ -117,7 +149,7 @@ router.post('/:id/audio', authenticate, requireConsent, upload.single('audio'), 
     res.status(202).json({
       message: 'Audio upload received and queued for processing',
       status: 'queued',
-      session_id: id
+      session_id: sessionId
     });
   } catch (error) {
     console.error('Upload error:', error);
@@ -201,6 +233,119 @@ router.get('/:id/status', authenticate, async (req: AuthRequest, res) => {
   } catch (error) {
     console.error('Error fetching session status:', error);
     res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch status' } });
+  }
+});
+
+/**
+ * GET /api/v1/sessions/:id/audio
+ * Streams the student's recorded audio file for playback.
+ * Authorization:
+ *   - Student: own sessions only
+ *   - Parent: linked child via parent_student_links (withdrawn_at IS NULL)
+ *   - Teacher: students at same school_id
+ *   - Admin: bypass all checks
+ * Storage priority: object storage -> legacy base64 -> legacy disk path
+ */
+router.get('/:id/audio', authenticate, async (req: AuthRequest, res) => {
+  const { id } = req.params;
+  const requesterId = req.user?.id;
+  const requesterRole = req.user?.role;
+
+  try {
+    // Fetch session with audio metadata and relationship data
+    const sessionRes = await query(
+      `SELECT
+         rs.id,
+         rs.student_id,
+         rs.audio_storage_key,
+         rs.audio_mime_type,
+         rs.audio_file_path,
+         rs.audio_base64,
+         u.school_id as student_school_id
+       FROM reading_sessions rs
+       JOIN users u ON u.id = rs.student_id
+       WHERE rs.id = $1 AND rs.deleted_at IS NULL`,
+      [id]
+    );
+
+    if (sessionRes.rows.length === 0) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Session not found' } });
+    }
+
+    const session = sessionRes.rows[0];
+
+    // Authorization checks
+    if (requesterRole === 'student') {
+      if (session.student_id !== requesterId) {
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } });
+      }
+    } else if (requesterRole === 'parent') {
+      const linkRes = await query(
+        `SELECT 1 FROM parent_student_links
+         WHERE parent_id = $1 AND student_id = $2 AND withdrawn_at IS NULL`,
+        [requesterId, session.student_id]
+      );
+      if (linkRes.rows.length === 0) {
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'No linked child found' } });
+      }
+    } else if (requesterRole === 'teacher') {
+      const teacherRes = await query('SELECT school_id FROM users WHERE id = $1', [requesterId]);
+      const teacherSchoolId = teacherRes.rows[0]?.school_id;
+      if (!teacherSchoolId || teacherSchoolId !== session.student_school_id) {
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied: different school' } });
+      }
+    }
+    // Admin bypasses all checks
+
+    // 1. Try object storage first
+    if (session.audio_storage_key) {
+      try {
+        const storage = await getAudioStorage();
+        const buffer = await storage.getBuffer(session.audio_storage_key);
+        if (buffer) {
+          const mimeType = session.audio_mime_type || storage.getMimeType(session.audio_storage_key);
+          res.setHeader('Content-Type', mimeType);
+          res.setHeader('Content-Length', buffer.length);
+          res.setHeader('Cache-Control', 'private, max-age=3600');
+          return res.send(buffer);
+        }
+      } catch (storageErr) {
+        console.warn('Object storage read failed, falling back to legacy:', storageErr);
+      }
+    }
+
+    // 2. Fallback: legacy base64 data URI
+    if (isBase64DataUri(session.audio_base64)) {
+      const matches = session.audio_base64!.match(/^data:(audio\/[a-zA-Z0-9-]+);base64,(.+)$/);
+      if (matches) {
+        const mimeType = matches[1];
+        const buffer = Buffer.from(matches[2], 'base64');
+        res.setHeader('Content-Type', mimeType);
+        res.setHeader('Content-Length', buffer.length);
+        res.setHeader('Cache-Control', 'private, max-age=3600');
+        return res.send(buffer);
+      }
+    }
+
+    // 3. Fallback: legacy disk file_path
+    if (session.audio_file_path) {
+      const diskPath = fs.existsSync(session.audio_file_path)
+        ? session.audio_file_path
+        : path.resolve(process.cwd(), 'uploads', path.basename(session.audio_file_path));
+
+      if (fs.existsSync(diskPath)) {
+        const ext = path.extname(diskPath).toLowerCase();
+        const mimeType = ext.includes('webm') ? 'audio/webm' :
+                         ext.includes('wav') ? 'audio/wav' : 'audio/mpeg';
+        res.setHeader('Content-Type', mimeType);
+        return res.sendFile(path.resolve(diskPath));
+      }
+    }
+
+    return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No audio recording found' } });
+  } catch (error) {
+    console.error('Error serving session audio:', error);
+    res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch session audio' } });
   }
 });
 

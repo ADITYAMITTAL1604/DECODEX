@@ -83,14 +83,14 @@ export default function PrivacyPolicy() {
           </div>
         </section>
 
-        {/* Section 4 */}
+{/* Section 4 */}
         <section className="space-y-3">
           <h2 className="font-display text-xl font-bold text-primary">4. Audio Recording Storage & Retention Policy</h2>
           <p className="font-body text-sm sm:text-base leading-relaxed text-on-surface-variant">
-            Decodex currently stores raw student voice recordings permanently in base64 format within our PostgreSQL database (<code className="text-xs bg-surface-container px-1.5 py-0.5 rounded">reading_sessions.audio_base64</code>). This audio remains stored for as long as the student account remains active to enable historical audio playback for linked parents and teachers.
+            As of V5, Decodex stores student voice recordings in a <strong>private object storage bucket</strong> rather than as base64 blobs in PostgreSQL. The storage backend is configurable: local disk (default for development) or Supabase Storage (production). Audio is referenced in the database by a canonical storage key (<code className="text-xs bg-surface-container px-1.5 py-0.5 rounded">reading_sessions.audio_storage_key</code>), MIME type, size in bytes, and provider. Legacy <code>audio_base64</code> and <code>audio_file_path</code> columns are deprecated and no longer written for new uploads.
           </p>
           <p className="font-body text-xs sm:text-sm leading-relaxed text-on-surface-variant">
-            Parents have the right to listen to all recorded sessions, request immediate audio deletion, or withdraw parental consent (which triggers account-wide hard deletion within 30 days).
+            Parents have the absolute right to: (1) listen to all recorded audio sessions through the Parent Portal, (2) request immediate erasure of recorded audio sessions, and (3) withdraw consent, which immediately disables voice recording and triggers account-wide data purging.
           </p>
         </section>
 

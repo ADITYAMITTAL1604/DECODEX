@@ -35,6 +35,14 @@ export const initDB = async () => {
       console.log('Migration V4 applied successfully (idempotent).');
     }
 
+    // Apply V5 Migration (Audio Object Storage)
+    const migrationV5Path = path.join(__dirname, 'migration_v5.sql');
+    if (fs.existsSync(migrationV5Path)) {
+      const migration = fs.readFileSync(migrationV5Path, 'utf-8');
+      await query(migration);
+      console.log('Migration V5 applied successfully (idempotent).');
+    }
+
     // Only seed when the users table is empty to avoid duplicate-key errors on restart.
     const usersCheck = await query('SELECT count(*) FROM users');
     if (parseInt(usersCheck.rows[0].count) === 0) {
