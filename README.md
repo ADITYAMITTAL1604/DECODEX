@@ -111,7 +111,8 @@ Beyond simple role checks (`student`, `teacher`, `parent`, `admin`), data access
 
 | Data | Stored? | Location | Notes |
 |------|---------|----------|-------|
-| **Raw audio recording** | Yes — currently persisted | `reading_sessions.audio_base64` (TEXT) | Audio is uploaded as base64 and saved to the database. Future work: evaluate deleting audio post-STT and retaining the transcript only. |
+| **Raw audio recording** | Yes — persisted in object storage | 
+  `reading_sessions.audio_storage_key` (references object storage; local disk or Supabase Storage) | Audio is uploaded, stored in a private object storage bucket, and referenced by storage key, MIME type, and size. The legacy audio_base64 column has been removed (migration_v6). |
 | **STT transcript** | Yes | `reading_sessions.transcript` | |
 | **Alignment result** | Yes | `reading_sessions.alignment_result` (JSONB) | |
 | **Error classifications** | Yes | `error_classifications` table | O-G category codes: REV, SUB, OMI, INS, BLD, PAC, UNC |

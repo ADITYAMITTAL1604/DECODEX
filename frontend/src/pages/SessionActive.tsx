@@ -2,13 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiFetch, useApiQuery, getApiBaseUrl } from '../lib/api';
 import { useSessionSSE } from '../hooks/useSessionSSE';
+import { useReadingPreferences } from '../hooks/useReadingPreferences';
 import AudioRecorder from '../components/AudioRecorder';
+import ReadingPreferencesPanel from '../components/ReadingPreferencesPanel';
+import { Type } from 'lucide-react';
 
 export default function SessionActive() {
   const { id: passageId } = useParams();
   const navigate = useNavigate();
   const { data: passageData, loading: passageLoading } = useApiQuery<{ passage: any }>(`/passages/${passageId}`);
   const { data: consentStatus, loading: consentLoading } = useApiQuery<{ consent_granted: boolean }>('/students/me/consent-status');
+  const { preferences, loading: prefsLoading } = useReadingPreferences();
+  const [prefsPanelOpen, setPrefsPanelOpen] = useState(false);
   
   const [sessionId, setSessionId] = useState<string | null>(null);
   const { status, setStatus } = useSessionSSE(sessionId);
@@ -71,21 +76,51 @@ export default function SessionActive() {
   return (
     <main className="flex-1 w-full max-w-[1024px] mx-auto px-container-padding flex flex-col items-center justify-center gap-card-gap pb-12 mt-4 md:mt-12">
       <article className="bg-surface-container-lowest w-full rounded-[24px] p-8 md:p-12 shadow-[0_4px_16px_rgba(45,41,38,0.05)] flex flex-col gap-6 max-w-3xl">
-        <h1 className="font-display text-[32px] leading-[1.3] font-bold text-primary text-center mb-4">{passageData?.passage.title || 'Reading Exercise'}</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="font-display text-[32px] leading-[1.3] font-bold text-primary text-center mb-4">{passageData?.passage.title || 'Reading Exercise'}</h1>
+          <button
+            onClick={() => setPrefsPanelOpen(true)}
+            className="p-2 rounded-xl text-on-surface-variant hover:bg-surface-container-high transition-colors"
+            aria-label="Reading preferences"
+          >
+            <Type className="w-5 h-5" />
+          </button>
+        </div>
         <div className="font-body text-[20px] leading-[1.6] text-on-surface flex flex-col gap-6 tracking-[0.05em]">
-          <p className="transition-all duration-300">
+          <p
+            className="transition-all duration-300"
+            style={{
+              fontSize: `${20 * preferences.fontScale}px`,
+              lineHeight: preferences.lineSpacing,
+              letterSpacing: `${preferences.letterSpacing}em`,
+            }}
+          >
             {passageData?.passage.content}
           </p>
         </div>
       </article>
 
       <div className="flex flex-col items-center gap-4 mt-8 relative w-full max-w-md">
-        {(status.step === 'idle' || status.step === 'error') ? (
+        {status.step === 'idle' ? (
           <AudioRecorder
             onRecordingComplete={handleRecordingComplete}
             disabled={consentLoading || !consentStatus?.consent_granted}
             disabledMessage={consentLoading ? 'Checking parent consent before recording can begin.' : 'Recording is locked until a parent confirms consent.'}
           />
+        ) : status.step === 'error' ? (
+          <div role="alert" className="w-full max-w-3xl mt-4 mb-8 bg-error-container p-6 rounded-[24px] shadow-[0_4px_16px_rgba(45,41,38,0.05)] border border-outline-variant">
+            <div className="text-center flex flex-col items-center justify-center py-4">
+              <span className="material-symbols-outlined text-4xl text-on-error-container" aria-hidden="true">error</span>
+              <h3 className="text-lg font-bold font-display text-on-error-container mt-2">{status.message || 'Something went wrong'}</h3>
+              <p className="font-body text-sm text-on-error-container mt-2">You can try recording again.</p>
+              <button
+                onClick={() => setStatus({ step: 'idle', message: 'Waiting to record...' })}
+                className="mt-4 h-12 px-6 rounded-xl bg-primary font-body font-bold text-on-primary hover:bg-on-primary-fixed-variant"
+              >
+                Try again
+              </button>
+            </div>
+          </div>
         ) : (
           <div className="w-full max-w-3xl mt-4 mb-8 bg-surface-container-low p-6 rounded-[24px] shadow-[0_4px_16px_rgba(45,41,38,0.05)] border border-surface-container-highest">
             <div className="text-center flex flex-col items-center justify-center py-4">
@@ -96,6 +131,7 @@ export default function SessionActive() {
           </div>
         )}
       </div>
+      <ReadingPreferencesPanel isOpen={prefsPanelOpen} onClose={() => setPrefsPanelOpen(false)} />
     </main>
   );
 }

@@ -85,7 +85,7 @@ export default function ConsentConfirm() {
         <section className="rounded-2xl bg-surface-container-low p-6" aria-labelledby="disclosure-heading">
           <h2 id="disclosure-heading" className="font-display text-xl font-bold text-on-surface">Before you confirm</h2>
           <dl className="mt-5 grid gap-4 font-body text-on-surface-variant">
-            <div><dt className="font-display font-bold text-on-surface">What data is collected</dt><dd className="mt-1">Voice → text, no audio.</dd></div>
+            <div><dt className="font-display font-bold text-on-surface">What data is collected</dt><dd className="mt-1">Voice audio (stored securely) and text transcript.</dd></div>
             <div><dt className="font-display font-bold text-on-surface">How it is used</dt><dd className="mt-1">Error analysis and drill generation.</dd></div>
             <div><dt className="font-display font-bold text-on-surface">Retention & Subprocessors</dt><dd className="mt-1">The <Link to="/privacy" target="_blank" className="text-primary font-bold hover:underline">Privacy Policy</Link> explains data retention, base64 audio storage, and named subprocessors (OpenAI, Groq, Gmail, Render, Supabase).</dd></div>
             <div><dt className="font-display font-bold text-on-surface">Who can access it</dt><dd className="mt-1">Assigned teacher, parent, and student.</dd></div>

@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useApiQuery, apiFetch } from '../lib/api';
-import { Target, ArrowRight, CheckCircle2, Volume2, Sparkles, X, ChevronRight, Mic, RefreshCw, Award, XCircle, ArrowLeft } from 'lucide-react';
+import { Target, ArrowRight, CheckCircle2, Volume2, Sparkles, X, ChevronRight, Mic, RefreshCw, Award, XCircle, ArrowLeft, Type } from 'lucide-react';
 import { useDex } from '../hooks/useDex';
+import { useReadingPreferences } from '../hooks/useReadingPreferences';
 import DexAvatar from '../components/DexAvatar';
+import ReadingPreferencesPanel from '../components/ReadingPreferencesPanel';
 import { TUTOR_NAME } from '../lib/constants';
 
 interface WordDetail {
@@ -36,6 +38,8 @@ export default function PracticePage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { data, loading, error } = useApiQuery<any>(`/sessions/${id}/results`);
+  const { preferences, loading: prefsLoading } = useReadingPreferences();
+  const [prefsPanelOpen, setPrefsPanelOpen] = useState(false);
 
   const [currentWordIdx, setCurrentWordIdx] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -286,9 +290,18 @@ export default function PracticePage() {
             </p>
           </div>
 
-          <div className="px-4 py-2 bg-primary-container/30 border border-primary/20 rounded-2xl flex items-center gap-2 text-primary font-display text-xs font-bold uppercase tracking-wider shrink-0">
-            <Target className="w-4 h-4" />
-            Word {currentWordIdx + 1} of {activeWords.length}
+          <div className="flex items-center gap-2">
+            <div className="px-4 py-2 bg-primary-container/30 border border-primary/20 rounded-2xl flex items-center gap-2 text-primary font-display text-xs font-bold uppercase tracking-wider shrink-0">
+              <Target className="w-4 h-4" />
+              Word {currentWordIdx + 1} of {activeWords.length}
+            </div>
+            <button
+              onClick={() => setPrefsPanelOpen(true)}
+              className="p-2 rounded-xl text-on-surface-variant hover:bg-surface-container-high transition-colors"
+              aria-label="Reading preferences"
+            >
+              <Type className="w-5 h-5" />
+            </button>
           </div>
         </div>
       </div>
@@ -307,7 +320,14 @@ export default function PracticePage() {
         {/* Target Word */}
         <div className="space-y-2">
           <span className="font-display text-[11px] font-bold uppercase tracking-[0.12em] text-on-surface-variant">Target Practice Word</span>
-          <h1 className="font-display text-5xl sm:text-7xl font-extrabold text-primary tracking-wide">
+          <h1
+            className="font-display text-5xl sm:text-7xl font-extrabold text-primary tracking-wide"
+            style={{
+              fontSize: `${80 * preferences.fontScale}px`,
+              lineHeight: preferences.lineSpacing,
+              letterSpacing: `${preferences.letterSpacing}em`,
+            }}
+          >
             {currentWord.word}
           </h1>
 
@@ -332,14 +352,28 @@ export default function PracticePage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
           <div className="bg-surface-container-low/70 rounded-2xl p-5 border border-surface-container-highest flex flex-col items-center shadow-inner">
             <span className="font-display text-[11px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Letter-by-Letter Spelling</span>
-            <span className="font-display text-2xl font-extrabold text-primary tracking-[0.2em]">
+            <span
+              className="font-display text-2xl font-extrabold text-primary tracking-[0.2em]"
+              style={{
+                fontSize: `${32 * preferences.fontScale}px`,
+                lineHeight: preferences.lineSpacing,
+                letterSpacing: `${preferences.letterSpacing}em`,
+              }}
+            >
               {currentWord.spelling}
             </span>
           </div>
 
           <div className="bg-surface-container-low/70 rounded-2xl p-5 border border-surface-container-highest flex flex-col items-center shadow-inner">
             <span className="font-display text-[11px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Phonics Sound Guide</span>
-            <span className="font-display text-2xl font-extrabold text-emerald-700 tracking-wider">
+            <span
+              className="font-display text-2xl font-extrabold text-emerald-700 tracking-wider"
+              style={{
+                fontSize: `${32 * preferences.fontScale}px`,
+                lineHeight: preferences.lineSpacing,
+                letterSpacing: `${preferences.letterSpacing}em`,
+              }}
+            >
               {currentWord.phonics}
             </span>
           </div>
@@ -412,6 +446,7 @@ export default function PracticePage() {
           )}
         </button>
       </div>
+      <ReadingPreferencesPanel isOpen={prefsPanelOpen} onClose={() => setPrefsPanelOpen(false)} />
     </main>
   );
 }

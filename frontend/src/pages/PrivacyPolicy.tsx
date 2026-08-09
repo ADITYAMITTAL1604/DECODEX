@@ -68,9 +68,9 @@ export default function PrivacyPolicy() {
               <h3 className="font-display text-sm font-bold text-on-surface">Account & Relationship Data</h3>
               <p className="text-on-surface-variant leading-relaxed">Display name, email address, password hash (bcrypt cost 12), grade level, preferred language, date of birth (verification), invite codes, and parent-student linkage records.</p>
             </div>
-            <div className="p-4 rounded-2xl bg-surface-container-low border border-surface-container-high space-y-2">
+<div className="p-4 rounded-2xl bg-surface-container-low border border-surface-container-high space-y-2">
               <h3 className="font-display text-sm font-bold text-on-surface">Voice Audio & Transcripts</h3>
-              <p className="text-on-surface-variant leading-relaxed">Raw audio recordings stored in base64 format (<code className="text-xs bg-surface-container px-1 py-0.5 rounded">audio_base64</code>) for playback, and verbatim speech-to-text transcripts generated via Whisper/Groq.</p>
+              <p className="text-on-surface-variant leading-relaxed">Raw audio recordings stored in a private object storage bucket (local disk or Supabase Storage) for playback, and verbatim speech-to-text transcripts generated via Whisper/Groq.</p>
             </div>
             <div className="p-4 rounded-2xl bg-surface-container-low border border-surface-container-high space-y-2">
               <h3 className="font-display text-sm font-bold text-on-surface">Error Profiles & Health Scores</h3>
@@ -87,7 +87,7 @@ export default function PrivacyPolicy() {
         <section className="space-y-3">
           <h2 className="font-display text-xl font-bold text-primary">4. Audio Recording Storage & Retention Policy</h2>
           <p className="font-body text-sm sm:text-base leading-relaxed text-on-surface-variant">
-            As of V5, Decodex stores student voice recordings in a <strong>private object storage bucket</strong> rather than as base64 blobs in PostgreSQL. The storage backend is configurable: local disk (default for development) or Supabase Storage (production). Audio is referenced in the database by a canonical storage key (<code className="text-xs bg-surface-container px-1.5 py-0.5 rounded">reading_sessions.audio_storage_key</code>), MIME type, size in bytes, and provider. Legacy <code>audio_base64</code> and <code>audio_file_path</code> columns are deprecated and no longer written for new uploads.
+            As of V5, Decodex stores student voice recordings in a <strong>private object storage bucket</strong> rather than as base64 blobs in PostgreSQL. The storage backend is configurable: local disk (default for development) or Supabase Storage (production). Audio is referenced in the database by a canonical storage key (<code className="text-xs bg-surface-container px-1.5 py-0.5 rounded">reading_sessions.audio_storage_key</code>), MIME type, size in bytes, and provider. Legacy <code>audio_base64</code> and <code>audio_file_path</code> columns have been removed from the database entirely — all session audio, including pre-migration recordings, now lives exclusively in object storage.
           </p>
           <p className="font-body text-xs sm:text-sm leading-relaxed text-on-surface-variant">
             Parents have the absolute right to: (1) listen to all recorded audio sessions through the Parent Portal, (2) request immediate erasure of recorded audio sessions, and (3) withdraw consent, which immediately disables voice recording and triggers account-wide data purging.

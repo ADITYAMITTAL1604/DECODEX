@@ -67,6 +67,14 @@ export const initDB = async () => {
       console.log('Migration V8 applied successfully (idempotent).');
     }
 
+    // Apply V9 Migration (User Reading Preferences)
+    const migrationV9Path = path.join(__dirname, 'migration_v9.sql');
+    if (fs.existsSync(migrationV9Path)) {
+      const migration = fs.readFileSync(migrationV9Path, 'utf-8');
+      await query(migration);
+      console.log('Migration V9 applied successfully (idempotent).');
+    }
+
     // Only seed when the users table is empty to avoid duplicate-key errors on restart.
     const usersCheck = await query('SELECT count(*) FROM users');
     if (parseInt(usersCheck.rows[0].count) === 0) {

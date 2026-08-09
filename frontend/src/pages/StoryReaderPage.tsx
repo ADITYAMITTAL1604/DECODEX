@@ -3,7 +3,10 @@ import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiFetch, useApiQuery } from '../lib/api';
 import { useDex } from '../hooks/useDex';
+import { useReadingPreferences } from '../hooks/useReadingPreferences';
 import DexAvatar from '../components/DexAvatar';
+import ReadingPreferencesPanel from '../components/ReadingPreferencesPanel';
+import { Type } from 'lucide-react';
 import { TUTOR_NAME } from '../lib/constants';
 
 // ---------------------------------------------------------------------------
@@ -110,7 +113,9 @@ export default function StoryReaderPage() {
 
   const [generating, setGenerating] = useState(false);
   const [selectedStory, setSelectedStory] = useState<any | null>(null);
+  const [prefsPanelOpen, setPrefsPanelOpen] = useState(false);
   const readerSectionRef = useRef<HTMLDivElement | null>(null);
+  const { preferences, loading: prefsLoading } = useReadingPreferences();
 
   const { data, loading, refetch } = useApiQuery<any>(`/stories/student/${studentId}`);
   const stories = data?.stories || [];
@@ -173,6 +178,8 @@ export default function StoryReaderPage() {
           <NarratedStoryReader
             story={selectedStory}
             onClose={() => setSelectedStory(null)}
+            prefsPanelOpen={prefsPanelOpen}
+            setPrefsPanelOpen={setPrefsPanelOpen}
           />
         </div>
       )}
@@ -230,8 +237,19 @@ export default function StoryReaderPage() {
 // ---------------------------------------------------------------------------
 // NarratedStoryReader — Header controls + smooth auto-scroll + 3-4 word chunk reading
 // ---------------------------------------------------------------------------
-function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => void }) {
+function NarratedStoryReader({
+  story,
+  onClose,
+  prefsPanelOpen,
+  setPrefsPanelOpen,
+}: {
+  story: any;
+  onClose: () => void;
+  prefsPanelOpen: boolean;
+  setPrefsPanelOpen: (open: boolean) => void;
+}) {
   const dex = useDex();
+  const { preferences, loading: prefsLoading } = useReadingPreferences();
   const chunks = useMemo(() => splitInto3To4WordChunks(story.content || ''), [story.content]);
 
   const [currentChunkIdx, setCurrentChunkIdx] = useState(-1);
@@ -395,6 +413,14 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
             <span className="material-symbols-outlined text-sm">close</span>
             Close
           </button>
+
+          <button
+            onClick={() => setPrefsPanelOpen(true)}
+            className="p-2.5 rounded-xl text-on-surface-variant hover:bg-surface-container-high transition-colors"
+            aria-label="Reading preferences"
+          >
+            <Type className="w-5 h-5" />
+          </button>
         </div>
       </div>
 
@@ -423,7 +449,14 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
       </div>
 
       {/* Story content with 3-4 word phrase chunk highlighting */}
-      <div className="font-body text-xl leading-relaxed text-on-surface tracking-wide bg-surface-container-lowest p-6 rounded-2xl border border-surface-container-high shadow-inner flex flex-wrap gap-2.5 items-center">
+      <div
+        className="font-body text-xl leading-relaxed text-on-surface tracking-wide bg-surface-container-lowest p-6 rounded-2xl border border-surface-container-high shadow-inner flex flex-wrap gap-2.5 items-center"
+        style={{
+          fontSize: `${20 * preferences.fontScale}px`,
+          lineHeight: preferences.lineSpacing,
+          letterSpacing: `${preferences.letterSpacing}em`,
+        }}
+      >
         {chunks.map((chunk, i) => {
           const status = chunkStatuses[i];
           const isCurrent = i === currentChunkIdx;
@@ -467,6 +500,7 @@ function NarratedStoryReader({ story, onClose }: { story: any; onClose: () => vo
           </p>
         </div>
       )}
+      <ReadingPreferencesPanel isOpen={prefsPanelOpen} onClose={() => setPrefsPanelOpen(false)} />
     </div>
   );
 }
