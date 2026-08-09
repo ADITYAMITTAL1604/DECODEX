@@ -1,4 +1,5 @@
 import fs from 'fs';
+import * as Sentry from '@sentry/node';
 import { audioQueue, AudioJobData, consentErasureQueue } from './index';
 import { eraseExpiredConsentData, scheduleConsentErasureJob } from './consentErasure';
 import { transcribeAudio } from '../services/openai';
@@ -8,6 +9,7 @@ import { saveClassifications, updateErrorProfile } from '../db/analytics';
 import { generateDrill } from '../services/drills';
 import { query } from '../db';
 import { getSSEClient } from '../routes/sessions';
+import { logger } from '../lib/logger';
 
 /**
  * Core audio processing pipeline — extracted so it can be called by both the
@@ -82,7 +84,7 @@ export async function processAudioJob(data: AudioJobData): Promise<{ success: bo
       const { computeHealthScore } = await import('../services/healthScore');
       await computeHealthScore(sessionId, studentId);
     } catch (hsError) {
-      console.error('Health score computation failed (non-fatal):', hsError);
+      logger.error({ err: hsError }, 'Health score computation failed (non-fatal)');
     }
 
     // 8. Update Gamification (V2 — XP, streaks, achievements)
@@ -90,16 +92,19 @@ export async function processAudioJob(data: AudioJobData): Promise<{ success: bo
       const { recordSessionCompletion } = await import('../services/gamification');
       await recordSessionCompletion(studentId);
     } catch (gamError) {
-      console.error('Gamification update failed (non-fatal):', gamError);
+      logger.error({ err: gamError }, 'Gamification update failed (non-fatal)');
     }
 
     // 9. Complete
     sseClient?.sendEvent('status', { step: 'complete', message: 'Processing complete!', wpm: wordsPerMinute });
     
     return { success: true, wpm: wordsPerMinute };
-  } catch (error: any) {
-    console.error(`Job failed for session ${sessionId}:`, error);
-    
+} catch (error: any) {
+    logger.error({ sessionId, err: error }, 'Audio processing job failed');
+    if (process.env.SENTRY_DSN) {
+      Sentry.captureException(error, { extra: { sessionId } });
+    }
+
     await query(
       `UPDATE reading_sessions SET status = 'error' WHERE id = $1`,
       [sessionId]
@@ -110,8 +115,8 @@ export async function processAudioJob(data: AudioJobData): Promise<{ success: bo
     // Always clean up the temp audio file to prevent unbounded disk growth.
     if (filePath && fs.existsSync(filePath)) {
       fs.unlink(filePath, (err) => {
-        if (err) console.error(`Failed to delete temp file ${filePath}:`, err);
-        else console.log(`Cleaned up temp file: ${filePath}`);
+        if (err) logger.error({ filePath, err }, 'Failed to delete temp file');
+        else logger.info({ filePath }, 'Cleaned up temp file');
       });
     }
   }
@@ -127,7 +132,7 @@ consentErasureQueue.process(async () => {
 });
 
 scheduleConsentErasureJob().catch(() => {
-  console.error('Failed to schedule the daily consent erasure job.');
+  logger.error('Failed to schedule the daily consent erasure job.');
 });
 
-console.log('Audio processing worker started.');
+logger.info('Audio processing worker started.');

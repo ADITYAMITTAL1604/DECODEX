@@ -134,9 +134,16 @@ describe('Consent Security — Bypass Prevention', () => {
           email: TEST_USERS.parent.email,
           student_id: TEST_USERS.studentA.id,
           failed_attempts: 0,
+          last_attempt_at: null,
           date_of_birth: '2015-06-15',
         }],
       });
+
+      // UPDATE last_attempt_at = NOW()
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      // INSERT audit log (success)
+      mockQuery.mockResolvedValueOnce({ rows: [] });
 
       // INSERT parent_student_links ON CONFLICT DO NOTHING
       mockQuery.mockResolvedValueOnce({ rows: [] });
@@ -171,12 +178,19 @@ describe('Consent Security — Bypass Prevention', () => {
           email: TEST_USERS.parent.email,
           student_id: TEST_USERS.studentA.id,
           failed_attempts: 0,
+          last_attempt_at: null,
           date_of_birth: '2015-06-15',
         }],
       });
 
+      // UPDATE last_attempt_at = NOW()
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
       // UPDATE failed_attempts
       mockQuery.mockResolvedValueOnce({ rows: [{ failed_attempts: 1 }] });
+
+      // INSERT audit log (failure)
+      mockQuery.mockResolvedValueOnce({ rows: [] });
 
       // COMMIT
       mockQuery.mockResolvedValueOnce({ rows: [] });
@@ -281,9 +295,16 @@ describe('Consent Security — Bypass Prevention', () => {
           email: 'parent@test.com',
           student_id: TEST_USERS.studentA.id,
           failed_attempts: 0,
+          last_attempt_at: null,
           date_of_birth: '2015-06-15',
         }],
       });
+
+      // UPDATE last_attempt_at = NOW()
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      // INSERT audit log (success)
+      mockQuery.mockResolvedValueOnce({ rows: [] });
 
       // SELECT users — no existing parent with that email
       mockQuery.mockResolvedValueOnce({ rows: [] });
@@ -332,9 +353,16 @@ describe('Consent Security — Bypass Prevention', () => {
           email: 'existing@parent.com',
           student_id: TEST_USERS.studentA.id,
           failed_attempts: 0,
+          last_attempt_at: null,
           date_of_birth: '2015-06-15',
         }],
       });
+
+      // UPDATE last_attempt_at = NOW()
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      // INSERT audit log (success)
+      mockQuery.mockResolvedValueOnce({ rows: [] });
 
       // SELECT users — existing parent found
       mockQuery.mockResolvedValueOnce({
@@ -380,12 +408,19 @@ describe('Consent Security — Bypass Prevention', () => {
           email: 'parent@test.com',
           student_id: TEST_USERS.studentA.id,
           failed_attempts: 0,
+          last_attempt_at: null,
           date_of_birth: '2015-06-15',
         }],
       });
 
+      // UPDATE last_attempt_at = NOW()
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
       // UPDATE failed_attempts
       mockQuery.mockResolvedValueOnce({ rows: [{ failed_attempts: 1 }] });
+
+      // INSERT audit log (failure)
+      mockQuery.mockResolvedValueOnce({ rows: [] });
 
       // COMMIT
       mockQuery.mockResolvedValueOnce({ rows: [] });
@@ -422,9 +457,16 @@ describe('Consent Security — Bypass Prevention', () => {
           email: 'newparent@test.com',
           student_id: TEST_USERS.studentA.id,
           failed_attempts: 0,
+          last_attempt_at: null,
           date_of_birth: '2015-06-15',
         }],
       });
+
+      // UPDATE last_attempt_at = NOW()
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      // INSERT audit log (success)
+      mockQuery.mockResolvedValueOnce({ rows: [] });
 
       // SELECT users — no existing parent
       mockQuery.mockResolvedValueOnce({ rows: [] });

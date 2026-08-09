@@ -4,6 +4,15 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
+import * as Sentry from '@sentry/node';
+
+// Initialize Sentry before other imports that might throw
+if (process.env.SENTRY_DSN) {
+  Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV });
+  console.log('[Sentry] Initialized — error reporting active');
+} else {
+  console.log('[Sentry] DSN not set — error reporting disabled');
+}
 
 import authRoutes from './routes/auth';
 import passageRoutes from './routes/passages';

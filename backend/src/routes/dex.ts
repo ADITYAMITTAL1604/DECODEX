@@ -76,8 +76,11 @@ router.post('/transcribe', authenticate, requireConsent, dexLimiter, upload.sing
     });
   }
 
+  // Use the student's preferred_language from JWT (or fetch from DB for freshness)
+  const studentPreferredLanguage = (req.user as any)?.preferredLanguage as DexLanguage || 'en';
+
   try {
-    const transcript = await transcribeAudio(file.path);
+    const transcript = await transcribeAudio(file.path, undefined, studentPreferredLanguage);
     res.json({ transcript });
   } catch (err) {
     console.error('Transcription route error:', err);

@@ -98,8 +98,6 @@ CREATE TABLE IF NOT EXISTS reading_sessions (
     words_per_minute REAL,
     transcript TEXT,                          -- STT output
     alignment_result JSONB,                  -- Full alignment diff
-    audio_file_path VARCHAR(512),            -- DEPRECATED: Path to temp audio file (moved to object storage)
-    audio_base64 TEXT,                       -- DEPRECATED: Base64 encoded audio (moved to object storage)
     audio_storage_key TEXT,                  -- Object storage key (e.g., studentId/sessionId.webm)
     audio_mime_type VARCHAR(50),             -- MIME type of stored audio
     audio_size_bytes INTEGER,                -- Size of stored audio in bytes
@@ -109,8 +107,6 @@ CREATE TABLE IF NOT EXISTS reading_sessions (
     deleted_at TIMESTAMPTZ                   -- soft-delete support
 );
 
-ALTER TABLE reading_sessions ADD COLUMN IF NOT EXISTS audio_file_path VARCHAR(512);
-ALTER TABLE reading_sessions ADD COLUMN IF NOT EXISTS audio_base64 TEXT;
 -- New object storage columns (V5)
 ALTER TABLE reading_sessions ADD COLUMN IF NOT EXISTS audio_storage_key TEXT;
 ALTER TABLE reading_sessions ADD COLUMN IF NOT EXISTS audio_mime_type VARCHAR(50);

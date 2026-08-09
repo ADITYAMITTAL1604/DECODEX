@@ -1,4 +1,5 @@
 import { Response, Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { randomBytes } from 'crypto';
 import bcrypt from 'bcrypt';
 import { pool, query } from '../db';
@@ -8,6 +9,15 @@ import { sendConsentEmail, sendConsentWithdrawalEmail, sendPasswordResetEmail } 
 import { eraseConsentDataForLink } from '../queue/consentErasure';
 
 const router = Router();
+
+// Dedicated rate limiter for consent confirmation (matches spec exactly)
+const consentConfirmLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'RATE_LIMITED', message: 'Too many verification attempts, please try again later' } },
+});
 
 interface LinkStudentBody {
   invite_code?: unknown;
@@ -51,6 +61,7 @@ interface ConsentTokenRecord {
   email: string | null;
   date_of_birth: string | Date | null;
   failed_attempts: number;
+  last_attempt_at: string | Date | null;
 }
 
 interface ConsentStatus {
@@ -368,7 +379,7 @@ router.get('/:token', async (req, res) => {
 });
 
 // POST /api/v1/consent/:token/confirm
-router.post('/:token/confirm', async (req, res) => {
+router.post('/:token/confirm', consentConfirmLimiter, async (req, res) => {
   const { date_of_birth, agree } = (req.body as ConfirmConsentBody) ?? {};
 
   if (agree !== true) {
@@ -388,7 +399,7 @@ router.post('/:token/confirm', async (req, res) => {
 
     const tokenResult = await client.query(
       [
-        'SELECT token.parent_id, token.email, token.student_id, token.failed_attempts, student.date_of_birth',
+        'SELECT token.parent_id, token.email, token.student_id, token.failed_attempts, token.last_attempt_at, student.date_of_birth',
         'FROM consent_tokens token',
         'JOIN users student ON student.id = token.student_id',
         'WHERE token.token = $1 AND token.used_at IS NULL AND token.expires_at > NOW()',
@@ -405,6 +416,36 @@ router.post('/:token/confirm', async (req, res) => {
       return res.status(404).json({ error: { code: 'INVALID_TOKEN', message: 'Invalid or expired consent link' } });
     }
 
+    // Exponential backoff cooldown check (before attempting verification)
+    // cooldownSeconds = failed_attempts === 0 ? 0 : Math.min(2 ** failed_attempts, 60)
+    const failedAttempts = tokenRecord.failed_attempts ?? 0;
+    const cooldownSeconds = failedAttempts === 0 ? 0 : Math.min(2 ** failedAttempts, 60);
+
+    if (cooldownSeconds > 0 && tokenRecord.last_attempt_at) {
+      const lastAttempt = new Date(tokenRecord.last_attempt_at).getTime();
+      const cooldownEnd = lastAttempt + cooldownSeconds * 1000;
+      const now = Date.now();
+
+      if (now < cooldownEnd) {
+        const retryAfter = Math.ceil((cooldownEnd - now) / 1000);
+        await client.query('ROLLBACK');
+        transactionStarted = false;
+        return res.status(429).json({
+          error: {
+            code: 'KBV_COOLDOWN',
+            message: 'Too many failed attempts. Please wait before trying again.',
+            details: { retry_after_seconds: retryAfter },
+          },
+        });
+      }
+    }
+
+    // Real verification attempt - update last_attempt_at
+    await client.query(
+      'UPDATE consent_tokens SET last_attempt_at = NOW() WHERE token = $1',
+      [req.params.token]
+    );
+
     if (!datesMatch(date_of_birth, tokenRecord.date_of_birth)) {
       const failedAttemptResult = await client.query(
         [
@@ -416,12 +457,21 @@ router.post('/:token/confirm', async (req, res) => {
         ].join('\n'),
         [req.params.token]
       );
-      const failedAttempts = failedAttemptResult.rows[0]?.failed_attempts as number | undefined;
+      const newFailedAttempts = failedAttemptResult.rows[0]?.failed_attempts as number | undefined;
+
+      // Audit log: failed attempt
+      await client.query(
+        [
+          'INSERT INTO consent_verification_attempts (token, student_id, ip_address, success, failed_attempts_at_time)',
+          'VALUES ($1, $2, $3, FALSE, $4)',
+        ].join('\n'),
+        [req.params.token, tokenRecord.student_id, req.ip, newFailedAttempts ?? failedAttempts + 1]
+      );
 
       await client.query('COMMIT');
       transactionStarted = false;
 
-      if (failedAttempts !== undefined && failedAttempts >= 5) {
+      if (newFailedAttempts !== undefined && newFailedAttempts >= 5) {
         return res.status(429).json({ error: { code: 'KBV_ATTEMPTS_EXCEEDED', message: 'Too many verification attempts. Request a new consent email.' } });
       }
 
@@ -429,10 +479,19 @@ router.post('/:token/confirm', async (req, res) => {
         error: {
           code: 'KBV_FAILED',
           message: 'Date of birth could not be verified',
-          details: { attempts_remaining: Math.max(0, 5 - (failedAttempts ?? 0)) },
+          details: { attempts_remaining: Math.max(0, 5 - (newFailedAttempts ?? 0)) },
         },
       });
     }
+
+    // Verification succeeded - audit log: successful attempt
+    await client.query(
+      [
+        'INSERT INTO consent_verification_attempts (token, student_id, ip_address, success, failed_attempts_at_time)',
+        'VALUES ($1, $2, $3, TRUE, $4)',
+      ].join('\n'),
+      [req.params.token, tokenRecord.student_id, req.ip, failedAttempts]
+    );
 
     // Determine parent_id: use token's parent_id if set, otherwise look up by email
     // If no parent account exists yet, create a minimal one

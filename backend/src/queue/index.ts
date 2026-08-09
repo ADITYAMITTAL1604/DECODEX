@@ -1,5 +1,8 @@
 import Queue from 'bull';
 import dotenv from 'dotenv';
+import * as Sentry from '@sentry/node';
+import { logger } from '../lib/logger';
+import { query } from '../db';
 
 dotenv.config();
 
@@ -15,10 +18,7 @@ const redisOptions: any = {
   retryStrategy(times: number): number | null {
     if (times === 1 && !redisWarned) {
       redisWarned = true;
-      console.warn(
-        '⚠️  Redis is not available at %s — Bull queues will not process jobs.',
-        redisUrl
-      );
+      logger.warn({ redisUrl }, 'Redis is not available — Bull queues will not process jobs');
     }
     return Math.min(times * 2000, 30000);
   },
@@ -31,6 +31,10 @@ if (isTls) {
 
 export const audioQueue = new Queue('audio-processing', redisUrl, {
   redis: redisOptions,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 5000 },
+  },
 });
 
 export const consentErasureQueue = new Queue('consent-erasure', redisUrl, {
@@ -46,12 +50,26 @@ export interface AudioJobData {
 // Only log queue errors that are NOT ECONNREFUSED (those are already handled by retryStrategy)
 audioQueue.on('error', (error: any) => {
   if (error?.code !== 'ECONNREFUSED') {
-    console.error('Bull queue error:', error);
+    logger.error({ err: error }, 'Bull queue error');
   }
 });
 
 consentErasureQueue.on('error', (error: any) => {
   if (error?.code !== 'ECONNREFUSED') {
-    console.error('Consent erasure queue error:', error);
+    logger.error({ err: error }, 'Consent erasure queue error');
+  }
+});
+
+// Dead-letter handling for audioQueue — fires only after all retries are exhausted
+audioQueue.on('failed', async (job, err) => {
+  if (job.attemptsMade >= (job.opts.attempts ?? 1)) {
+    logger.error({ jobId: job.id, sessionId: job.data?.sessionId, err, attemptsMade: job.attemptsMade }, 'Job permanently failed after all retries');
+    if (process.env.SENTRY_DSN) {
+      Sentry.captureException(err, { extra: { jobId: job.id, sessionId: job.data?.sessionId } });
+    }
+    await query(
+      `INSERT INTO failed_jobs (queue_name, session_id, error_message, attempts_made, job_data) VALUES ($1, $2, $3, $4, $5)`,
+      ['audio-processing', job.data?.sessionId ?? null, err.message, job.attemptsMade, JSON.stringify(job.data)]
+    );
   }
 });

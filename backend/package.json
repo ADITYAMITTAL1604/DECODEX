@@ -13,9 +13,11 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "UNLICENSED",
+  "private": true,
   "type": "commonjs",
   "dependencies": {
+    "@sentry/node": "^8.55.0",
     "@supabase/supabase-js": "^2.45.0",
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.10",
@@ -44,12 +46,14 @@
     "openai": "^6.48.0",
     "opossum": "^10.0.0",
     "pg": "^8.22.0",
+    "pino": "^9.6.0",
     "typescript": "^5.9.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/supertest": "^7.2.1",
     "nodemon": "^3.1.14",
+    "pino-pretty": "^13.0.0",
     "supertest": "^7.2.2",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",

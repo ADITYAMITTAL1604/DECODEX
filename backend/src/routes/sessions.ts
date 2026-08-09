@@ -1,6 +1,5 @@
 import { Router, Response } from 'express';
 import fs from 'fs';
-import path from 'path';
 import { query } from '../db';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { requireConsent } from '../middleware/consent';
@@ -8,7 +7,7 @@ import { upload } from '../middleware/upload';
 import { audioQueue } from '../queue';
 import { processAudioJob } from '../queue/worker';
 import { getCache, deleteCache } from '../services/cache';
-import { getAudioStorage, generateStorageKey, isBase64DataUri } from '../services/audioStorage';
+import { getAudioStorage, generateStorageKey } from '../services/audioStorage';
 
 const router = Router();
 
@@ -111,17 +110,14 @@ router.post('/:id/audio', authenticate, requireConsent, upload.single('audio'), 
     if (!uploadFailed && storageKey) {
       await query(
         `UPDATE reading_sessions
-         SET audio_storage_key = $1, audio_mime_type = $2, audio_size_bytes = $3, audio_storage_provider = $4,
-             audio_base64 = NULL, audio_file_path = $5
-         WHERE id = $6`,
-        [storageKey, storageMimeType, storageSizeBytes, storageProvider, file.filename || file.path, sessionId]
+         SET audio_storage_key = $1, audio_mime_type = $2, audio_size_bytes = $3, audio_storage_provider = $4
+         WHERE id = $5`,
+        [storageKey, storageMimeType, storageSizeBytes, storageProvider, sessionId]
       );
     } else {
-      // Fallback: store legacy fields only so pipeline can still run
-      await query(
-        `UPDATE reading_sessions SET audio_file_path = $1, audio_base64 = NULL WHERE id = $2`,
-        [file.filename || file.path, sessionId]
-      );
+      // Fallback: storage upload failed, but we still need to queue the job
+      // The worker will use the temp file_path; no DB update needed for audio columns
+      console.warn('Object storage upload failed; audio will not be persisted in object storage');
     }
 
     const jobData = {
@@ -259,8 +255,6 @@ router.get('/:id/audio', authenticate, async (req: AuthRequest, res) => {
          rs.student_id,
          rs.audio_storage_key,
          rs.audio_mime_type,
-         rs.audio_file_path,
-         rs.audio_base64,
          u.school_id as student_school_id
        FROM reading_sessions rs
        JOIN users u ON u.id = rs.student_id
@@ -297,7 +291,7 @@ router.get('/:id/audio', authenticate, async (req: AuthRequest, res) => {
     }
     // Admin bypasses all checks
 
-    // 1. Try object storage first
+    // Try object storage only (audio_base64 and audio_file_path columns dropped in V6)
     if (session.audio_storage_key) {
       try {
         const storage = await getAudioStorage();
@@ -310,35 +304,7 @@ router.get('/:id/audio', authenticate, async (req: AuthRequest, res) => {
           return res.send(buffer);
         }
       } catch (storageErr) {
-        console.warn('Object storage read failed, falling back to legacy:', storageErr);
-      }
-    }
-
-    // 2. Fallback: legacy base64 data URI
-    if (isBase64DataUri(session.audio_base64)) {
-      const matches = session.audio_base64!.match(/^data:(audio\/[a-zA-Z0-9-]+);base64,(.+)$/);
-      if (matches) {
-        const mimeType = matches[1];
-        const buffer = Buffer.from(matches[2], 'base64');
-        res.setHeader('Content-Type', mimeType);
-        res.setHeader('Content-Length', buffer.length);
-        res.setHeader('Cache-Control', 'private, max-age=3600');
-        return res.send(buffer);
-      }
-    }
-
-    // 3. Fallback: legacy disk file_path
-    if (session.audio_file_path) {
-      const diskPath = fs.existsSync(session.audio_file_path)
-        ? session.audio_file_path
-        : path.resolve(process.cwd(), 'uploads', path.basename(session.audio_file_path));
-
-      if (fs.existsSync(diskPath)) {
-        const ext = path.extname(diskPath).toLowerCase();
-        const mimeType = ext.includes('webm') ? 'audio/webm' :
-                         ext.includes('wav') ? 'audio/wav' : 'audio/mpeg';
-        res.setHeader('Content-Type', mimeType);
-        return res.sendFile(path.resolve(diskPath));
+        console.warn('Object storage read failed:', storageErr);
       }
     }
 

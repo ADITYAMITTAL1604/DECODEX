@@ -30,6 +30,7 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
     req.user = {
       id: decoded.id,
       role: decoded.role,
+      preferredLanguage: decoded.preferredLanguage,
     };
     next();
   } catch (error) {

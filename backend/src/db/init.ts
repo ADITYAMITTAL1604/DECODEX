@@ -43,6 +43,30 @@ export const initDB = async () => {
       console.log('Migration V5 applied successfully (idempotent).');
     }
 
+    // Apply V6 Migration (Drop deprecated audio_base64 and audio_file_path columns)
+    const migrationV6Path = path.join(__dirname, 'migration_v6.sql');
+    if (fs.existsSync(migrationV6Path)) {
+      const migration = fs.readFileSync(migrationV6Path, 'utf-8');
+      await query(migration);
+      console.log('Migration V6 applied successfully (idempotent).');
+    }
+
+    // Apply V7 Migration (Harden DOB Knowledge-Based Verification)
+    const migrationV7Path = path.join(__dirname, 'migration_v7.sql');
+    if (fs.existsSync(migrationV7Path)) {
+      const migration = fs.readFileSync(migrationV7Path, 'utf-8');
+      await query(migration);
+      console.log('Migration V7 applied successfully (idempotent).');
+    }
+
+    // Apply V8 Migration (Dead-letter table for failed audio processing jobs)
+    const migrationV8Path = path.join(__dirname, 'migration_v8.sql');
+    if (fs.existsSync(migrationV8Path)) {
+      const migration = fs.readFileSync(migrationV8Path, 'utf-8');
+      await query(migration);
+      console.log('Migration V8 applied successfully (idempotent).');
+    }
+
     // Only seed when the users table is empty to avoid duplicate-key errors on restart.
     const usersCheck = await query('SELECT count(*) FROM users');
     if (parseInt(usersCheck.rows[0].count) === 0) {
