@@ -83,16 +83,14 @@ export default function DexNavigationGuide() {
       setCurrentScript(script);
       setShowButton(true);
 
-      // Auto-narrate on first visit
       if (!visited) {
         markRouteVisited(location.pathname);
-        speak(script);
       }
     } else {
       setShowButton(false);
       setCurrentScript(null);
     }
-  }, [location.pathname, script, visited, speak]);
+  }, [location.pathname, script, visited]);
 
   const handleSpeak = useCallback(() => {
     if (currentScript) {

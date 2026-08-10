@@ -8,6 +8,7 @@
     "build": "tsc && node scripts/copy-db.js",
     "start": "node dist/server.js",
     "start:prod": "node dist/scripts/seed-prod.js && node dist/server.js",
+    "reset-db": "ts-node src/scripts/reset-database.ts",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
   },
