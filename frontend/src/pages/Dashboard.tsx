@@ -156,8 +156,8 @@ export default function Dashboard() {
 
       {/* Dex Companion Banner on Student Dashboard */}
       {user?.role === 'student' && (
-        <motion.section variants={bouncyItemVariants} className="mb-8 p-6 rounded-3xl bg-gradient-to-br from-white/95 via-blue-50/60 to-indigo-50/60 border-2 border-blue-200/50 shadow-[0_8px_32px_rgba(37,99,235,0.12)] flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
+        <motion.section variants={bouncyItemVariants} className="mb-8 p-6 rounded-3xl bg-gradient-to-br from-white/95 via-blue-50/60 to-indigo-50/60 border-2 border-blue-200/50 shadow-[0_8px_32px_rgba(37,99,235,0.12)] flex flex-col lg:flex-row items-center justify-between gap-6 overflow-hidden">
+          <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left flex-wrap md:flex-nowrap">
             <DexAvatar
               state="idle"
               size="md"

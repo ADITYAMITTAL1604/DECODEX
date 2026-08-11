@@ -56,7 +56,7 @@ function App() {
 
 
   return (
-    <div className="min-h-screen flex flex-col bg-transparent text-on-background font-body text-body selection:bg-primary-container selection:text-on-primary-container">
+    <div className="min-h-screen flex flex-col bg-transparent text-on-background font-body text-body selection:bg-primary-container selection:text-on-primary-container overflow-x-hidden">
       <Toaster position="bottom-right" richColors />
       <header className="glass-header text-primary shadow-sm sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-surface-container-highest">
         <div className="flex justify-between items-center w-full px-container-padding h-20 max-w-max-content-width mx-auto">
@@ -69,7 +69,7 @@ function App() {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="h-full hidden md:flex">
+          <nav className="h-full hidden lg:flex">
             {isAuthenticated ? (
               <div className="flex items-center gap-6 h-full">
                 <Link
@@ -140,7 +140,7 @@ function App() {
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-xl text-primary hover:bg-surface-container transition-colors cursor-pointer"
+            className="lg:hidden p-2 rounded-xl text-primary hover:bg-surface-container transition-colors cursor-pointer"
             aria-label="Toggle Navigation Menu"
           >
             <span className="material-symbols-outlined text-3xl">
@@ -151,7 +151,7 @@ function App() {
 
         {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-surface border-b border-surface-variant px-container-padding py-4 flex flex-col gap-4 shadow-md animate-in fade-in slide-in-from-top duration-200">
+          <div className="lg:hidden bg-surface border-b border-surface-variant px-container-padding py-4 flex flex-col gap-4 shadow-md animate-in fade-in slide-in-from-top duration-200">
             {isAuthenticated ? (
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-3 pb-3 border-b border-surface-variant">
