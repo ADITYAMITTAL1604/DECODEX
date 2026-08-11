@@ -11,23 +11,6 @@ export default function SessionResults() {
   const { id } = useParams();
   const { data, loading, error } = useApiQuery<any>(`/sessions/${id}/results`);
 
-  if (loading) return <div className="p-8 text-center text-on-surface-variant font-body">Loading results...</div>;
-  if (error) return <div className="p-8 text-center text-error font-body">Error: {error.message}</div>;
-  if (!data || !data.session) return <div className="p-8 text-center text-on-surface-variant font-body">No session results found.</div>;
-
-  const { session, classifications = [], drills = [] } = data;
-  const drill = Array.isArray(drills) && drills.length > 0 ? drills[0] : null;
-
-  // Retrieve temporary in-memory audio playback URL (cleared on window close)
-  const tempAudioUrl = id ? sessionStorage.getItem(`temp_audio_${id}`) : null;
-
-  // Use the real computed WPM from the session record.
-  const displayWpm = session.words_per_minute != null
-    ? Math.round(session.words_per_minute)
-    : null;
-
-  const accuracyPct = 100 - Math.round((session.error_rate || 0) * 100);
-
   useEffect(() => {
     if (data?.session) {
       // Trigger confetti on load
@@ -57,6 +40,23 @@ export default function SessionResults() {
       frame();
     }
   }, [data?.session]);
+
+  if (loading) return <div className="p-8 text-center text-on-surface-variant font-body">Loading results...</div>;
+  if (error) return <div className="p-8 text-center text-error font-body">Error: {error.message}</div>;
+  if (!data || !data.session) return <div className="p-8 text-center text-on-surface-variant font-body">No session results found.</div>;
+
+  const { session, classifications = [], drills = [] } = data;
+  const drill = Array.isArray(drills) && drills.length > 0 ? drills[0] : null;
+
+  // Retrieve temporary in-memory audio playback URL (cleared on window close)
+  const tempAudioUrl = id ? sessionStorage.getItem(`temp_audio_${id}`) : null;
+
+  // Use the real computed WPM from the session record.
+  const displayWpm = session.words_per_minute != null
+    ? Math.round(session.words_per_minute)
+    : null;
+
+  const accuracyPct = 100 - Math.round((session.error_rate || 0) * 100);
 
   const containerVariants = {
     hidden: { opacity: 0 },
