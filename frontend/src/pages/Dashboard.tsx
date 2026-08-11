@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link, Navigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { apiFetch, useApiQuery } from '../lib/api';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Skeleton } from '../components/Skeleton';
 import DexAvatar from '../components/DexAvatar';
 import { TUTOR_NAME } from '../lib/constants';
 
@@ -88,10 +90,6 @@ export default function Dashboard() {
   const handleRequestConsentEmail = async () => {
     setApproving(true);
     try {
-      // Sends a consent email to the linked parent so they can complete
-      // date-of-birth verification via the secure email link.
-      // POST /consent/approve has been removed — consent can only be granted
-      // by a parent through the token-based email flow.
       await apiFetch('/consent/request', { method: 'POST', body: JSON.stringify({ student_id: user!.id }) });
       fetchConsentStatus();
     } catch (err) {
@@ -101,9 +99,38 @@ export default function Dashboard() {
     }
   };
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.15,
+      }
+    }
+  };
+
+  const bouncyItemVariants = {
+    hidden: { opacity: 0, y: 30, scale: 0.95 },
+    show: { 
+      opacity: 1, 
+      y: 0, 
+      scale: 1,
+      transition: {
+        type: "spring" as const,
+        stiffness: 300,
+        damping: 15
+      }
+    }
+  };
+
   return (
-    <main className="flex-grow w-full max-w-[1000px] mx-auto px-container-padding py-8 sm:py-12 relative z-10">
-      <section className="mb-8 sm:mb-12 flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <motion.main 
+      initial="hidden" 
+      animate="show" 
+      variants={containerVariants}
+      className="flex-grow w-full max-w-[1000px] mx-auto px-container-padding py-8 sm:py-12 relative z-10"
+    >
+      <motion.section variants={bouncyItemVariants} className="mb-8 sm:mb-12 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-extrabold text-primary mb-2">
             <span className="[data-theme=student]_&:hidden">{/* teacher/default */}</span>
@@ -125,11 +152,11 @@ export default function Dashboard() {
             )}
           </div>
         )}
-      </section>
+      </motion.section>
 
       {/* Dex Companion Banner on Student Dashboard */}
       {user?.role === 'student' && (
-        <section className="mb-8 p-6 rounded-3xl bg-gradient-to-br from-white/95 via-blue-50/60 to-indigo-50/60 border-2 border-blue-200/50 shadow-[0_8px_32px_rgba(37,99,235,0.12)] flex flex-col md:flex-row items-center justify-between gap-6">
+        <motion.section variants={bouncyItemVariants} className="mb-8 p-6 rounded-3xl bg-gradient-to-br from-white/95 via-blue-50/60 to-indigo-50/60 border-2 border-blue-200/50 shadow-[0_8px_32px_rgba(37,99,235,0.12)] flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
             <DexAvatar
               state="idle"
@@ -159,12 +186,12 @@ export default function Dashboard() {
               Read with {TUTOR_NAME}
             </Link>
           </div>
-        </section>
+        </motion.section>
       )}
 
       {/* Consent banner (unchanged behavior) */}
       {user?.role === 'student' && consentStatus && !consentStatus.consent_granted && consentStatus.pending_parent_name ? (
-        <section className="mb-8 rounded-3xl bg-amber-500/10 border-2 border-amber-500/30 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm animate-in fade-in">
+        <motion.section variants={bouncyItemVariants} className="mb-8 rounded-3xl bg-amber-500/10 border-2 border-amber-500/30 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm animate-in fade-in">
           <div>
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-900 font-display text-xs font-bold uppercase tracking-wider mb-2">
               <span className="material-symbols-outlined text-sm">notifications_active</span> Pending Consent Request
@@ -179,12 +206,12 @@ export default function Dashboard() {
           >
             {approving ? 'Sending Email…' : 'Send Consent Email to Parent'}
           </button>
-        </section>
+        </motion.section>
       ) : null}
 
       {/* V2: Health Score + Gamification Hero Row */}
       {(user?.role === 'student' || user?.role === 'admin') && healthScore && (
-        <section className="mb-10 grid gap-card-gap grid-cols-1 md:grid-cols-3">
+        <motion.section variants={bouncyItemVariants} className="mb-10 grid gap-card-gap grid-cols-1 md:grid-cols-3">
           {/* Health Score Card */}
           <div className="glass-card rounded-3xl p-6 border border-white/80 flex flex-col items-center text-center shadow-sm">
             <p className="font-display text-xs font-bold uppercase tracking-[0.08em] text-on-surface-variant mb-3">Reading Health Score</p>
@@ -253,12 +280,12 @@ export default function Dashboard() {
               <p className="font-body text-xs text-on-surface-variant mt-3 text-center">{earnedAchievements.length} / {achievements.length} earned</p>
             )}
           </div>
-        </section>
+        </motion.section>
       )}
 
       {/* Learning Path Preview */}
       {(user?.role === 'student' || user?.role === 'admin') && learningPath && (
-        <section className="mb-10">
+        <motion.section variants={bouncyItemVariants} className="mb-10">
           <div className="glass-card rounded-3xl p-6 border border-white/80 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
@@ -279,12 +306,12 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
-        </section>
+        </motion.section>
       )}
 
       {/* Consent + Invite Section */}
       {user?.role === 'student' && consentStatus ? (
-        <section className="mb-10 grid gap-4 md:grid-cols-[1.1fr_1fr]">
+        <motion.section variants={bouncyItemVariants} className="mb-10 grid gap-4 md:grid-cols-[1.1fr_1fr]">
           <div className="rounded-3xl glass-card p-6 border border-white/80">
             <p className="font-display text-xs font-bold uppercase tracking-[0.08em] text-on-surface-variant">Share with a parent</p>
             <p className="mt-2 font-body text-on-surface-variant">Ask a parent to enter this invite code in their Decodex account.</p>
@@ -294,43 +321,56 @@ export default function Dashboard() {
             <p className="font-display text-xs font-bold uppercase tracking-[0.08em]">Recording consent</p>
             <p className="mt-2 font-body text-lg">{consentStatus.consent_granted ? 'Parent consent is confirmed. Recording is ready when you are.' : 'Recording is locked until a parent confirms consent.'}</p>
           </div>
-        </section>
+        </motion.section>
       ) : null}
 
       {/* Action Cards */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-card-gap mb-12 sm:mb-16">
-        <Link to="/passages" className="glass-card glass-card-hover rounded-3xl p-6 flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-primary/20 border-0">
-          <div className="h-16 w-16 bg-gradient-to-br from-blue-400/20 to-blue-600/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
-            <span className="material-symbols-outlined text-3xl text-primary" style={{fontVariationSettings: "'FILL' 1"}}>book</span>
-          </div>
-          <h2 className="font-display text-xl font-bold text-on-surface mb-1 group-hover:text-primary transition-colors">Start Reading</h2>
-          <p className="font-body text-sm text-on-surface-variant">Choose a passage and read aloud.</p>
-        </Link>
+      <motion.section variants={containerVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-card-gap mb-12 sm:mb-16">
+        <motion.div variants={bouncyItemVariants}>
+          <Link to="/passages" className="h-full glass-card glass-card-hover rounded-3xl p-6 flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-primary/20 border-0">
+            <div className="h-16 w-16 bg-gradient-to-br from-blue-400/20 to-blue-600/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
+              <span className="material-symbols-outlined text-3xl text-primary" style={{fontVariationSettings: "'FILL' 1"}}>book</span>
+            </div>
+            <h2 className="font-display text-xl font-bold text-on-surface mb-1 group-hover:text-primary transition-colors">Start Reading</h2>
+            <p className="font-body text-sm text-on-surface-variant">Choose a passage and read aloud.</p>
+          </Link>
+        </motion.div>
 
-        <Link to="/stories" className="glass-card glass-card-hover rounded-3xl p-6 flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-secondary/20 border-0">
-          <div className="h-16 w-16 bg-gradient-to-br from-amber-400/20 to-orange-500/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
-            <span className="material-symbols-outlined text-3xl text-secondary" style={{fontVariationSettings: "'FILL' 1"}}>auto_stories</span>
-          </div>
-          <h2 className="font-display text-xl font-bold text-on-surface mb-1 group-hover:text-secondary transition-colors">AI Stories</h2>
-          <p className="font-body text-sm text-on-surface-variant">Practice with stories made for you.</p>
-        </Link>
+        <motion.div variants={bouncyItemVariants}>
+          <Link to="/stories" className="h-full glass-card glass-card-hover rounded-3xl p-6 flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-secondary/20 border-0">
+            <div className="h-16 w-16 bg-gradient-to-br from-amber-400/20 to-orange-500/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
+              <span className="material-symbols-outlined text-3xl text-secondary" style={{fontVariationSettings: "'FILL' 1"}}>auto_stories</span>
+            </div>
+            <h2 className="font-display text-xl font-bold text-on-surface mb-1 group-hover:text-secondary transition-colors">AI Stories</h2>
+            <p className="font-body text-sm text-on-surface-variant">Practice with stories made for you.</p>
+          </Link>
+        </motion.div>
 
-        <Link to="/learning-path" className="glass-card glass-card-hover rounded-3xl p-6 flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-primary/20 border-0">
-          <div className="h-16 w-16 bg-gradient-to-br from-pink-400/20 to-rose-500/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
-            <span className="material-symbols-outlined text-3xl text-primary" style={{fontVariationSettings: "'FILL' 1"}}>route</span>
-          </div>
-          <h2 className="font-display text-xl font-bold text-on-surface mb-1 group-hover:text-primary transition-colors">Learning Path</h2>
-          <p className="font-body text-sm text-on-surface-variant">Follow your personalized plan.</p>
-        </Link>
-      </section>
+        <motion.div variants={bouncyItemVariants}>
+          <Link to="/learning-path" className="h-full glass-card glass-card-hover rounded-3xl p-6 flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-primary/20 border-0">
+            <div className="h-16 w-16 bg-gradient-to-br from-pink-400/20 to-rose-500/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
+              <span className="material-symbols-outlined text-3xl text-primary" style={{fontVariationSettings: "'FILL' 1"}}>route</span>
+            </div>
+            <h2 className="font-display text-xl font-bold text-on-surface mb-1 group-hover:text-primary transition-colors">Learning Path</h2>
+            <p className="font-body text-sm text-on-surface-variant">Follow your personalized plan.</p>
+          </Link>
+        </motion.div>
+      </motion.section>
 
       {/* Progress Charts */}
       {(user?.role === 'student' || user?.role === 'admin') && (
-        <section className="mb-16">
+        <motion.section variants={bouncyItemVariants} className="mb-16">
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-on-surface mb-8">Your Progress</h2>
           
           {loading ? (
-             <div className="text-on-surface-variant font-body">Loading charts...</div>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-card-gap">
+               <div className="glass-card rounded-3xl p-6 flex flex-col h-80">
+                 <Skeleton className="h-full w-full" />
+               </div>
+               <div className="glass-card rounded-3xl p-6 flex flex-col h-80">
+                 <Skeleton className="h-full w-full" />
+               </div>
+             </div>
           ) : trendsData?.trends && trendsData.trends.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-card-gap">
               <div className="glass-card rounded-3xl p-6 flex flex-col">
@@ -378,8 +418,8 @@ export default function Dashboard() {
               <p className="font-body text-lg text-on-surface-variant">Click "Start Reading" above to begin your journey!</p>
             </div>
           )}
-        </section>
+        </motion.section>
       )}
-    </main>
+    </motion.main>
   );
 }

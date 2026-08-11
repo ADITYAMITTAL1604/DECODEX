@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import confetti from 'canvas-confetti';
 import { useApiQuery } from '../lib/api';
 import AnnotatedText from '../components/AnnotatedText';
 import DrillCard from '../components/DrillCard';
+import { AnimatedCounter } from '../components/AnimatedCounter';
 
 export default function SessionResults() {
   const { id } = useParams();
@@ -25,10 +28,50 @@ export default function SessionResults() {
 
   const accuracyPct = 100 - Math.round((session.error_rate || 0) * 100);
 
+  useEffect(() => {
+    if (data?.session) {
+      // Trigger confetti on load
+      const duration = 3 * 1000;
+      const end = Date.now() + duration;
+
+      const frame = () => {
+        confetti({
+          particleCount: 5,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0 },
+          colors: ['#006474', '#7f5018', '#eab308']
+        });
+        confetti({
+          particleCount: 5,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1 },
+          colors: ['#006474', '#7f5018', '#eab308']
+        });
+
+        if (Date.now() < end) {
+          requestAnimationFrame(frame);
+        }
+      };
+      frame();
+    }
+  }, [data?.session]);
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+  };
+  
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0 }
+  };
+
   return (
-    <main className="w-full max-w-max-content-width mx-auto px-container-padding py-8 space-y-8 pb-24 text-on-surface">
+    <motion.main initial="hidden" animate="show" variants={containerVariants} className="w-full max-w-max-content-width mx-auto px-container-padding py-8 space-y-8 pb-24 text-on-surface">
       {/* Sub-header Area */}
-      <div className="space-y-4">
+      <motion.div variants={itemVariants} className="space-y-4">
         <Link to="/" className="inline-flex items-center gap-2 text-on-surface-variant hover:text-primary font-display text-sm font-bold tracking-[0.08em] transition-all group w-fit">
           <span className="material-symbols-outlined text-[18px] group-hover:-translate-x-1 transition-transform">arrow_back</span>
           Back to Dashboard
@@ -40,11 +83,11 @@ export default function SessionResults() {
             Passage: <span className="font-medium text-on-surface">{session.title || 'Untitled Passage'}</span>
           </p>
         </div>
-      </div>
+      </motion.div>
 
       {/* Temporary Session Audio Playback (In-Memory Only) */}
       {tempAudioUrl ? (
-        <div className="glass-card rounded-3xl p-6 border border-primary/20 bg-primary-fixed/30 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-in fade-in">
+        <motion.div variants={itemVariants} className="glass-card rounded-3xl p-6 border border-primary/20 bg-primary-fixed/30 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-primary text-on-primary flex items-center justify-center shadow-md">
               <span className="material-symbols-outlined text-2xl">graphic_eq</span>
@@ -55,51 +98,57 @@ export default function SessionResults() {
             </div>
           </div>
           <audio controls src={tempAudioUrl} className="w-full sm:w-80 h-10 outline-none rounded-xl" />
-        </div>
+        </motion.div>
       ) : null}
 
       {/* Stats Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-card-gap">
-        <div className="glass-card rounded-3xl p-6 border border-white/80 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow duration-200">
+      <motion.div variants={containerVariants} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-card-gap">
+        <motion.div variants={itemVariants} className="glass-card rounded-3xl p-6 border border-white/80 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow duration-200">
           <div className="h-14 w-14 rounded-2xl bg-primary-container/20 flex items-center justify-center text-primary shrink-0 shadow-inner">
             <span className="material-symbols-outlined text-3xl">speed</span>
           </div>
           <div>
             <p className="font-display text-xs font-bold uppercase tracking-[0.08em] text-on-surface-variant mb-1">Speed</p>
             <div className="flex items-baseline gap-1">
-              <span className="font-display text-[28px] sm:text-[32px] font-bold text-primary">{displayWpm != null ? displayWpm : '—'}</span>
+              <span className="font-display text-[28px] sm:text-[32px] font-bold text-primary">
+                {displayWpm != null ? <AnimatedCounter value={displayWpm} /> : '—'}
+              </span>
               <span className="font-body text-base text-outline">WPM</span>
             </div>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="glass-card rounded-3xl p-6 border border-white/80 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow duration-200">
+        <motion.div variants={itemVariants} className="glass-card rounded-3xl p-6 border border-white/80 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow duration-200">
           <div className="h-14 w-14 rounded-2xl bg-secondary-container/25 flex items-center justify-center text-secondary shrink-0 shadow-inner">
             <span className="material-symbols-outlined text-3xl">menu_book</span>
           </div>
           <div>
             <p className="font-display text-xs font-bold uppercase tracking-[0.08em] text-on-surface-variant mb-1">Words Read</p>
             <div className="flex items-baseline gap-1">
-              <span className="font-display text-[28px] sm:text-[32px] font-bold text-primary">{session.total_words_read ?? '—'}</span>
+              <span className="font-display text-[28px] sm:text-[32px] font-bold text-primary">
+                {session.total_words_read != null ? <AnimatedCounter value={session.total_words_read} /> : '—'}
+              </span>
             </div>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="glass-card rounded-3xl p-6 border border-white/80 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow duration-200 sm:col-span-2 md:col-span-1">
+        <motion.div variants={itemVariants} className="glass-card rounded-3xl p-6 border border-white/80 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow duration-200 sm:col-span-2 md:col-span-1">
           <div className="h-14 w-14 rounded-2xl bg-tertiary-container/25 flex items-center justify-center text-tertiary-container shrink-0 shadow-inner">
             <span className="material-symbols-outlined text-3xl">check_circle</span>
           </div>
           <div>
             <p className="font-display text-xs font-bold uppercase tracking-[0.08em] text-on-surface-variant mb-1">Accuracy</p>
             <div className="flex items-baseline gap-1">
-              <span className="font-display text-[28px] sm:text-[32px] font-bold text-primary">{accuracyPct}%</span>
+              <span className="font-display text-[28px] sm:text-[32px] font-bold text-primary">
+                <AnimatedCounter value={accuracyPct} />%
+              </span>
             </div>
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        <div className="lg:col-span-2 space-y-6">
+        <motion.div variants={itemVariants} className="lg:col-span-2 space-y-6">
           <div className="glass-card rounded-3xl border border-white/80 shadow-sm bg-white/40 relative">
             <div className="px-6 sm:px-8 py-5 border-b border-white/60 bg-white/20 backdrop-blur-md flex justify-between items-center rounded-t-3xl">
               <h2 className="font-display text-[20px] sm:text-[24px] font-bold text-on-surface">Detailed Error Analysis</h2>
@@ -133,9 +182,9 @@ export default function SessionResults() {
               <span className="font-body text-xs sm:text-sm text-on-surface-variant">Uncertain</span>
             </div>
           </div>
-        </div>
+        </motion.div>
         
-        <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-24">
+        <motion.div variants={itemVariants} className="lg:col-span-1 space-y-6 lg:sticky lg:top-24">
           {drill ? (
             <div className="glass-card rounded-3xl p-6 border border-white/80 shadow-sm flex flex-col gap-6">
               <div className="flex items-start gap-4">
@@ -158,8 +207,8 @@ export default function SessionResults() {
               <p className="font-body text-sm text-on-surface-variant">No specific drills recommended for this session.</p>
             </div>
           )}
-        </div>
+        </motion.div>
       </div>
-    </main>
+    </motion.main>
   );
 }

@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { toast } from 'sonner';
 import Login from '../pages/Login';
 
 // Mock the api module
@@ -14,6 +15,14 @@ vi.mock('../lib/api', () => ({
 
 // Mock the logo import
 vi.mock('../assets/decodex-logo.png', () => ({ default: 'mock-logo.png' }));
+
+// Mock sonner toast
+vi.mock('sonner', () => ({
+  toast: {
+    error: vi.fn(),
+    success: vi.fn(),
+  },
+}));
 
 // Mock AuthContext
 const mockLogin = vi.fn();
@@ -63,7 +72,7 @@ describe('Login Page', () => {
     await user.click(screen.getByRole('button', { name: /log in/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/invalid credentials/i)).toBeInTheDocument();
+      expect(toast.error).toHaveBeenCalledWith('Invalid credentials');
     });
   });
 

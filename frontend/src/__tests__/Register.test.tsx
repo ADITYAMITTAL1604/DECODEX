@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { toast } from 'sonner';
 import Register from '../pages/Register';
 
 // Mock the api module
@@ -14,6 +15,14 @@ vi.mock('../lib/api', () => ({
 
 // Mock the logo import
 vi.mock('../assets/decodex-logo.png', () => ({ default: 'mock-logo.png' }));
+
+// Mock sonner toast
+vi.mock('sonner', () => ({
+  toast: {
+    error: vi.fn(),
+    success: vi.fn(),
+  },
+}));
 
 import { apiFetch } from '../lib/api';
 const mockApiFetch = vi.mocked(apiFetch);
@@ -54,8 +63,7 @@ describe('Register Page', () => {
     await user.click(submitBtn);
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toBeInTheDocument();
-      expect(screen.getByText(/unable to connect/i)).toBeInTheDocument();
+      expect(toast.error).toHaveBeenCalledWith('Unable to connect to Decodex backend');
     });
   });
 
@@ -74,7 +82,7 @@ describe('Register Page', () => {
     await user.click(submitBtn);
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toBeInTheDocument();
+      expect(toast.error).toHaveBeenCalledWith('Failed to fetch');
     });
   });
 

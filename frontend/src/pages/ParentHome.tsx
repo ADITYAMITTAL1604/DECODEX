@@ -1,6 +1,8 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { apiFetch } from '../lib/api';
+import { Skeleton, SkeletonText } from '../components/Skeleton';
 
 interface LinkedChild {
   id: string;
@@ -147,20 +149,53 @@ export default function ParentHome() {
     high: 'bg-red-100 text-red-800 border-red-300',
   };
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 10 },
+    show: { opacity: 1, y: 0 }
+  };
+
+  if (loading) {
+    return (
+      <main className="mx-auto w-full max-w-[960px] px-container-padding py-8 sm:py-12">
+        <Skeleton className="h-32 w-full mb-8" />
+        <Skeleton className="h-10 w-48 mb-6" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+        <Skeleton className="h-32 w-full mb-8" />
+      </main>
+    );
+  }
+
   return (
-    <main className="mx-auto w-full max-w-[960px] px-container-padding py-8 sm:py-12 text-on-surface">
+    <motion.main 
+      initial="hidden" 
+      animate="show" 
+      variants={containerVariants}
+      className="mx-auto w-full max-w-[960px] px-container-padding py-8 sm:py-12 text-on-surface"
+    >
       {/* Header */}
-      <section className="mb-8 rounded-3xl glass-card border border-white/80 p-7 sm:p-9 shadow-sm relative overflow-hidden">
+      <motion.section variants={itemVariants} className="mb-8 rounded-3xl glass-card border border-white/80 p-7 sm:p-9 shadow-sm relative overflow-hidden">
         <p className="font-display text-xs font-bold uppercase tracking-[0.12em] text-secondary">Parent Portal</p>
         <h1 className="mt-2 font-display text-3xl sm:text-4xl font-extrabold text-primary">Child Reading & Screening Dashboard</h1>
         <p className="mt-2 max-w-2xl font-body text-base text-on-surface-variant leading-relaxed">
           Monitor your child's reading health score, preliminary dyslexia risk screening, practice sessions, and manage recording consent.
         </p>
-      </section>
+      </motion.section>
 
       {/* Child Selection Tabs */}
       {children.length > 1 && (
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+        <motion.div variants={itemVariants} className="flex gap-2 mb-6 overflow-x-auto pb-2">
           {children.map((child) => (
             <button
               key={child.id}
@@ -172,12 +207,12 @@ export default function ParentHome() {
               {child.display_name}
             </button>
           ))}
-        </div>
+        </motion.div>
       )}
 
       {/* Preliminary Dyslexia Risk Screening Report */}
       {screening && (
-        <section className="mb-8 glass-card rounded-3xl p-6 sm:p-8 border border-white/80 shadow-md">
+        <motion.section variants={itemVariants} className="mb-8 glass-card rounded-3xl p-6 sm:p-8 border border-white/80 shadow-md">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-surface-container-highest">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-secondary-container/20 flex items-center justify-center text-secondary shadow-inner">
@@ -224,12 +259,12 @@ export default function ParentHome() {
           <p className="font-body text-[11px] text-on-surface-variant/80 bg-surface-container-low p-3 rounded-xl border border-surface-container-high leading-relaxed">
             <strong className="font-semibold text-on-surface">Educational Disclaimer:</strong> {screening.disclaimer}
           </p>
-        </section>
+        </motion.section>
       )}
 
       {/* Child Progress Card */}
       {childProgress && (
-        <div className="space-y-6 mb-10">
+        <motion.div variants={itemVariants} className="space-y-6 mb-10">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Health Score Box */}
             <div className="glass-card rounded-3xl p-6 border border-white/80 flex flex-col items-center text-center shadow-sm">
@@ -302,11 +337,11 @@ export default function ParentHome() {
               </div>
             </div>
           )}
-        </div>
+        </motion.div>
       )}
 
       {/* Link Child Form */}
-      <section className="rounded-3xl glass-card border border-white/80 p-6 sm:p-8 shadow-sm mb-8">
+      <motion.section variants={itemVariants} className="rounded-3xl glass-card border border-white/80 p-6 sm:p-8 shadow-sm mb-8">
         <h2 className="font-display text-2xl font-bold text-on-surface">Link a Child Account</h2>
         <p className="mt-1 font-body text-on-surface-variant text-sm">Enter the invite code shown in your child’s Decodex dashboard.</p>
         <form onSubmit={linkChild} className="mt-4 flex flex-col gap-3 sm:flex-row">
@@ -324,7 +359,7 @@ export default function ParentHome() {
             {linking ? 'Linking…' : 'Link Child'}
           </button>
         </form>
-      </section>
+      </motion.section>
 
       {error ? (
         <div role="alert" className="mb-6 rounded-2xl bg-red-50 p-4 font-body text-sm text-red-800 border border-red-200">
@@ -339,7 +374,7 @@ export default function ParentHome() {
       ) : null}
 
       {/* Linked Children Consent Management */}
-      <section>
+      <motion.section variants={itemVariants}>
         <h2 className="font-display text-2xl font-bold text-on-surface mb-4">Consent & Accounts</h2>
         <div className="grid gap-3">
           {children.map((child) => {
@@ -375,12 +410,23 @@ export default function ParentHome() {
             );
           })}
         </div>
-      </section>
+      </motion.section>
 
       {/* Withdraw Modal */}
-      {pendingWithdrawal ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/35 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-3xl glass-card border border-white/80 p-7 shadow-2xl bg-white/95">
+      <AnimatePresence>
+        {pendingWithdrawal && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/35 backdrop-blur-sm p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }} 
+              animate={{ scale: 1, opacity: 1 }} 
+              exit={{ scale: 0.95, opacity: 0 }} 
+              className="w-full max-w-lg rounded-3xl glass-card border border-white/80 p-7 shadow-2xl bg-white/95"
+            >
             <h2 className="font-display text-2xl font-bold text-on-surface">Withdraw consent?</h2>
             <p className="mt-3 font-body text-sm text-on-surface-variant leading-relaxed">
               This disables recording for <strong className="text-on-surface font-semibold">{pendingWithdrawal.display_name}</strong> immediately.
@@ -391,9 +437,10 @@ export default function ParentHome() {
                 {withdrawing ? 'Withdrawing…' : 'Confirm Withdraw'}
               </button>
             </div>
-          </div>
-        </div>
-      ) : null}
-    </main>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.main>
   );
 }

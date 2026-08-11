@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import { useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -56,6 +57,7 @@ function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-transparent text-on-background font-body text-body selection:bg-primary-container selection:text-on-primary-container">
+      <Toaster position="bottom-right" richColors />
       <header className="glass-header text-primary shadow-sm sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-surface-container-highest">
         <div className="flex justify-between items-center w-full px-container-padding h-20 max-w-max-content-width mx-auto">
           <Link

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useApiQuery } from '../lib/api';
+import { Skeleton, SkeletonText } from '../components/Skeleton';
 
 export default function TeacherDashboard() {
   const { data, loading, error } = useApiQuery<any>('/teacher/students');
@@ -11,7 +13,16 @@ export default function TeacherDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'students' | 'heatmap' | 'weaknesses'>('students');
 
-  if (loading) return <div className="p-8 text-center text-on-surface-variant font-body">Loading classroom data...</div>;
+  if (loading) return (
+    <div className="flex-grow w-full max-w-max-content-width mx-auto px-4 py-8">
+      <Skeleton className="h-16 w-64 mb-10" />
+      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-6">
+        {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}
+      </div>
+      <Skeleton className="h-10 w-full mb-6" />
+      <SkeletonText lines={10} className="w-full" />
+    </div>
+  );
   if (error) return <div className="p-8 text-center text-error font-body">Error: {error.message}</div>;
 
   const allStudents: any[] = data?.students ?? [];
@@ -25,9 +36,27 @@ export default function TeacherDashboard() {
   const weaknesses = weaknessData?.weaknesses || [];
   const skillDist = skillData?.distribution;
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.05 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 10 },
+    show: { opacity: 1, y: 0 }
+  };
+
   return (
-    <main className="flex-grow w-full max-w-max-content-width mx-auto px-4 py-6 sm:py-8 text-on-surface">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+    <motion.main
+      initial="hidden"
+      animate="show"
+      variants={containerVariants}
+      className="flex-grow w-full max-w-max-content-width mx-auto px-4 py-6 sm:py-8 text-on-surface"
+    >
+      <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-2xl bg-primary-container/20 flex items-center justify-center text-primary shadow-inner">
             <span className="material-symbols-outlined text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>groups</span>
@@ -37,11 +66,11 @@ export default function TeacherDashboard() {
             <p className="text-on-surface-variant font-body text-sm sm:text-base mt-1 tracking-wide">Classroom Analytics &amp; AI Copilot Hub</p>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Overview Cards Row */}
       {skillDist && (
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-6">
+        <motion.div variants={itemVariants} className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-6">
           <div className="glass-card p-3 border text-center">
             <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-emerald-700 mb-1">Excellent</p>
             <p className="font-mono text-xl font-bold text-emerald-800">{skillDist.excellent}</p>
@@ -62,11 +91,11 @@ export default function TeacherDashboard() {
             <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-red-700 mb-1">Critical</p>
             <p className="font-mono text-xl font-bold text-red-800">{skillDist.critical}</p>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-5 border-b border-color-[var(--color-border)] pb-0">
+      <motion.div variants={itemVariants} className="flex gap-1 mb-5 border-b border-color-[var(--color-border)] pb-0">
         <button
           onClick={() => setActiveTab('students')}
           className={`px-4 py-2 font-display text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer border-b-2 -mb-px ${
@@ -91,10 +120,10 @@ export default function TeacherDashboard() {
         >
           Class Weaknesses
         </button>
-      </div>
+      </motion.div>
 
       {activeTab === 'students' && (
-        <div className="glass-card rounded-3xl border border-white/85 p-6 md:p-8 shadow-sm">
+        <motion.div variants={itemVariants} className="glass-card rounded-3xl border border-white/85 p-6 md:p-8 shadow-sm">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
             <div className="flex items-center gap-2 text-on-surface-variant">
               <span className="font-display text-xs font-bold tracking-[0.08em] bg-white/80 border border-surface-variant/40 px-3 py-1 rounded-full uppercase">All Students ({allStudents.length})</span>
@@ -129,11 +158,11 @@ export default function TeacherDashboard() {
                   <th className="py-4 px-4 font-display text-[12px] font-bold text-outline tracking-[0.08em] uppercase text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/40">
+              <motion.tbody variants={containerVariants} initial="hidden" animate="show" className="divide-y divide-white/40">
                 {filteredStudents.map((student: any) => {
                   const initials = student.display_name?.substring(0, 2).toUpperCase() || 'ST';
                   return (
-                    <tr key={student.id} className="hover:bg-white/30 transition-all duration-150 group">
+                    <motion.tr variants={itemVariants} key={student.id} className="hover:bg-white/30 transition-all duration-150 group">
                       <td className="py-3 px-3">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl bg-secondary-container/20 text-on-secondary-container flex items-center justify-center font-bold font-display text-sm shadow-inner">{initials}</div>
@@ -173,18 +202,18 @@ export default function TeacherDashboard() {
                           </Link>
                         </div>
                       </td>
-                    </tr>
+                    </motion.tr>
                   );
                 })}
-              </tbody>
+              </motion.tbody>
             </table>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Heatmap Tab */}
       {activeTab === 'heatmap' && (
-        <div className="glass-card rounded-3xl border border-white/85 p-6 md:p-8 shadow-sm overflow-x-auto">
+        <motion.div variants={itemVariants} className="glass-card rounded-3xl border border-white/85 p-6 md:p-8 shadow-sm overflow-x-auto">
           <h2 className="font-display text-xl font-bold text-on-surface mb-4">Orton-Gillingham Error Distribution Heatmap</h2>
           <table className="w-full text-left border-collapse min-w-[650px]">
             <thead>
@@ -199,9 +228,9 @@ export default function TeacherDashboard() {
                 <th className="py-3 px-3 font-display text-[11px] font-bold text-primary uppercase text-center">Health Score</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/40">
+            <motion.tbody variants={containerVariants} initial="hidden" animate="show" className="divide-y divide-white/40">
               {heatmap.map((row: any) => (
-                <tr key={row.studentId} className="hover:bg-white/30">
+                <motion.tr variants={itemVariants} key={row.studentId} className="hover:bg-white/30">
                   <td className="py-3 px-3 font-bold text-on-surface font-display">{row.studentName}</td>
                   <td className={`py-3 px-3 text-center font-bold ${row.rev > 2 ? 'bg-purple-100 text-purple-900' : 'text-on-surface-variant'}`}>{row.rev}</td>
                   <td className={`py-3 px-3 text-center font-bold ${row.sub > 4 ? 'bg-yellow-100 text-yellow-900' : 'text-on-surface-variant'}`}>{row.sub}</td>
@@ -210,28 +239,30 @@ export default function TeacherDashboard() {
                   <td className={`py-3 px-3 text-center font-bold ${row.bld > 2 ? 'bg-blue-100 text-blue-900' : 'text-on-surface-variant'}`}>{row.bld}</td>
                   <td className={`py-3 px-3 text-center font-bold ${row.pac > 2 ? 'bg-gray-100 text-gray-900' : 'text-on-surface-variant'}`}>{row.pac}</td>
                   <td className="py-3 px-3 text-center font-extrabold text-primary font-display">{row.healthScore ?? '—'}</td>
-                </tr>
+                </motion.tr>
               ))}
-            </tbody>
+            </motion.tbody>
           </table>
-        </div>
+        </motion.div>
       )}
 
       {/* Weaknesses Tab */}
       {activeTab === 'weaknesses' && (
-        <div className="glass-card rounded-3xl border border-white/85 p-6 md:p-8 shadow-sm space-y-4">
+        <motion.div variants={itemVariants} className="glass-card rounded-3xl border border-white/85 p-6 md:p-8 shadow-sm space-y-4">
           <h2 className="font-display text-xl font-bold text-on-surface mb-2">Class-Wide Error Analysis</h2>
-          {weaknesses.map((w: any) => (
-            <div key={w.category} className="p-4 rounded-2xl bg-white/40 border border-surface-container-highest flex items-center justify-between">
-              <div>
-                <span className="font-display text-sm font-bold text-on-surface">{w.categoryName} ({w.category})</span>
-                <p className="font-body text-xs text-on-surface-variant">{w.affectedStudents} student(s) affected ({w.percentageOfClass}% of class)</p>
-              </div>
-              <span className="font-display text-2xl font-extrabold text-primary">{w.totalOccurrences} <span className="text-xs font-normal text-on-surface-variant">total errors</span></span>
-            </div>
-          ))}
-        </div>
+          <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-4">
+            {weaknesses.map((w: any) => (
+              <motion.div variants={itemVariants} key={w.category} className="p-4 rounded-2xl bg-white/40 border border-surface-container-highest flex items-center justify-between">
+                <div>
+                  <span className="font-display text-sm font-bold text-on-surface">{w.categoryName} ({w.category})</span>
+                  <p className="font-body text-xs text-on-surface-variant">{w.affectedStudents} student(s) affected ({w.percentageOfClass}% of class)</p>
+                </div>
+                <span className="font-display text-2xl font-extrabold text-primary">{w.totalOccurrences} <span className="text-xs font-normal text-on-surface-variant">total errors</span></span>
+              </motion.div>
+            ))}
+          </motion.div>
+        </motion.div>
       )}
-    </main>
+    </motion.main>
   );
 }

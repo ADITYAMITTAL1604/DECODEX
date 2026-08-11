@@ -1,5 +1,7 @@
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
 import decodexLogo from '../assets/decodex-logo.png';
 
@@ -15,16 +17,14 @@ export default function Register() {
     grade_level: 1,
   });
   const [agreeTerms, setAgreeTerms] = useState(false);
-  const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    setError('');
 
     if (!agreeTerms) {
-      setError('You must agree to the Terms of Service and Privacy Policy to create an account.');
+      toast.error('You must agree to the Terms of Service and Privacy Policy to create an account.');
       return;
     }
 
@@ -43,7 +43,7 @@ export default function Register() {
       await apiFetch(endpoint, { method: 'POST', body: JSON.stringify(body) });
       navigate('/login');
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Registration failed');
+      toast.error(requestError instanceof Error ? requestError.message : 'Registration failed');
     } finally {
       setSubmitting(false);
     }
@@ -51,7 +51,12 @@ export default function Register() {
 
   return (
     <div className="min-h-[calc(100vh-80px)] bg-transparent px-container-padding py-8 flex items-center justify-center text-on-surface">
-      <main className="mx-auto w-full max-w-[480px] glass-card rounded-3xl p-8 sm:p-10 shadow-[0_20px_50px_rgba(0,100,116,0.08)]">
+      <motion.main 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="mx-auto w-full max-w-[480px] glass-card rounded-3xl p-8 sm:p-10 shadow-[0_20px_50px_rgba(0,100,116,0.08)]"
+      >
         <div className="mb-6 text-center flex flex-col items-center">
           <img alt="Decodex Logo" className="w-24 h-24 object-contain mb-2 drop-shadow-sm" src={decodexLogo} />
           <p className="font-display text-xs font-bold uppercase tracking-[0.12em] text-secondary">Decodex Account</p>
@@ -67,7 +72,7 @@ export default function Register() {
               role="tab"
               aria-selected={accountType === type}
               onClick={() => setAccountType(type)}
-              className={`rounded-xl px-4 py-3 font-display text-xs font-bold uppercase tracking-[0.08em] transition-all duration-200 ${
+              className={`rounded-xl px-4 py-3 font-display text-xs font-bold uppercase tracking-[0.08em] transition-all duration-200 cursor-pointer ${
                 accountType === type
                   ? 'bg-white text-primary shadow-md font-bold'
                   : 'text-on-surface-variant hover:text-primary'
@@ -77,8 +82,6 @@ export default function Register() {
             </button>
           ))}
         </div>
-
-        {error ? <div role="alert" className="mb-5 rounded-2xl bg-error-container/80 backdrop-blur-md p-4 font-body text-sm text-on-error-container border border-error/20">{error}</div> : null}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <Field label={accountType === 'parent' ? 'Your Name' : 'Student Name'} id="display-name">
@@ -159,15 +162,20 @@ export default function Register() {
             </label>
           </div>
 
-          <button disabled={submitting} className="mt-2 h-14 rounded-2xl bg-primary font-display text-lg font-bold text-on-primary transition-all duration-200 hover:bg-on-primary-fixed-variant disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98] shadow-lg shadow-primary/20 cursor-pointer">
+          <motion.button 
+            whileHover={!submitting ? { scale: 1.02 } : {}} 
+            whileTap={!submitting ? { scale: 0.98 } : {}}
+            disabled={submitting} 
+            className="mt-2 h-14 rounded-2xl bg-primary font-display text-lg font-bold text-on-primary transition-colors duration-200 hover:bg-on-primary-fixed-variant disabled:cursor-not-allowed disabled:opacity-60 shadow-lg shadow-primary/20 cursor-pointer"
+          >
             {submitting ? 'Creating account…' : `Create ${accountType} Account`}
-          </button>
+          </motion.button>
         </form>
 
         <p className="mt-7 text-center font-body text-base text-on-surface-variant">
           Already have an account? <Link to="/login" className="font-bold text-primary underline decoration-2 underline-offset-4">Log in</Link>
         </p>
-      </main>
+      </motion.main>
     </div>
   );
 }
