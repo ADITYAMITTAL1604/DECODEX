@@ -102,10 +102,13 @@ export default function Dashboard() {
   };
 
   return (
-    <main className="flex-grow w-full max-w-[1000px] mx-auto px-container-padding py-8 sm:py-12">
+    <main className="flex-grow w-full max-w-[1000px] mx-auto px-container-padding py-8 sm:py-12 relative z-10">
       <section className="mb-8 sm:mb-12 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-extrabold text-primary mb-2">Welcome back, {user?.display_name}!</h1>
+          <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-extrabold text-primary mb-2">
+            <span className="[data-theme=student]_&:hidden">{/* teacher/default */}</span>
+            Welcome back, {user?.display_name}! 🌟
+          </h1>
           <p className="font-body text-base sm:text-xl text-on-surface-variant">Ready to grow your reading skills today?</p>
         </div>
         {gamProfile && (
@@ -126,7 +129,7 @@ export default function Dashboard() {
 
       {/* Dex Companion Banner on Student Dashboard */}
       {user?.role === 'student' && (
-        <section className="mb-8 p-6 rounded-3xl bg-gradient-to-br from-white/90 via-amber-50/40 to-indigo-50/40 border-2 border-secondary/30 shadow-lg flex flex-col md:flex-row items-center justify-between gap-6">
+        <section className="mb-8 p-6 rounded-3xl bg-gradient-to-br from-white/95 via-blue-50/60 to-indigo-50/60 border-2 border-blue-200/50 shadow-[0_8px_32px_rgba(37,99,235,0.12)] flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
             <DexAvatar
               state="idle"
@@ -150,7 +153,7 @@ export default function Dashboard() {
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto shrink-0">
             <Link
               to="/stories"
-              className="w-full sm:w-auto h-12 px-6 rounded-2xl bg-secondary text-on-secondary font-display text-xs font-bold uppercase tracking-wider hover:bg-secondary-container hover:text-on-secondary-container transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto h-12 px-8 rounded-full btn-clay flex items-center justify-center gap-2 text-sm uppercase tracking-wider"
             >
               <span className="material-symbols-outlined text-lg">auto_stories</span>
               Read with {TUTOR_NAME}
@@ -172,7 +175,7 @@ export default function Dashboard() {
           <button
             onClick={handleRequestConsentEmail}
             disabled={approving}
-            className="h-12 px-6 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-display text-sm font-bold uppercase tracking-[0.08em] transition-all shadow-md active:scale-95 disabled:opacity-60 flex-shrink-0 cursor-pointer"
+            className="h-12 px-8 rounded-full btn-clay flex items-center justify-center gap-2 text-sm uppercase tracking-[0.08em] disabled:opacity-60 flex-shrink-0 cursor-pointer"
           >
             {approving ? 'Sending Email…' : 'Send Consent Email to Parent'}
           </button>
@@ -296,24 +299,24 @@ export default function Dashboard() {
 
       {/* Action Cards */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-card-gap mb-12 sm:mb-16">
-        <Link to="/passages" className="glass-card glass-card-hover rounded-3xl p-6 flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-primary/20">
-          <div className="h-14 w-14 bg-primary-container/15 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-primary-container/25 transition-colors shadow-inner">
+        <Link to="/passages" className="glass-card glass-card-hover rounded-3xl p-6 flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-primary/20 border-0">
+          <div className="h-16 w-16 bg-gradient-to-br from-blue-400/20 to-blue-600/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
             <span className="material-symbols-outlined text-3xl text-primary" style={{fontVariationSettings: "'FILL' 1"}}>book</span>
           </div>
           <h2 className="font-display text-xl font-bold text-on-surface mb-1 group-hover:text-primary transition-colors">Start Reading</h2>
           <p className="font-body text-sm text-on-surface-variant">Choose a passage and read aloud.</p>
         </Link>
 
-        <Link to="/stories" className="glass-card glass-card-hover rounded-3xl p-6 flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-secondary/20">
-          <div className="h-14 w-14 bg-secondary-container/15 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-secondary-container/25 transition-colors shadow-inner">
+        <Link to="/stories" className="glass-card glass-card-hover rounded-3xl p-6 flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-secondary/20 border-0">
+          <div className="h-16 w-16 bg-gradient-to-br from-amber-400/20 to-orange-500/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
             <span className="material-symbols-outlined text-3xl text-secondary" style={{fontVariationSettings: "'FILL' 1"}}>auto_stories</span>
           </div>
           <h2 className="font-display text-xl font-bold text-on-surface mb-1 group-hover:text-secondary transition-colors">AI Stories</h2>
           <p className="font-body text-sm text-on-surface-variant">Practice with stories made for you.</p>
         </Link>
 
-        <Link to="/learning-path" className="glass-card glass-card-hover rounded-3xl p-6 flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-primary/20">
-          <div className="h-14 w-14 bg-primary-container/15 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-primary-container/25 transition-colors shadow-inner">
+        <Link to="/learning-path" className="glass-card glass-card-hover rounded-3xl p-6 flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-primary/20 border-0">
+          <div className="h-16 w-16 bg-gradient-to-br from-pink-400/20 to-rose-500/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
             <span className="material-symbols-outlined text-3xl text-primary" style={{fontVariationSettings: "'FILL' 1"}}>route</span>
           </div>
           <h2 className="font-display text-xl font-bold text-on-surface mb-1 group-hover:text-primary transition-colors">Learning Path</h2>

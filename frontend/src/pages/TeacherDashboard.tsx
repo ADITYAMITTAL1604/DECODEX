@@ -26,7 +26,7 @@ export default function TeacherDashboard() {
   const skillDist = skillData?.distribution;
 
   return (
-    <main className="flex-grow w-full max-w-max-content-width mx-auto px-container-padding py-8 sm:py-12 text-on-surface">
+    <main className="flex-grow w-full max-w-max-content-width mx-auto px-4 py-6 sm:py-8 text-on-surface">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-2xl bg-primary-container/20 flex items-center justify-center text-primary shadow-inner">
@@ -34,59 +34,59 @@ export default function TeacherDashboard() {
           </div>
           <div>
             <h1 className="font-display text-[28px] sm:text-[36px] font-extrabold text-primary">My Classroom</h1>
-            <p className="text-on-surface-variant font-body text-base sm:text-lg mt-1">Classroom Analytics & AI Copilot Hub</p>
+            <p className="text-on-surface-variant font-body text-sm sm:text-base mt-1 tracking-wide">Classroom Analytics &amp; AI Copilot Hub</p>
           </div>
         </div>
       </div>
 
       {/* Overview Cards Row */}
       {skillDist && (
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-8">
-          <div className="glass-card rounded-2xl p-4 border border-white/80 text-center">
-            <p className="font-display text-[10px] font-bold uppercase tracking-widest text-emerald-700">Excellent</p>
-            <p className="font-display text-2xl font-extrabold text-emerald-800">{skillDist.excellent}</p>
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-6">
+          <div className="glass-card p-3 border text-center">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-emerald-700 mb-1">Excellent</p>
+            <p className="font-mono text-xl font-bold text-emerald-800">{skillDist.excellent}</p>
           </div>
-          <div className="glass-card rounded-2xl p-4 border border-white/80 text-center">
-            <p className="font-display text-[10px] font-bold uppercase tracking-widest text-green-700">Good</p>
-            <p className="font-display text-2xl font-extrabold text-green-800">{skillDist.good}</p>
+          <div className="glass-card p-3 border text-center">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-green-700 mb-1">Good</p>
+            <p className="font-mono text-xl font-bold text-green-800">{skillDist.good}</p>
           </div>
-          <div className="glass-card rounded-2xl p-4 border border-white/80 text-center">
-            <p className="font-display text-[10px] font-bold uppercase tracking-widest text-amber-700">Medium</p>
-            <p className="font-display text-2xl font-extrabold text-amber-800">{skillDist.medium}</p>
+          <div className="glass-card p-3 border text-center">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber-700 mb-1">Medium</p>
+            <p className="font-mono text-xl font-bold text-amber-800">{skillDist.medium}</p>
           </div>
-          <div className="glass-card rounded-2xl p-4 border border-white/80 text-center">
-            <p className="font-display text-[10px] font-bold uppercase tracking-widest text-orange-700">High Risk</p>
-            <p className="font-display text-2xl font-extrabold text-orange-800">{skillDist.high}</p>
+          <div className="glass-card p-3 border text-center">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-orange-700 mb-1">High Risk</p>
+            <p className="font-mono text-xl font-bold text-orange-800">{skillDist.high}</p>
           </div>
-          <div className="glass-card rounded-2xl p-4 border border-white/80 text-center col-span-2 sm:col-span-1">
-            <p className="font-display text-[10px] font-bold uppercase tracking-widest text-red-700">Critical</p>
-            <p className="font-display text-2xl font-extrabold text-red-800">{skillDist.critical}</p>
+          <div className="glass-card p-3 border text-center col-span-3 sm:col-span-1">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-red-700 mb-1">Critical</p>
+            <p className="font-mono text-xl font-bold text-red-800">{skillDist.critical}</p>
           </div>
         </div>
       )}
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6 border-b border-surface-container-highest pb-2">
+      <div className="flex gap-1 mb-5 border-b border-color-[var(--color-border)] pb-0">
         <button
           onClick={() => setActiveTab('students')}
-          className={`px-5 py-2.5 rounded-xl font-display text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-            activeTab === 'students' ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high'
+          className={`px-4 py-2 font-display text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer border-b-2 -mb-px ${
+            activeTab === 'students' ? 'border-primary text-primary bg-transparent' : 'border-transparent text-on-surface-variant hover:text-primary'
           }`}
         >
           Students ({allStudents.length})
         </button>
         <button
           onClick={() => setActiveTab('heatmap')}
-          className={`px-5 py-2.5 rounded-xl font-display text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-            activeTab === 'heatmap' ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high'
+          className={`px-4 py-2 font-display text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer border-b-2 -mb-px ${
+            activeTab === 'heatmap' ? 'border-primary text-primary bg-transparent' : 'border-transparent text-on-surface-variant hover:text-primary'
           }`}
         >
           Error Heatmap
         </button>
         <button
           onClick={() => setActiveTab('weaknesses')}
-          className={`px-5 py-2.5 rounded-xl font-display text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-            activeTab === 'weaknesses' ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high'
+          className={`px-4 py-2 font-display text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer border-b-2 -mb-px ${
+            activeTab === 'weaknesses' ? 'border-primary text-primary bg-transparent' : 'border-transparent text-on-surface-variant hover:text-primary'
           }`}
         >
           Class Weaknesses
@@ -134,30 +134,30 @@ export default function TeacherDashboard() {
                   const initials = student.display_name?.substring(0, 2).toUpperCase() || 'ST';
                   return (
                     <tr key={student.id} className="hover:bg-white/30 transition-all duration-150 group">
-                      <td className="py-5 px-4">
+                      <td className="py-3 px-3">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl bg-secondary-container/20 text-on-secondary-container flex items-center justify-center font-bold font-display text-sm shadow-inner">{initials}</div>
                           <span className="font-bold text-on-background group-hover:text-primary transition-colors">{student.display_name}</span>
                         </div>
                       </td>
-                      <td className="py-5 px-4 text-on-surface-variant font-body">{student.grade_level ?? '—'}</td>
-                      <td className="py-5 px-4 text-right font-medium font-body">{student.session_count}</td>
-                      <td className="py-5 px-4 text-right font-medium font-body">
+                      <td className="py-3 px-3 text-on-surface-variant font-body">{student.grade_level ?? '—'}</td>
+                      <td className="py-3 px-3 text-right font-mono font-medium">{student.session_count}</td>
+                      <td className="py-3 px-3 text-right font-mono font-medium">
                         {student.avg_wpm != null ? Math.round(student.avg_wpm) : '—'}
                       </td>
-                      <td className="py-5 px-4 font-body">
+                      <td className="py-3 px-3 font-body">
                         {student.avg_error_rate != null ? (
                           <div className="flex items-center gap-2">
-                            <div className="w-full bg-white/60 border border-white/80 rounded-full h-2.5 max-w-[100px]">
+                            <div className="w-full bg-white/60 border border-white/80 rounded-full h-2 max-w-[80px]">
                               <div className="bg-primary h-2 rounded-full" style={{ width: `${100 - Math.round(student.avg_error_rate * 100)}%` }}></div>
                             </div>
-                            <span className="font-semibold text-sm">{100 - Math.round(student.avg_error_rate * 100)}%</span>
+                            <span className="font-semibold text-sm font-mono">{100 - Math.round(student.avg_error_rate * 100)}%</span>
                           </div>
                         ) : (
                           '—'
                         )}
                       </td>
-                      <td className="py-5 px-4 text-right">
+                      <td className="py-3 px-3 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Link
                             to={`/copilot/${student.id}`}

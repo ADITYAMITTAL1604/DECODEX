@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -42,6 +42,17 @@ function App() {
     if (user.role === 'teacher' || user.role === 'admin') return '/teacher/dashboard';
     return '/dashboard';
   };
+
+  useEffect(() => {
+    if (user?.role === 'student') {
+      document.documentElement.setAttribute('data-theme', 'student');
+    } else if (user?.role === 'teacher' || user?.role === 'admin') {
+      document.documentElement.setAttribute('data-theme', 'teacher');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+  }, [user?.role]);
+
 
   return (
     <div className="min-h-screen flex flex-col bg-transparent text-on-background font-body text-body selection:bg-primary-container selection:text-on-primary-container">

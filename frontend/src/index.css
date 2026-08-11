@@ -1,6 +1,48 @@
 @import "tailwindcss";
 @config "../tailwind.config.js";
 
+@theme {
+  /* Default tokens (no theme applied = neutral/onboarding) */
+  --font-display: "Nunito Sans", sans-serif;
+  --font-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", sans-serif;
+  --color-primary: #006474;
+  --color-on-primary: #ffffff;
+  --color-secondary: #865300;
+  --color-background: #fff8f5;
+  --color-foreground: #1e1b18;
+  --color-muted: #f5ece7;
+  --color-border: rgba(233,225,220,0.6);
+}
+
+[data-theme="teacher"] {
+  --color-primary: #1E40AF;
+  --color-on-primary: #FFFFFF;
+  --color-secondary: #3B82F6;
+  --color-accent: #D97706;
+  --color-background: #F8FAFC;
+  --color-foreground: #1E3A8A;
+  --color-muted: #E9EEF6;
+  --color-border: #DBEAFE;
+  
+  --font-display: "Fira Sans", sans-serif;
+  --font-body: "Fira Sans", sans-serif;
+  --font-mono: "Fira Code", monospace;
+}
+
+[data-theme="student"] {
+  --color-primary: #2563EB;
+  --color-on-primary: #FFFFFF;
+  --color-secondary: #F59E0B;
+  --color-accent: #EC4899;
+  --color-background: #EFF6FF;
+  --color-foreground: #0F172A;
+  --color-muted: #F1F5FD;
+  --color-border: #E4ECFC;
+
+  --font-display: "Baloo 2", sans-serif;
+  --font-body: "Comic Neue", cursive;
+}
+
 @layer utilities {
   .glass-card {
     background: rgba(255, 255, 255, 0.78);
@@ -10,50 +52,136 @@
     box-shadow: 0 8px 32px 0 rgba(45, 41, 38, 0.06), inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
   }
 
-  [data-theme="kid"] .glass-card {
-    border-radius: 1.75rem;
-    box-shadow: 0 8px 28px rgba(0,168,181,0.18), inset 0 1px 0 rgba(255,255,255,0.9);
+  /* Student theme specific class */
+  [data-theme="student"] .glass-card {
+    border-radius: 1.5rem;
+    box-shadow: 0 8px 28px rgba(37, 99, 235, 0.15), inset 0 1px 0 rgba(255,255,255,0.9);
+    border: 3px solid var(--color-border);
+  }
+
+  [data-theme="student"] .btn-clay {
+    background-color: var(--color-primary);
+    color: var(--color-on-primary);
+    border-radius: 9999px;
+    font-weight: 700;
+    box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.15), 0 4px 6px rgba(37, 99, 235, 0.2);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  
+  [data-theme="student"] .btn-clay:hover {
+    transform: translateY(-1px);
+    box-shadow: inset 0 -5px 0 rgba(0, 0, 0, 0.15), 0 6px 12px rgba(37, 99, 235, 0.25);
+  }
+
+  /* Teacher theme button */
+  [data-theme="teacher"] .btn-clay {
+    background-color: var(--color-primary);
+    color: var(--color-on-primary);
+    border-radius: 0.5rem;
+    font-weight: 600;
+    font-family: "Fira Sans", sans-serif;
+    box-shadow: 0 2px 6px rgba(30, 58, 138, 0.15);
+    transition: background-color 0.15s, box-shadow 0.15s;
+  }
+
+  [data-theme="teacher"] .btn-clay:hover {
+    background-color: #1e3a8a;
+    box-shadow: 0 4px 12px rgba(30, 58, 138, 0.25);
+  }
+
+  /* Teacher theme specific class */
+  [data-theme="teacher"] .glass-card {
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 10px rgba(30, 58, 138, 0.05);
+    border: 1px solid var(--color-border);
   }
 
   .glass-card-hover {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
+  
   .glass-card-hover:hover {
     transform: translateY(-4px);
     background: rgba(255, 255, 255, 0.92);
     box-shadow: 0 16px 40px 0 rgba(0, 100, 116, 0.12), inset 0 1px 0 0 rgba(255, 255, 255, 1);
-    border-color: rgba(0, 100, 116, 0.25);
   }
 
   .glass-header {
-    background: rgba(255, 248, 245, 0.85);
+    background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(20px) saturate(190%);
     -webkit-backdrop-filter: blur(20px) saturate(190%);
-    border-bottom: 1px solid rgba(233, 225, 220, 0.6);
+    border-bottom: 1px solid var(--color-border);
   }
 
   .glass-input {
     background: rgba(255, 255, 255, 0.65);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    border: 1.5px solid rgba(225, 216, 212, 0.8);
+    border: 1.5px solid var(--color-border);
     transition: all 0.2s ease;
   }
+  
   .glass-input:focus {
     background: rgba(255, 255, 255, 0.95);
-    border-color: #006474;
-    box-shadow: 0 0 0 4px rgba(0, 100, 116, 0.12);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
   }
 }
 
 body {
   background: radial-gradient(circle at 10% 20%, rgba(227, 246, 250, 0.6) 0%, rgba(255, 248, 245, 1) 85%);
   background-attachment: fixed;
-  color: #1e1b18;
-  font-family: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', sans-serif;
+  color: var(--color-foreground);
+  font-family: var(--font-body);
   min-height: 100vh;
 }
 
-[data-theme="kid"] body {
-  background: radial-gradient(circle at 10% 20%, rgba(79,216,227,0.15) 0%, rgba(255,248,245,1) 85%);
+/* Apply theme backgrounds — data-theme is on <html>, so target body directly */
+:root[data-theme="student"] body {
+  background: radial-gradient(circle at 10% 20%, rgba(239, 246, 255, 0.6) 0%, rgba(228, 236, 252, 1) 85%);
+}
+
+:root[data-theme="teacher"] body {
+  background: #F8FAFC;
+}
+
+/* Student animated background blobs — z-index -1 keeps them behind all content */
+:root[data-theme="student"] body::before {
+  content: '';
+  position: fixed;
+  top: -10%;
+  left: -10%;
+  width: 40vw;
+  height: 40vw;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.08), transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+  animation: floatBlob1 18s ease-in-out infinite;
+}
+
+:root[data-theme="student"] body::after {
+  content: '';
+  position: fixed;
+  bottom: -10%;
+  right: -5%;
+  width: 35vw;
+  height: 35vw;
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.07), transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+  animation: floatBlob2 22s ease-in-out infinite;
+}
+
+@keyframes floatBlob1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(3vw, 4vh) scale(1.05); }
+  66% { transform: translate(-2vw, 2vh) scale(0.97); }
+}
+
+@keyframes floatBlob2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40% { transform: translate(-3vw, -3vh) scale(1.06); }
+  70% { transform: translate(2vw, -1vh) scale(0.98); }
 }

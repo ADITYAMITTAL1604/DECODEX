@@ -8,9 +8,24 @@ ALTER TABLE reading_sessions
     ADD COLUMN IF NOT EXISTS audio_size_bytes INTEGER,
     ADD COLUMN IF NOT EXISTS audio_storage_provider VARCHAR(20) DEFAULT 'local';
 
--- Add comments for deprecation tracking
-COMMENT ON COLUMN reading_sessions.audio_file_path IS 'DEPRECATED: Path to temp audio file (moved to object storage in V5)';
-COMMENT ON COLUMN reading_sessions.audio_base64 IS 'DEPRECATED: Base64 encoded audio (moved to object storage in V5)';
+-- Add deprecation comments only if the legacy columns actually exist (safe on fresh DBs)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'reading_sessions' AND column_name = 'audio_file_path'
+  ) THEN
+    COMMENT ON COLUMN reading_sessions.audio_file_path IS 'DEPRECATED: Path to temp audio file (moved to object storage in V5)';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'reading_sessions' AND column_name = 'audio_base64'
+  ) THEN
+    COMMENT ON COLUMN reading_sessions.audio_base64 IS 'DEPRECATED: Base64 encoded audio (moved to object storage in V5)';
+  END IF;
+END $$;
+
 COMMENT ON COLUMN reading_sessions.audio_storage_key IS 'Object storage key (e.g., studentId/sessionId.webm)';
 COMMENT ON COLUMN reading_sessions.audio_mime_type IS 'MIME type of stored audio';
 COMMENT ON COLUMN reading_sessions.audio_size_bytes IS 'Size of stored audio in bytes';

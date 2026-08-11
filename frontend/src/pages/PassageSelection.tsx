@@ -48,7 +48,7 @@ export default function PassageSelection() {
         <button
           onClick={handleGeneratePassage}
           disabled={generating}
-          className="h-14 px-6 rounded-2xl bg-secondary text-on-secondary font-display text-sm font-bold uppercase tracking-wider transition-all shadow-md hover:bg-secondary-container hover:text-on-secondary-container active:scale-95 disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2 shrink-0"
+          className="h-14 px-8 rounded-full btn-clay flex items-center justify-center gap-2 text-sm uppercase tracking-wider disabled:opacity-60 shrink-0 cursor-pointer"
         >
           <span className="material-symbols-outlined">{generating ? 'hourglass_top' : 'auto_awesome'}</span>
           {generating ? 'Crafting Passage…' : 'Generate Fresh AI Passage'}
@@ -78,7 +78,7 @@ export default function PassageSelection() {
             </div>
             <Link 
               to={`/session/${passage.id}`}
-              className="w-full text-center px-6 py-3.5 bg-primary text-on-primary rounded-2xl font-display text-sm font-bold uppercase tracking-[0.08em] hover:bg-on-primary-fixed-variant transition-all duration-200 shadow-lg shadow-primary/20 active:scale-[0.98] inline-flex items-center justify-center gap-2"
+              className="w-full text-center px-8 py-4 btn-clay flex items-center justify-center gap-2 text-sm uppercase tracking-[0.08em]"
             >
               Start Reading
               <span className="material-symbols-outlined text-lg">arrow_forward</span>
