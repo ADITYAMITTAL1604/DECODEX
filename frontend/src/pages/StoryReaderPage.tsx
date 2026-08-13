@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { apiFetch, useApiQuery } from '../lib/api';
 import { useDex } from '../hooks/useDex';
 import { useReadingPreferences } from '../hooks/useReadingPreferences';
@@ -109,13 +109,11 @@ function evaluateChunkRead(chunk: string, spoken: string): { passed: boolean; ra
 export default function StoryReaderPage() {
   const { user } = useAuth();
   const studentId = user?.id;
-  const navigate = useNavigate();
 
   const [generating, setGenerating] = useState(false);
   const [selectedStory, setSelectedStory] = useState<any | null>(null);
   const [prefsPanelOpen, setPrefsPanelOpen] = useState(false);
   const readerSectionRef = useRef<HTMLDivElement | null>(null);
-  const { preferences, loading: prefsLoading } = useReadingPreferences();
 
   const { data, loading, refetch } = useApiQuery<any>(`/stories/student/${studentId}`);
   const stories = data?.stories || [];
@@ -249,7 +247,7 @@ function NarratedStoryReader({
   setPrefsPanelOpen: (open: boolean) => void;
 }) {
   const dex = useDex();
-  const { preferences, loading: prefsLoading } = useReadingPreferences();
+  const { preferences } = useReadingPreferences();
   const chunks = useMemo(() => splitInto3To4WordChunks(story.content || ''), [story.content]);
 
   const [currentChunkIdx, setCurrentChunkIdx] = useState(-1);

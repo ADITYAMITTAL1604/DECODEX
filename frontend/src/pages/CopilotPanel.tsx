@@ -8,7 +8,6 @@ export default function CopilotPanel() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: studentData } = useApiQuery<any>(`/teacher/students/${studentId}/trends`);
   const { data: healthData } = useApiQuery<any>(`/health-score/${studentId}`);
   const { data: screeningData } = useApiQuery<any>(`/risk-screening/${studentId}`);
   const { data: historyData } = useApiQuery<any>(`/copilot/${studentId}/history`);

@@ -31,6 +31,7 @@ import gamificationRoutes from './routes/gamification';
 import riskScreeningRoutes from './routes/riskScreening';
 import classroomAnalyticsRoutes from './routes/classroomAnalytics';
 import parentDashboardRoutes from './routes/parentDashboard';
+import assignmentRoutes from './routes/assignments';
 
 // V2 Dex Voice-First Tutor
 import ttsRoutes from './routes/tts';
@@ -132,6 +133,7 @@ app.use('/api/v1/gamification', gamificationRoutes);
 app.use('/api/v1/risk-screening', riskScreeningRoutes);
 app.use('/api/v1/classroom', classroomAnalyticsRoutes);
 app.use('/api/v1/parent', parentDashboardRoutes);
+app.use('/api/v1/assignments', assignmentRoutes);
 
 // Routes — Dex Voice-First Tutor
 app.use('/api/v1/tts', ttsRoutes);

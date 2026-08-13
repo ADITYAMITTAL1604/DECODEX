@@ -445,31 +445,40 @@ router.post('/drills/:id/complete', authenticate, async (req: AuthRequest, res) 
   const requesterRole = req.user?.role;
 
   try {
-    let result;
+    const ownershipCondition = requesterRole === 'teacher' || requesterRole === 'admin'
+      ? ''
+      : 'AND rs.student_id = $2';
+    const drill = await query(
+      `SELECT d.*, rs.student_id
+       FROM drills d
+       JOIN reading_sessions rs ON rs.id = d.session_id
+       WHERE d.id = $1 ${ownershipCondition}`,
+      requesterRole === 'teacher' || requesterRole === 'admin' ? [id] : [id, requesterId]
+    );
 
-    if (requesterRole === 'teacher' || requesterRole === 'admin') {
-      // Teachers/admins can complete any drill
-      result = await query(
-        `UPDATE drills SET completed = TRUE, completed_at = NOW() WHERE id = $1 RETURNING *`,
-        [id]
-      );
-    } else {
-      // Students can only complete drills belonging to their own sessions
-      result = await query(
-        `UPDATE drills SET completed = TRUE, completed_at = NOW()
-         WHERE id = $1
-         AND EXISTS (
-           SELECT 1 FROM reading_sessions rs
-           WHERE rs.id = drills.session_id AND rs.student_id = $2
-         )
-         RETURNING *`,
-        [id, requesterId]
-      );
-    }
-
-    if (result.rows.length === 0) {
+    if (drill.rows.length === 0) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Drill not found' } });
     }
+
+    const wasCompleted = Boolean(drill.rows[0].completed);
+    const result = await query(
+      `UPDATE drills
+       SET completed = TRUE,
+           completed_at = COALESCE(completed_at, NOW())
+       WHERE id = $1
+       RETURNING *`,
+      [id]
+    );
+
+    if (!wasCompleted && requesterRole === 'student') {
+      try {
+        const { recordDrillCompletion } = await import('../services/gamification');
+        await recordDrillCompletion(drill.rows[0].student_id);
+      } catch (rewardError) {
+        console.error('Error recording drill reward:', rewardError);
+      }
+    }
+
     res.json({ success: true, drill: result.rows[0] });
   } catch (error) {
     console.error('Error completing drill:', error);

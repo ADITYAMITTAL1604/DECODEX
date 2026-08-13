@@ -75,6 +75,22 @@ export const initDB = async () => {
       console.log('Migration V9 applied successfully (idempotent).');
     }
 
+    // Apply V10 Migration (Demo school backfill for teacher-scoped access)
+    const migrationV10Path = path.join(__dirname, 'migration_v10.sql');
+    if (fs.existsSync(migrationV10Path)) {
+      const migration = fs.readFileSync(migrationV10Path, 'utf-8');
+      await query(migration);
+      console.log('Migration V10 applied successfully (idempotent).');
+    }
+
+    // Apply V11 Migration (Teacher assignments + student assignment rewards)
+    const migrationV11Path = path.join(__dirname, 'migration_v11.sql');
+    if (fs.existsSync(migrationV11Path)) {
+      const migration = fs.readFileSync(migrationV11Path, 'utf-8');
+      await query(migration);
+      console.log('Migration V11 applied successfully (idempotent).');
+    }
+
     // Only seed when the users table is empty to avoid duplicate-key errors on restart.
     const usersCheck = await query('SELECT count(*) FROM users');
     if (parseInt(usersCheck.rows[0].count) === 0) {

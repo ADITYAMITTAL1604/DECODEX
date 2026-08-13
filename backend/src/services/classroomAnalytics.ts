@@ -1,4 +1,5 @@
 import { query } from '../db';
+import type { StudentAccessRequester } from './studentAccess';
 
 // ---------------------------------------------------------------------------
 // Classroom Analytics Engine
@@ -47,10 +48,34 @@ const CATEGORY_NAMES: Record<string, string> = {
   PAC: 'Pacing Issues',
 };
 
+function getStudentScopeSql(
+  requester: StudentAccessRequester | undefined,
+  studentAlias: string,
+  startParamIndex: number
+): { sql: string; params: unknown[] } {
+  if (requester?.role !== 'teacher') {
+    return { sql: '', params: [] };
+  }
+
+  return {
+    sql: `
+      AND EXISTS (
+        SELECT 1 FROM users t
+        WHERE t.id = $${startParamIndex}
+          AND t.role = 'teacher'
+          AND t.school_id IS NOT NULL
+          AND t.school_id = ${studentAlias}.school_id
+          AND t.deleted_at IS NULL
+      )`,
+    params: [requester.id],
+  };
+}
+
 /**
  * Get a heatmap of error distributions across all students.
  */
-export async function getClassHeatmap(): Promise<ClassHeatmapEntry[]> {
+export async function getClassHeatmap(requester?: StudentAccessRequester): Promise<ClassHeatmapEntry[]> {
+  const scope = getStudentScopeSql(requester, 'u', 1);
   const res = await query(`
     SELECT
       u.id as student_id,
@@ -71,9 +96,10 @@ export async function getClassHeatmap(): Promise<ClassHeatmapEntry[]> {
     LEFT JOIN reading_sessions rs ON u.id = rs.student_id AND rs.deleted_at IS NULL AND rs.status = 'completed'
     LEFT JOIN error_profiles ep ON ep.session_id = rs.id
     WHERE u.role = 'student' AND u.deleted_at IS NULL
+    ${scope.sql}
     GROUP BY u.id, u.display_name, u.grade_level
     ORDER BY u.display_name ASC
-  `);
+  `, scope.params);
 
   return res.rows.map((r: any) => ({
     studentId: r.student_id,
@@ -96,7 +122,8 @@ export async function getClassHeatmap(): Promise<ClassHeatmapEntry[]> {
 /**
  * Analyze class-wide weaknesses (which error types are most prevalent).
  */
-export async function getClassWeaknesses(): Promise<ClassWeaknessAnalysis[]> {
+export async function getClassWeaknesses(requester?: StudentAccessRequester): Promise<ClassWeaknessAnalysis[]> {
+  const scope = getStudentScopeSql(requester, 'u', 1);
   const res = await query(`
     SELECT
       SUM(ep.rev_count) as rev,
@@ -109,7 +136,8 @@ export async function getClassWeaknesses(): Promise<ClassWeaknessAnalysis[]> {
     FROM error_profiles ep
     JOIN users u ON u.id = ep.student_id
     WHERE u.role = 'student' AND u.deleted_at IS NULL
-  `);
+    ${scope.sql}
+  `, scope.params);
 
   if (res.rows.length === 0) return [];
   const row = res.rows[0];
@@ -125,9 +153,15 @@ export async function getClassWeaknesses(): Promise<ClassWeaknessAnalysis[]> {
     if (count === 0) continue;
 
     // Count affected students for this category
+    const affectedScope = getStudentScopeSql(requester, 'u', 1);
     const affectedRes = await query(
       `SELECT COUNT(DISTINCT student_id) as cnt FROM error_profiles
-       WHERE ${colName}_count > 0`,
+       JOIN users u ON u.id = error_profiles.student_id
+       WHERE ${colName}_count > 0
+         AND u.role = 'student'
+         AND u.deleted_at IS NULL
+       ${affectedScope.sql}`,
+      affectedScope.params
     );
     const affected = parseInt(affectedRes.rows[0]?.cnt || '0');
 
@@ -146,15 +180,19 @@ export async function getClassWeaknesses(): Promise<ClassWeaknessAnalysis[]> {
 /**
  * Get skill distribution across the class (based on health scores).
  */
-export async function getSkillDistribution(): Promise<SkillDistribution> {
+export async function getSkillDistribution(requester?: StudentAccessRequester): Promise<SkillDistribution> {
+  const scope = getStudentScopeSql(requester, 'u', 1);
   const res = await query(`
     SELECT hs.score
     FROM health_scores hs
+    JOIN users u ON u.id = hs.student_id
     INNER JOIN (
       SELECT student_id, MAX(computed_at) as max_date
       FROM health_scores GROUP BY student_id
     ) latest ON hs.student_id = latest.student_id AND hs.computed_at = latest.max_date
-  `);
+    WHERE u.role = 'student' AND u.deleted_at IS NULL
+    ${scope.sql}
+  `, scope.params);
 
   const dist: SkillDistribution = { excellent: 0, good: 0, medium: 0, high: 0, critical: 0 };
   for (const row of res.rows) {

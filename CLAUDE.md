@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Decodex** is an AI-powered diagnostic reading platform for dyslexia education. It captures student reading aloud, transcribes via Whisper, aligns against source text with Needleman-Wunsch DP, classifies errors using Orton-Gillingham taxonomy (GPT-4o-mini), generates personalized practice drills, and provides teachers and parents with actionable analytics with human-in-the-loop override capability.
+**Decodex** is an AI-powered diagnostic reading platform for dyslexia education. It captures student reading aloud, transcribes via **Groq Whisper** (`whisper-large-v3-turbo`), aligns against source text with Needleman-Wunsch DP, classifies errors using Orton-Gillingham taxonomy (GPT-4o-mini via Groq), generates personalized practice drills, and provides teachers and parents with actionable analytics with human-in-the-loop override capability.
 
 ### Architecture
 
@@ -13,10 +13,10 @@ Client (React 19 + Vite) ↔ Express 5 API (Render) ↔ PostgreSQL (Supabase) + 
                                     ↓
                             Bull Worker (Async Pipeline)
                                     ↓
-                            OpenAI Whisper (STT) + GPT-4o-mini (Classification)
+                            Groq Whisper (STT) + GPT-4o-mini (Classification) + OpenAI fallback
 ```
 
-**Audio processing flow:** Student records → audio uploaded to Express → job enqueued in Redis/Bull → worker transcribes (Whisper) → aligns transcript to source (Needleman-Wunsch) → classifies errors (GPT-4o-mini with O-G taxonomy prompt) → saves results → generates drills → computes Health Score → updates Gamification → pushes status via SSE to frontend.
+**Audio processing flow:** Student records → audio uploaded to Express → job enqueued in Redis/Bull → worker transcribes (Groq Whisper with OpenAI fallback) → aligns transcript to source (Needleman-Wunsch) → classifies errors (GPT-4o-mini with O-G taxonomy prompt) → saves results → generates drills → computes Health Score → updates Gamification → evaluates Assignment completion (if linked) → awards XP/achievements → pushes status via SSE to frontend.
 
 ---
 
@@ -53,6 +53,21 @@ Child progress cards (health score, strengths, recommendations), risk screening 
 
 ### 10. Reading Preferences & Fair Evaluation
 User-configurable font scale, letter spacing, line spacing, theme. StoryReader evaluates 3–4 word chunks with ≥75% word match threshold; marks "struggled" not "mastered" on repeated failure.
+
+### 11. Teacher Assignments (`assignments.ts` route + `services/assignments.ts`)
+Teachers create reading assignments tied to a passage with optional due date, instructions, and scope (single student, selected students, or entire class). Students see assigned work on their dashboard. When a session is completed for an assignment, the worker resolves a score (from `health_scores` or `error_profiles`), awards XP (base 30, +15 at ≥75, +35 at ≥90), updates `assignment_students.status`, and grants achievements. Tables: `assignments`, `assignment_students` (with `rewards_awarded`, `reward_xp`, `session_id` link). `reading_sessions.assignment_student_id` links sessions to assignments.
+
+### 12. Passage Generator (`passageGenerator.ts`)
+AI-generated reading passages on demand for teachers, tuned to grade level and target phonemes (e.g., to drill specific O-G weaknesses). Used by teacher tools and adaptive learning paths.
+
+### 13. Audio Storage (`audioStorage.ts`)
+Optional object-storage abstraction (V5 migration creates `audio_storage` table) for keeping audio beyond ephemeral temp files. Disabled by default — primary path still deletes temp files post-STT for privacy.
+
+### 14. Email Service (`email.ts`)
+Nodemailer-based transactional email (Gmail SMTP via `GMAIL_USER` / `GMAIL_APP_PASSWORD`) for parent invite codes, consent notifications, and assignment reminders.
+
+### 15. Student Access Service (`studentAccess.ts`)
+Centralized `canAccessStudent(actor, target)` predicate used by all teacher/parent routes. Enforces role + relationship rules (school_id match for teachers, `parent_student_links` for parents) and is the single source of truth for IDOR prevention.
 
 ---
 
@@ -106,7 +121,7 @@ docker compose down       # Stop infrastructure
 ## Key Technical Decisions
 
 ### Circuit Breaker Pattern (Opossum)
-All OpenAI API calls (Whisper and GPT-4o-mini) wrapped in Opossum circuit breakers. On provider failure, falls back to deterministic Orton-Gillingham rule engine. Errors classified during fallback tagged as `UNC` (Uncertain) for teacher review.
+All AI API calls (Groq Whisper and GPT-4o-mini) wrapped in Opossum circuit breakers. On provider failure, falls back to a passage-aware deterministic Orton-Gillingham rule engine. Errors classified during fallback tagged as `UNC` (Uncertain) for teacher review. **Primary provider is Groq** (free tier); OpenAI is the configurable fallback when `OPENAI_API_KEY` is set.
 
 ### Consent-Gating Architecture (Hardened V2)
 Parental consent required before any audio recording. Uses invite codes for parent-student linking, knowledge-based verification (DOB) with rate-limited attempts, consent withdrawal with 30-day hard-delete grace period, data erasure jobs. `requireConsent` middleware blocks audio upload until valid consent exists. Removed insecure `/consent/approve` bypass endpoint.
@@ -118,7 +133,7 @@ Parental consent required before any audio recording. Uses invite codes for pare
 - **Admins**: Bypass relationship checks
 
 ### Database Migrations (Idempotent)
-Schema applied via `initDB()` on startup with 9 migrations:
+Schema applied via `initDB()` on startup with 11 migrations:
 - V1: Core schema (users, sessions, passages, classifications, drills, error_profiles, parent_student_links, consent_requests)
 - V2: Health Scores, Risk Screenings, Learning Paths, Copilot, Gamification, IEPs, Stories
 - V3: Multi-Language Support (`preferred_language` on users)
@@ -128,6 +143,8 @@ Schema applied via `initDB()` on startup with 9 migrations:
 - V7: Harden DOB Knowledge-Based Verification (`dob_attempts`, `dob_locked_until`)
 - V8: Dead-letter table for failed audio processing jobs (`audio_jobs_dead_letter`)
 - V9: User Reading Preferences (`font_scale`, `letter_spacing`, `line_spacing`, `theme`)
+- V10: Demo school backfill (creates "Decodex Demo School" + assigns test users to its `school_id` for teacher-scoped classroom/Copilot access)
+- V11: Teacher Assignments + Student Assignment Rewards (`assignments`, `assignment_students`, `reading_sessions.assignment_student_id`, indexes)
 
 ### Mascot States & Celebrations
 Student companion avatar (`DexAvatar.tsx`) renders state-based visuals (idle, speaking, listening, thinking, celebrating, concerned) with smooth CSS transforms and border highlights. Transitioning into `'celebrating'` triggers canvas-based particle burst (`ConfettiBurst.tsx`) for 1.8s. No external libraries.
@@ -142,31 +159,33 @@ Student companion avatar (`DexAvatar.tsx`) renders state-based visuals (idle, sp
 ```
 ├── backend/
 │   ├── src/
-│   │   ├── routes/              # Express route handlers (auth, dex, passages, sessions, teacher, consent, students, healthScore, copilot, learningPaths, stories, gamification, riskScreening, classroomAnalytics, parentDashboard, tts)
+│   │   ├── routes/              # Express route handlers (auth, dex, passages, sessions, teacher, consent, students, healthScore, copilot, learningPaths, stories, gamification, riskScreening, classroomAnalytics, parentDashboard, tts, assignments, analytics)
 │   │   ├── middleware/          # Auth, RBAC, consent, upload
-│   │   ├── services/            # Business logic (alignment, classifier, drills, TTS, healthScore, gamification, copilot, storyGenerator, passageGenerator, learningPath, riskScreening, dexTutor, openai, cache, audioStorage, email, classroomAnalytics)
+│   │   ├── services/            # Business logic (alignment, classifier, drills, TTS, healthScore, gamification, copilot, storyGenerator, passageGenerator, learningPath, riskScreening, dexTutor, openai, cache, audioStorage, email, classroomAnalytics, assignments, studentAccess)
 │   │   ├── queue/               # Bull worker (worker.ts, index.ts, consentErasure.ts)
-│   │   ├── db/                  # Schema, migrations (init.ts, schema.sql, migration_v2-v9.sql), analytics, index.ts
-│   │   ├── lib/                 # logger.ts
+│   │   ├── db/                  # Schema, migrations (init.ts, schema.sql, migration_v2-v11.sql, seed.sql), analytics, index.ts
+│   │   ├── lib/                 # logger.ts (Pino)
 │   │   ├── scripts/             # seed-prod.ts, reset-database.ts, backfill-audio-base64.ts
-│   │   └── __tests__/           # Backend test suite (vitest) — auth, alignment-reversals, classification-corrections, consent-security, consent-kbv-hardening, copilot-parent-language, dex-transcribe-language, dex-grading, gamification-streak-freeze, parent-dashboard, queue-dead-letter, rate-limiting, reading-preferences, sessions-idor, tts, worker-stt-language
+│   │   └── __tests__/           # Backend test suite (vitest) — auth, alignment-reversals, assignments, classification-corrections, consent-security, consent-kbv-hardening, copilot-parent-language, copilot-scope, dex-transcribe-language, dex-grading, gamification-streak-freeze, parent-dashboard, queue-dead-letter, rate-limiting, reading-preferences, sessions-idor, tts, worker-stt-language
 │   ├── vitest.config.ts
 │   └── tsconfig.json
 ├── frontend/
 │   ├── src/
 │   │   ├── pages/               # Route page components (LandingPage, Login, Register, Dashboard, PassageSelection, SessionActive, SessionResults, PracticePage, TeacherDashboard, StudentDetail, ParentHome, ParentSessionReport, ConsentConfirm, PrivacyPolicy, TermsOfService, LearningPathPage, StoryReaderPage, CopilotPanel)
-│   │   ├── components/          # Shared UI (DexAvatar, ConfettiBurst, AnnotatedText, AudioRecorder, DrillCard, DexVoiceCommands, DexNavigationGuide, ReadingPreferencesPanel, ProtectedRoute)
-│   │   ├── hooks/               # Custom hooks (useDex, useSessionSSE, useApiQuery, useReadingPreferences)
+│   │   ├── components/          # Shared UI (DexAvatar, ConfettiBurst, AnnotatedText, AudioRecorder, DrillCard, DexVoiceCommands, DexNavigationGuide, ReadingPreferencesPanel, ProtectedRoute, AssignmentManager, AnimatedCounter, Skeleton)
+│   │   ├── hooks/               # Custom hooks (useDex, useSessionSSE, useReadingPreferences)
 │   │   ├── lib/                 # API client (api.ts), constants
 │   │   ├── context/             # AuthContext, ThemeContext
 │   │   └── __tests__/           # Frontend test suite (vitest + testing-library)
 │   ├── vite.config.ts
 │   ├── tsconfig.json
 │   ├── tsconfig.app.json / tsconfig.node.json
-├── documents/                   # PRD, TRD, specs, feature tickets
-├── .github/workflows/           # CI pipeline
+├── documents/                   # PRD, TRD, frontend spec, security analysis, feature tickets, master implementation plan, privacy policy, terms, project analysis
+├── .github/workflows/           # CI pipeline (Node 20)
+├── tools/                       # Standalone helper scripts (e.g., browser_assignment_flow.py — Playwright E2E for the teacher-assignment flow)
 ├── docker-compose.yml           # Local dev infrastructure
-└── .agents/skills/              # Project-specific skills
+├── .agents/skills/              # Community skills (skills.sh / npm)
+└── .cursor/skills/              # Decodex-specific skills (authoritative)
 ```
 
 ---
@@ -178,14 +197,14 @@ Student companion avatar (`DexAvatar.tsx`) renders state-based visuals (idle, sp
 | `JWT_SECRET` | **Yes** | Random string ≥32 chars (`openssl rand -base64 32`) |
 | `DATABASE_URL` | **Yes** | PostgreSQL connection string |
 | `REDIS_URL` | **Yes** | Redis connection string |
-| `OPENAI_API_KEY` | Yes* | OpenAI API key for Whisper + GPT-4o-mini |
-| `GROQ_API_KEY` | Yes* | Alternative free-tier API key (Groq) |
+| `OPENAI_API_KEY` | No* | OpenAI API key (fallback STT + LLM provider if Groq unavailable) |
+| `GROQ_API_KEY` | Yes* | **Primary** free-tier provider for Whisper (`whisper-large-v3-turbo`) + GPT-4o-mini-compatible chat |
 | `FRONTEND_URL` | No | Frontend origin for CORS (default: `http://localhost:5173`) |
 | `GMAIL_USER` / `GMAIL_APP_PASSWORD` | No | For consent email delivery |
 | `SENTRY_DSN` | No | Sentry error tracking DSN |
 | `ELEVENLABS_API_KEY` | No | ElevenLabs TTS (primary voice provider) |
 
-*At least one of `OPENAI_API_KEY` or `GROQ_API_KEY` required.
+*At least one of `OPENAI_API_KEY` or `GROQ_API_KEY` required; Groq is the default primary.
 
 ---
 
@@ -216,23 +235,32 @@ Student companion avatar (`DexAvatar.tsx`) renders state-based visuals (idle, sp
 ## Key Files to Understand
 
 ### Backend Core
-- `src/server.ts` — Express app setup, middleware, route mounting (V1 + V2 + Dex routes)
+- `src/server.ts` — Express app setup, middleware, route mounting (V1 + V2 + Dex + Assignments routes)
 - `src/middleware/auth.ts` — JWT verification, role extraction
 - `src/middleware/rbac.ts` — Role-based access control
 - `src/middleware/consent.ts` — Consent verification middleware
-- `src/db/init.ts` — Database schema and migrations (V1–V9)
-- `src/queue/worker.ts` — Bull worker for audio processing pipeline (Health Score + Gamification integrated)
+- `src/middleware/upload.ts` — Multer audio upload (size/type limits, temp file)
+- `src/db/init.ts` — Database schema and migrations (V1–V11)
+- `src/queue/worker.ts` — Bull worker for audio processing pipeline (Health Score + Gamification + Assignment completion integrated)
+- `src/queue/consentErasure.ts` — 30-day delayed erasure job (consent withdrawal hard-delete)
 - `src/services/alignment.ts` — Needleman-Wunsch alignment implementation
-- `src/services/classifier.ts` — GPT-4o-mini error classification with O-G taxonomy
+- `src/services/classifier.ts` — GPT-4o-mini error classification with O-G taxonomy (via Groq)
 - `src/services/dexTutor.ts` — Drill generation + voice-first tutor grading
 - `src/services/healthScore.ts` — Reading Health Score engine
 - `src/services/gamification.ts` — XP, streaks, achievements, freeze
 - `src/services/copilot.ts` — AI intervention strategy generation
 - `src/services/storyGenerator.ts` — AI adaptive story generation
+- `src/services/passageGenerator.ts` — AI-generated passages for targeted phoneme practice
 - `src/services/learningPath.ts` — Adaptive learning path generation
 - `src/services/riskScreening.ts` — Dyslexia risk screening
 - `src/services/tts.ts` — ElevenLabs + browser TTS fallback
 - `src/services/classroomAnalytics.ts` — Teacher dashboard analytics
+- `src/services/assignments.ts` — Assignment scoring + reward awarding
+- `src/services/studentAccess.ts` — `canAccessStudent` IDOR guard (teacher school, parent link, admin bypass)
+- `src/services/email.ts` — Transactional email (parent invites, consent notifications)
+- `src/services/audioStorage.ts` — Optional object-storage layer for audio
+- `src/services/cache.ts` — Redis cache wrapper
+- `src/services/openai.ts` — Groq (primary) + OpenAI (fallback) STT client with circuit breaker
 - `src/lib/logger.ts` — Structured logging (Pino)
 
 ### Frontend Core
@@ -242,14 +270,18 @@ Student companion avatar (`DexAvatar.tsx`) renders state-based visuals (idle, sp
 - `src/context/ThemeContext.tsx` — Theme/dark mode management
 - `src/hooks/useDex.ts` — Speech recognition, recording, TTS, SSE handling
 - `src/hooks/useSessionSSE.ts` — Server-sent events for real-time pipeline status
-- `src/hooks/useApiQuery.ts` — React Query-style data fetching
 - `src/hooks/useReadingPreferences.ts` — Dyslexia-friendly reading preferences
 - `src/lib/api.ts` — API client with interceptors
+- `src/lib/constants.ts` — Shared client-side constants (O-G codes, thresholds, routes)
 - `src/components/DexAvatar.tsx` — Student avatar companion and animation container
 - `src/components/ConfettiBurst.tsx` — Lightweight canvas confetti celebration controller
 - `src/components/ReadingPreferencesPanel.tsx` — Font/spacing/theme controls
 - `src/components/DexVoiceCommands.tsx` — Global voice command listener
+- `src/components/DexVoiceCommands.types.ts` — Shared types for Dex voice command system
 - `src/components/DexNavigationGuide.tsx` — Onboarding guide for Dex
+- `src/components/AssignmentManager.tsx` — Teacher UI for creating/managing assignments
+- `src/components/AnimatedCounter.tsx` — Number-count-up animation for dashboards
+- `src/components/Skeleton.tsx` — Loading skeletons
 - `src/pages/SessionActive.tsx` — Active recording session UI
 - `src/pages/PracticePage.tsx` — Drill practice interface
 - `src/pages/LearningPathPage.tsx` — Adaptive learning path with interactive exercises
@@ -262,11 +294,9 @@ Student companion avatar (`DexAvatar.tsx`) renders state-based visuals (idle, sp
 
 ## CI/CD
 
-GitHub Actions workflow at `.github/workflows/ci.yml` runs:
-1. Backend tests with coverage
-2. Frontend tests with coverage
-3. Linting (oxlint for frontend)
-4. Type checking (tsc for both)
+GitHub Actions workflow at `.github/workflows/ci.yml` (Node 20) runs:
+1. Backend `npm ci` → build → `npm test`
+2. Frontend `npm ci` → lint (oxlint) → build → `npm test`
 
 ---
 

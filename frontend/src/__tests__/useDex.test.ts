@@ -11,14 +11,14 @@ vi.stubGlobal('fetch', mockFetch);
 
 // Mock Audio constructor
 const mockAudioPlay = vi.fn().mockResolvedValue(undefined);
-let audioInstance: any = null;
+const audioInstances: any[] = [];
 vi.stubGlobal('Audio', class MockAudio {
   src = '';
   onended: (() => void) | null = null;
   onerror: (() => void) | null = null;
   play = mockAudioPlay;
   constructor() {
-    audioInstance = this;
+    audioInstances.push(this);
   }
 });
 
@@ -55,7 +55,7 @@ vi.stubGlobal('speechSynthesis', {
 describe('useDex', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    audioInstance = null;
+    audioInstances.length = 0;
   });
 
   afterEach(() => {
@@ -97,6 +97,7 @@ describe('useDex', () => {
       await act(async () => {
         const promise = result.current.speak('Hello!');
         setTimeout(() => {
+          const audioInstance = audioInstances.at(-1);
           if (audioInstance?.onended) audioInstance.onended();
         }, 10);
         await promise;

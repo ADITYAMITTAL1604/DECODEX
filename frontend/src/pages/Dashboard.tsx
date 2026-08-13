@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { apiFetch, useApiQuery } from '../lib/api';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -50,6 +50,7 @@ function HealthScoreGauge({ score, riskLevel }: { score: number; riskLevel: stri
 // ---------------------------------------------------------------------------
 export default function Dashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [consentStatus, setConsentStatus] = useState<{ invite_code: string | null; consent_granted: boolean; consent_date: string | null; pending_parent_name?: string | null; pending_parent_email?: string | null } | null>(null);
   const [approving, setApproving] = useState(false);
@@ -59,25 +60,27 @@ export default function Dashboard() {
   const { data: gamData } = useApiQuery<any>(user?.role === 'student' ? `/gamification/${user?.id}/profile` : '/gamification/skip');
   const { data: pathData } = useApiQuery<any>(user?.role === 'student' ? `/learning-paths/${user?.id}` : '/learning-paths/skip');
   const { data: achievementData } = useApiQuery<any>(user?.role === 'student' ? `/gamification/${user?.id}/achievements` : '/gamification/skip');
+  const { data: assignmentData, refetch: refetchAssignments } = useApiQuery<any>(user?.role === 'student' ? '/assignments/student/me' : '/assignments/skip');
 
   const healthScore = healthData?.healthScore;
   const gamProfile = gamData?.profile;
   const learningPath = pathData?.learningPath;
   const achievements = achievementData?.achievements || [];
   const earnedAchievements = achievements.filter((a: any) => a.earned);
+  const assignedPractice = assignmentData?.assignments || [];
 
-  const fetchConsentStatus = () => {
+  const fetchConsentStatus = useCallback(() => {
     if (user?.role !== 'student') return;
     apiFetch<{ invite_code: string | null; consent_granted: boolean; consent_date: string | null; pending_parent_name?: string | null; pending_parent_email?: string | null }>('/students/me/consent-status')
       .then(setConsentStatus)
       .catch(() => setConsentStatus(null));
-  };
+  }, [user?.role]);
 
   useEffect(() => {
     if (user?.role === 'student') {
       fetchConsentStatus();
     }
-  }, [user?.role]);
+  }, [user?.role, fetchConsentStatus]);
 
   // Role-based dashboard redirects (placed after all hooks)
   if (user?.role === 'parent') {
@@ -96,6 +99,16 @@ export default function Dashboard() {
       console.error('Failed to request consent email', err);
     } finally {
       setApproving(false);
+    }
+  };
+
+  const handleStartAssignment = async (assignment: any) => {
+    try {
+      const result = await apiFetch<{ session: { id: string; passage_id: string } }>(`/assignments/${assignment.assignment_id}/start`, { method: 'POST' });
+      refetchAssignments();
+      navigate(`/session/${result.session.passage_id}?sessionId=${result.session.id}`);
+    } catch (startError) {
+      console.error('Failed to start assignment', startError);
     }
   };
 
@@ -323,6 +336,49 @@ export default function Dashboard() {
           </div>
         </motion.section>
       ) : null}
+
+      {user?.role === 'student' && assignedPractice.length > 0 && (
+        <motion.section variants={bouncyItemVariants} className="mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-display text-2xl font-bold text-on-surface">Assigned Practice</h2>
+              <p className="font-body text-sm text-on-surface-variant mt-1">Reading work your teacher has shared with you.</p>
+            </div>
+            <span className="material-symbols-outlined text-3xl text-primary" aria-hidden="true">assignment</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {assignedPractice.map((assignment: any) => {
+              const completed = assignment.status === 'completed' || assignment.status === 'late';
+              return (
+                <article key={assignment.id} className="glass-card rounded-3xl border border-white/80 p-5 shadow-sm flex flex-col gap-4">
+                  <div>
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="font-display text-lg font-bold text-on-surface">{assignment.title}</h3>
+                      <span className={`font-display text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full ${completed ? 'bg-primary-container/25 text-primary' : 'bg-secondary-container/25 text-secondary'}`}>{completed ? 'Complete' : assignment.status.replace('_', ' ')}</span>
+                    </div>
+                    <p className="font-body text-sm text-on-surface-variant mt-2">{assignment.passage_title}</p>
+                    {assignment.instructions && <p className="font-body text-sm text-on-surface-variant mt-2">{assignment.instructions}</p>}
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-body text-on-surface-variant">
+                    <span>{assignment.due_date ? `Due ${new Date(assignment.due_date).toLocaleDateString()}` : 'No due date'}</span>
+                    {completed && assignment.score != null && <span>Score {assignment.score}/100</span>}
+                    {completed && assignment.reward_xp > 0 && <span>+{assignment.reward_xp} XP</span>}
+                  </div>
+                  {completed ? (
+                    <Link to={`/sessions/${assignment.session_id}/results`} className="inline-flex items-center justify-center gap-2 border border-primary text-primary px-4 py-2.5 rounded-xl font-display text-sm font-bold">
+                      View results <span className="material-symbols-outlined text-lg">arrow_forward</span>
+                    </Link>
+                  ) : (
+                    <button onClick={() => handleStartAssignment(assignment)} className="inline-flex items-center justify-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-xl font-display text-sm font-bold">
+                      {assignment.status === 'in_progress' ? 'Continue assignment' : 'Start assignment'} <span className="material-symbols-outlined text-lg">play_arrow</span>
+                    </button>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        </motion.section>
+      )}
 
       {/* Action Cards */}
       <motion.section variants={containerVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-card-gap mb-12 sm:mb-16">

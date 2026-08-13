@@ -50,7 +50,7 @@ export default function AnnotatedText({ sessionId, originalText = '', classifica
         body: JSON.stringify({ corrected_category: newCategory })
       });
       setOverrides(prev => ({ ...prev, [wordIndex]: newCategory }));
-    } catch (err) {
+    } catch {
       alert('Failed to submit correction.');
     } finally {
       setSubmitting(null);

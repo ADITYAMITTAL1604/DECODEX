@@ -6,6 +6,11 @@ import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { mockQuery, generateTestToken, TEST_USERS } from './helpers/setup';
 import app from '../server';
+import { vi } from 'vitest';
+
+vi.mock('../services/gamification', () => ({
+  recordDrillCompletion: vi.fn().mockResolvedValue(undefined),
+}));
 
 describe('Sessions IDOR Protection', () => {
   // ---- SSE Stream Ownership ----
@@ -94,7 +99,7 @@ describe('Sessions IDOR Protection', () => {
       const tokenA = generateTestToken(TEST_USERS.studentA);
       const drillId = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
 
-      // The ownership-scoped UPDATE returns no rows (drill belongs to studentB)
+      // The ownership-scoped lookup returns no rows (drill belongs to studentB)
       mockQuery.mockResolvedValueOnce({ rows: [] });
 
       const res = await request(app)
@@ -112,10 +117,10 @@ describe('Sessions IDOR Protection', () => {
       mockQuery.mockResolvedValueOnce({
         rows: [{
           id: drillId,
-          completed: true,
-          completed_at: new Date().toISOString(),
+          completed: false,
+          student_id: TEST_USERS.studentA.id,
         }],
-      });
+      }).mockResolvedValueOnce({ rows: [{ id: drillId, completed: true }] });
 
       const res = await request(app)
         .post(`/api/v1/sessions/drills/${drillId}/complete`)
@@ -132,10 +137,10 @@ describe('Sessions IDOR Protection', () => {
       mockQuery.mockResolvedValueOnce({
         rows: [{
           id: drillId,
-          completed: true,
-          completed_at: new Date().toISOString(),
+          completed: false,
+          student_id: TEST_USERS.studentA.id,
         }],
-      });
+      }).mockResolvedValueOnce({ rows: [{ id: drillId, completed: true }] });
 
       const res = await request(app)
         .post(`/api/v1/sessions/drills/${drillId}/complete`)

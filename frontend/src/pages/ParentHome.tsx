@@ -2,7 +2,7 @@ import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiFetch } from '../lib/api';
-import { Skeleton, SkeletonText } from '../components/Skeleton';
+import { Skeleton } from '../components/Skeleton';
 
 interface LinkedChild {
   id: string;

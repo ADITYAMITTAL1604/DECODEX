@@ -15,6 +15,7 @@ import platform
 import shutil
 import signal
 import socket
+import secrets
 import subprocess
 import sys
 import time
@@ -61,10 +62,16 @@ def dim(t: str) -> str: return _c("2", t)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 _SECRETS_NEEDING_REAL_VALUES = {
-    "GROQ_API_KEY":       "gsk_your_free_groq_key_here",
+    "GROQ_API_KEY":       "gsk-your-key-here",
     "OPENAI_API_KEY":     "sk-your-key-here",
     "GMAIL_USER":         "your-gmail-address@gmail.com",
     "GMAIL_APP_PASSWORD": "your-google-app-password",
+}
+
+_DEV_ENV_DEFAULTS = {
+    "PORT": "3000",
+    "REDIS_URL": "redis://localhost:6379",
+    "FRONTEND_URL": FRONTEND_URL,
 }
 
 
@@ -121,6 +128,106 @@ def _run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, **kwargs)
 
 
+def _read_env_values(env_file: Path) -> dict[str, str]:
+    """Parse simple KEY=VALUE lines from a dotenv file."""
+    values: dict[str, str] = {}
+    if not env_file.exists():
+        return values
+
+    for raw in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        values[key.strip()] = value.strip()
+    return values
+
+
+def _write_env_updates(env_file: Path, updates: dict[str, str]) -> None:
+    """Update or append dotenv values while preserving unrelated lines."""
+    if not updates:
+        return
+
+    lines = env_file.read_text(encoding="utf-8", errors="replace").splitlines()
+    seen: set[str] = set()
+    next_lines: list[str] = []
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#") and "=" in stripped:
+            key = stripped.split("=", 1)[0].strip()
+            if key in updates:
+                next_lines.append(f"{key}={updates[key]}")
+                seen.add(key)
+                continue
+        next_lines.append(line)
+
+    for key, value in updates.items():
+        if key not in seen:
+            next_lines.append(f"{key}={value}")
+
+    env_file.write_text("\n".join(next_lines) + "\n", encoding="utf-8")
+
+
+def _docker_compose_available() -> bool:
+    if shutil.which("docker") is None:
+        return False
+    result = _run(
+        ["docker", "compose", "version"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return result.returncode == 0
+
+
+def _start_docker_infra_if_needed() -> None:
+    """Start local Postgres/Redis via docker compose when Docker is available."""
+    if _tcp_ready("localhost", 5433) and _tcp_ready("localhost", 6379):
+        return
+
+    if not _docker_compose_available():
+        print(f"  {yellow('⚠')} Docker is not available; skipping automatic infra start")
+        return
+
+    print(f"  {cyan('→')} Starting Postgres + Redis with docker compose...")
+    result = _run(["docker", "compose", "up", "-d"], cwd=str(ROOT))
+    if result.returncode != 0:
+        print(f"  {yellow('⚠')} docker compose up failed; continuing so backend can report details")
+
+
+def _ensure_backend_env_connections() -> None:
+    """Keep backend/.env aligned with the local dev services."""
+    env_file = BACKEND_DIR / ".env"
+    if not env_file.exists():
+        return
+
+    values = _read_env_values(env_file)
+    updates: dict[str, str] = {}
+
+    for key, value in _DEV_ENV_DEFAULTS.items():
+        if not values.get(key):
+            updates[key] = value
+
+    if len(values.get("JWT_SECRET", "")) < 32:
+        updates["JWT_SECRET"] = f"decodex-dev-{secrets.token_urlsafe(32)}"
+
+    pg_port = 5433 if _tcp_ready("localhost", 5433) else 5432
+    expected_db_url = f"postgresql://user:password@localhost:{pg_port}/decodex"
+    db_url = values.get("DATABASE_URL", "")
+    if not db_url:
+        updates["DATABASE_URL"] = expected_db_url
+    elif (
+        "localhost:5432/decodex" in db_url
+        and pg_port == 5433
+        and db_url == "postgresql://user:password@localhost:5432/decodex"
+    ):
+        updates["DATABASE_URL"] = db_url.replace("localhost:5432/decodex", "localhost:5433/decodex")
+
+    if updates:
+        _write_env_updates(env_file, updates)
+        print(f"  {green('✓')} backend/.env connection defaults updated")
+
+
 def _tcp_ready(host: str, port: int, timeout: float = 1.0) -> bool:
     """Return True if a TCP socket can connect to host:port."""
     try:
@@ -134,6 +241,9 @@ def _check_infra() -> None:
     """Verify Postgres and Redis are reachable. Warn if not — the backend
     will fail to connect on its own and print a clear error."""
     print(bold("\n🔌 Checking infrastructure (Postgres + Redis)…"))
+
+    _start_docker_infra_if_needed()
+    _ensure_backend_env_connections()
 
     pg_port = 5433 if _tcp_ready("localhost", 5433) else 5432
     services = [("Postgres", "localhost", pg_port), ("Redis", "localhost", 6379)]
@@ -228,6 +338,26 @@ def _poll_backend_health(max_wait: int = 60) -> bool:
     while time.monotonic() - start < max_wait:
         try:
             with urlopen(url, timeout=2) as resp:
+                if resp.status == 200:
+                    print(f" {green('ready')}")
+                    return True
+        except (URLError, OSError, Exception):
+            pass
+        sys.stdout.write(".")
+        sys.stdout.flush()
+        time.sleep(1)
+    print(f" {red('timed out')}")
+    return False
+
+
+def _poll_frontend_ready(max_wait: int = 60) -> bool:
+    """GET the Vite entry point until it responds or timeout."""
+    start = time.monotonic()
+    sys.stdout.write(f"  Waiting for frontend ({FRONTEND_URL}) ")
+    sys.stdout.flush()
+    while time.monotonic() - start < max_wait:
+        try:
+            with urlopen(FRONTEND_URL, timeout=2) as resp:
                 if resp.status == 200:
                     print(f" {green('ready')}")
                     return True
@@ -345,7 +475,10 @@ def main() -> None:
 
     # 5. Poll backend health
     print()
-    if _poll_backend_health():
+    backend_ready = _poll_backend_health()
+    frontend_ready = _poll_frontend_ready()
+
+    if backend_ready and frontend_ready:
         print()
         print(bold("═" * 60))
         print(f"  {green('✓')} Backend ready   → {cyan(BACKEND_URL)}")
@@ -355,8 +488,10 @@ def main() -> None:
         print(bold("═" * 60))
         print(dim("  Press Ctrl+C to stop.\n"))
     else:
-        print(yellow("  ⚠ Backend did not pass /health in time. "
-                      "It may still be starting — check the logs above."))
+        if not backend_ready:
+            print(yellow("  Backend did not pass /health in time; check the backend logs above."))
+        if not frontend_ready:
+            print(yellow("  Frontend did not respond in time; check the frontend logs above."))
 
     # Keep alive until child exits or Ctrl+C
     try:

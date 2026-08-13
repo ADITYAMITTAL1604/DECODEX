@@ -46,6 +46,10 @@ vi.mock('../services/gamification', () => ({
   recordSessionCompletion: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('../services/assignments', () => ({
+  completeAssignmentForSession: vi.fn().mockResolvedValue(null),
+}));
+
 vi.mock('../routes/sessions', () => ({
   getSSEClient: vi.fn().mockReturnValue({ sendEvent: vi.fn() }),
 }));

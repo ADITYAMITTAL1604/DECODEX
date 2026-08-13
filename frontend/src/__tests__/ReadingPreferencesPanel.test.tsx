@@ -2,7 +2,7 @@
  * ReadingPreferencesPanel tests — renders, updatePreferences triggers PUT, Reset restores defaults.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import ReadingPreferencesPanel from '../components/ReadingPreferencesPanel';

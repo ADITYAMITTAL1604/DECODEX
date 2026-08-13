@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiFetch, useApiQuery } from '../lib/api';
 import { useDex } from '../hooks/useDex';
 import DexAvatar from '../components/DexAvatar';
-import { TUTOR_NAME } from '../lib/constants';
 
 interface ActiveActivity {
   pathId: string;
@@ -24,7 +23,7 @@ export default function LearningPathPage() {
   const [generating, setGenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeActivity, setActiveActivity] = useState<ActiveActivity | null>(null);
-  const dex = useDex();
+  const { state: dexState, caption: dexCaption, speak: dexSpeak } = useDex();
   const hasNarrated = useRef(false);
 
   const { data, loading, error, refetch } = useApiQuery<any>(`/learning-paths/${studentId}`);
@@ -43,8 +42,8 @@ export default function LearningPathPage() {
       ? `Here's your learning path! This week we're focusing on ${focusArea}. ${learningPath.planSummary}`
       : `Welcome to your learning path! This week we're working on ${focusArea}.`;
 
-    dex.speak(narration);
-  }, [learningPath]);
+    void dexSpeak(narration);
+  }, [learningPath, dexSpeak]);
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -124,7 +123,7 @@ export default function LearningPathPage() {
           <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-on-surface">Your Reading Learning Path</h1>
           <p className="font-body text-base text-on-surface-variant mt-1">A day-by-day plan tailored to your reading assessment context</p>
           <div className="mt-3">
-            <DexAvatar state={dex.state} caption={dex.caption} />
+            <DexAvatar state={dexState} caption={dexCaption} />
           </div>
         </div>
 
@@ -474,11 +473,16 @@ function InteractiveActivityModal({
   const [spokenText, setSpokenText] = useState<string | null>(null);
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [voicePassed, setVoicePassed] = useState(false);
+  const { speak: speakModalText } = useDex();
 
   const questions = useMemo(() => generateDynamicQuestions(activity), [activity]);
   const currentQ = questions[step % questions.length];
 
   const modalRef = useRef<HTMLDivElement | null>(null);
+
+  const speakText = useCallback((text: string) => {
+    void speakModalText(text);
+  }, [speakModalText]);
 
   useEffect(() => {
     modalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -491,14 +495,7 @@ function InteractiveActivityModal({
     setVoiceError(null);
     setVoicePassed(false);
     setAttempts(0);
-  }, [step, currentQ]);
-
-  // Use the Dex tutor hook for speech — falls back to browser TTS automatically
-  const modalDex = useDex();
-
-  const speakText = (text: string) => {
-    modalDex.speak(text);
-  };
+  }, [currentQ.readText, speakText]);
 
   const startVoiceInput = async () => {
     // Cancel ongoing TTS audio and give browser 200ms to release audio device
@@ -543,7 +540,7 @@ function InteractiveActivityModal({
 
       // 8-second max safety timeout
       timeoutId = setTimeout(() => {
-        try { recognition.abort(); } catch (e) {}
+        try { recognition.abort(); } catch {}
         setListening(false);
         setVoiceError('Listening timed out. Click the microphone to try speaking again!');
       }, 8000);
@@ -765,7 +762,7 @@ function InteractiveActivityModal({
             <span className="material-symbols-outlined text-6xl text-emerald-600 mb-2">military_tech</span>
             <h3 className="font-display text-2xl font-extrabold text-on-surface mb-2">Voice Exercise Complete!</h3>
             <p className="font-body text-base text-on-surface-variant mb-6">
-              You passed all speech & phonics questions and earned <strong className="text-primary font-bold">+25 XP</strong> for your daily plan!
+              You scored <strong className="text-primary font-bold">{score} of {questions.length}</strong> and earned <strong className="text-primary font-bold">+25 XP</strong> for your daily plan!
             </p>
             <button
               onClick={onClose}

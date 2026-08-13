@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { apiFetch, useApiQuery, getApiBaseUrl } from '../lib/api';
 import { useSessionSSE } from '../hooks/useSessionSSE';
 import { useReadingPreferences } from '../hooks/useReadingPreferences';
@@ -10,16 +10,23 @@ import { Type } from 'lucide-react';
 export default function SessionActive() {
   const { id: passageId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const existingSessionId = searchParams.get('sessionId');
   const { data: passageData, loading: passageLoading } = useApiQuery<{ passage: any }>(`/passages/${passageId}`);
   const { data: consentStatus, loading: consentLoading } = useApiQuery<{ consent_granted: boolean }>('/students/me/consent-status');
-  const { preferences, loading: prefsLoading } = useReadingPreferences();
+  const { preferences } = useReadingPreferences();
   const [prefsPanelOpen, setPrefsPanelOpen] = useState(false);
   
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(existingSessionId);
   const { status, setStatus } = useSessionSSE(sessionId);
 
   useEffect(() => {
-    // Automatically create a session when they land on this page
+    if (existingSessionId) {
+      setSessionId(existingSessionId);
+      return;
+    }
+
+    // Automatically create a free-practice session when they land on this page.
     if (passageId && !sessionId) {
       apiFetch<{ session: any }>('/sessions', {
         method: 'POST',
@@ -27,7 +34,7 @@ export default function SessionActive() {
       }).then(res => setSessionId(res.session.id))
         .catch(err => console.error("Failed to create session", err));
     }
-  }, [passageId]);
+  }, [existingSessionId, passageId, sessionId]);
 
   const handleRecordingComplete = async (blob: Blob) => {
     if (!sessionId) return;
@@ -59,7 +66,7 @@ export default function SessionActive() {
       if (!response.ok) throw new Error('Upload failed');
       
       setStatus({ step: 'queued', message: 'Audio queued for processing...' });
-    } catch (err) {
+    } catch {
       setStatus({ step: 'error', message: 'Failed to upload audio' });
     }
   };

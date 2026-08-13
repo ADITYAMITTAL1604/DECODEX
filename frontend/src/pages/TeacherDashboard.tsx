@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useApiQuery } from '../lib/api';
 import { Skeleton, SkeletonText } from '../components/Skeleton';
+import AssignmentManager from '../components/AssignmentManager';
 
 export default function TeacherDashboard() {
   const { data, loading, error } = useApiQuery<any>('/teacher/students');
@@ -11,7 +12,7 @@ export default function TeacherDashboard() {
   const { data: skillData } = useApiQuery<any>('/classroom/skill-distribution');
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'students' | 'heatmap' | 'weaknesses'>('students');
+  const [activeTab, setActiveTab] = useState<'students' | 'assignments' | 'heatmap' | 'weaknesses'>('students');
 
   if (loading) return (
     <div className="flex-grow w-full max-w-max-content-width mx-auto px-4 py-8">
@@ -103,6 +104,14 @@ export default function TeacherDashboard() {
           }`}
         >
           Students ({allStudents.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('assignments')}
+          className={`px-4 py-2 font-display text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer border-b-2 -mb-px ${
+            activeTab === 'assignments' ? 'border-primary text-primary bg-transparent' : 'border-transparent text-on-surface-variant hover:text-primary'
+          }`}
+        >
+          Assignments
         </button>
         <button
           onClick={() => setActiveTab('heatmap')}
@@ -208,6 +217,12 @@ export default function TeacherDashboard() {
               </motion.tbody>
             </table>
           </div>
+        </motion.div>
+      )}
+
+      {activeTab === 'assignments' && (
+        <motion.div variants={itemVariants}>
+          <AssignmentManager />
         </motion.div>
       )}
 

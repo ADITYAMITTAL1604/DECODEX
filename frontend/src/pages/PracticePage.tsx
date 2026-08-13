@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useApiQuery, apiFetch } from '../lib/api';
-import { Target, ArrowRight, CheckCircle2, Volume2, Sparkles, X, ChevronRight, Mic, RefreshCw, Award, XCircle, ArrowLeft, Type } from 'lucide-react';
+import { Target, CheckCircle2, Volume2, Sparkles, ChevronRight, Mic, RefreshCw, Award, XCircle, ArrowLeft, Type } from 'lucide-react';
 import { useDex } from '../hooks/useDex';
 import { useReadingPreferences } from '../hooks/useReadingPreferences';
 import DexAvatar from '../components/DexAvatar';
 import ReadingPreferencesPanel from '../components/ReadingPreferencesPanel';
-import { TUTOR_NAME } from '../lib/constants';
 
 interface WordDetail {
   word: string;
@@ -38,7 +37,7 @@ export default function PracticePage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { data, loading, error } = useApiQuery<any>(`/sessions/${id}/results`);
-  const { preferences, loading: prefsLoading } = useReadingPreferences();
+  const { preferences } = useReadingPreferences();
   const [prefsPanelOpen, setPrefsPanelOpen] = useState(false);
 
   const [currentWordIdx, setCurrentWordIdx] = useState(0);
@@ -46,7 +45,7 @@ export default function PracticePage() {
   const [micStatus, setMicStatus] = useState<'idle' | 'listening'>('idle');
   const [speechFeedback, setSpeechFeedback] = useState<{ correct: boolean; spoken: string; message: string } | null>(null);
 
-  const dex = useDex();
+  const { state: dexState, caption: dexCaption, speak: dexSpeak } = useDex();
   const recognitionRef = useRef<any>(null);
 
   const session = data?.session;
@@ -94,15 +93,15 @@ export default function PracticePage() {
   // for better accuracy, but browser SpeechRecognition is kept for per-word
   // practice because Whisper adds ~2-3s latency per word, which hurts the
   // rapid-fire practice flow's responsiveness.
-  const playWordAudio = (word: string) => {
-    dex.speak(word);
-  };
+  const playWordAudio = useCallback((word: string) => {
+    void dexSpeak(word);
+  }, [dexSpeak]);
 
   useEffect(() => {
     if (currentWord?.word) {
       playWordAudio(currentWord.word);
     }
-  }, [currentWordIdx, data]);
+  }, [currentWord?.word, playWordAudio]);
 
   const startSpeechVerification = async (targetWord: string) => {
     // Cancel TTS audio and give browser 200ms to release audio device
@@ -154,7 +153,7 @@ export default function PracticePage() {
 
     try {
       if (recognitionRef.current) {
-        try { recognitionRef.current.abort(); } catch (e) {}
+        try { recognitionRef.current.abort(); } catch {}
       }
 
       const recognition = new SpeechRec();
@@ -165,7 +164,7 @@ export default function PracticePage() {
 
       // 8-second max safety timeout so the button never freezes
       timeoutId = setTimeout(() => {
-        try { recognition.abort(); } catch (e) {}
+        try { recognition.abort(); } catch {}
         cleanup();
         setSpeechFeedback({
           correct: false,
@@ -195,14 +194,14 @@ export default function PracticePage() {
           spokenWords.some((w: string) => w === target || (target.length >= 4 && editDistance(w, target) <= 1));
 
         if (isMatch) {
-          dex.speak(`Great job! You said ${spoken} perfectly!`);
+          void dexSpeak(`Great job! You said ${spoken} perfectly!`);
           setSpeechFeedback({
             correct: true,
             spoken,
             message: `🎉 Perfect Pronunciation! You correctly said "${spoken}"!`
           });
         } else {
-          dex.speak(`Not quite. Let's try saying ${target} again!`);
+          void dexSpeak(`Not quite. Let's try saying ${target} again!`);
           setSpeechFeedback({
             correct: false,
             spoken,
@@ -334,8 +333,8 @@ export default function PracticePage() {
           {/* Dex Avatar — shows speaking/listening/celebrating/concerned state */}
           <div className="flex justify-center mt-4">
             <DexAvatar
-              state={micStatus === 'listening' ? 'listening' : dex.state}
-              caption={dex.caption}
+              state={micStatus === 'listening' ? 'listening' : dexState}
+              caption={dexCaption}
             />
           </div>
 

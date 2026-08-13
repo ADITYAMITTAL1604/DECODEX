@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
 import { computeHealthScore, getLatestHealthScore, getHealthScoreHistory } from '../services/healthScore';
+import { canAccessStudent } from '../services/studentAccess';
 
 const router = Router();
 
@@ -9,15 +10,10 @@ const router = Router();
 // Get the latest health score for a student.
 router.get('/:studentId', authenticate, async (req: AuthRequest, res) => {
   const studentId = String(req.params.studentId);
-  const requesterRole = req.user?.role;
-  const requesterId = req.user?.id;
 
-  // Students can only view their own score
-  if (requesterRole === 'student' && requesterId !== studentId) {
+  if (!(await canAccessStudent(studentId, { id: req.user?.id, role: req.user?.role }))) {
     return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } });
   }
-  // Parents can view linked children (simplified: allow parent role)
-  // Teachers/admins can view any student
 
   try {
     const score = await getLatestHealthScore(studentId);
@@ -35,10 +31,8 @@ router.get('/:studentId', authenticate, async (req: AuthRequest, res) => {
 // Get health score history for trend charts.
 router.get('/:studentId/history', authenticate, async (req: AuthRequest, res) => {
   const studentId = String(req.params.studentId);
-  const requesterRole = req.user?.role;
-  const requesterId = req.user?.id;
 
-  if (requesterRole === 'student' && requesterId !== studentId) {
+  if (!(await canAccessStudent(studentId, { id: req.user?.id, role: req.user?.role }))) {
     return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } });
   }
 
@@ -57,6 +51,10 @@ router.post('/:studentId/compute', authenticate, requireRole(['teacher', 'admin'
   const studentId = String(req.params.studentId);
 
   try {
+    if (!(await canAccessStudent(studentId, { id: req.user?.id, role: req.user?.role }))) {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } });
+    }
+
     // Get the latest completed session
     const sessionRes = await (await import('../db')).query(
       `SELECT id FROM reading_sessions

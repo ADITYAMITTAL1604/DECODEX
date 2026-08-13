@@ -132,7 +132,7 @@ export default function ParentSessionReport() {
     );
   }
 
-  const { session, passage, errorProfile, alignment, classifications, drills, improvementPlan, hasStudentRecording } = data;
+  const { session, passage, errorProfile, classifications, drills, improvementPlan, hasStudentRecording } = data;
 
   const totalWords = errorProfile?.total_words_read || passage?.word_count || 0;
   const totalErrors = errorProfile?.total_errors || classifications.length || 0;

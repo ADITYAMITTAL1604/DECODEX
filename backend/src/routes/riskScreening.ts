@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
 import { runRiskScreening, getLatestScreening } from '../services/riskScreening';
+import { canAccessStudent } from '../services/studentAccess';
 
 const router = Router();
 
@@ -9,10 +10,8 @@ const router = Router();
 // Get the latest risk screening for a student.
 router.get('/:studentId', authenticate, async (req: AuthRequest, res) => {
   const studentId = String(req.params.studentId);
-  const requesterRole = req.user?.role;
-  const requesterId = req.user?.id;
 
-  if (requesterRole === 'student' && requesterId !== studentId) {
+  if (!(await canAccessStudent(studentId, { id: req.user?.id, role: req.user?.role }))) {
     return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } });
   }
 
@@ -31,6 +30,10 @@ router.post('/:studentId/run', authenticate, requireRole(['teacher', 'admin']), 
   const studentId = String(req.params.studentId);
 
   try {
+    if (!(await canAccessStudent(studentId, { id: req.user?.id, role: req.user?.role }))) {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } });
+    }
+
     const result = await runRiskScreening(studentId);
     res.json({ screening: result });
   } catch (error) {

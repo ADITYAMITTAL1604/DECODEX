@@ -5,21 +5,32 @@
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
+-- 0. Demo School
+-- ---------------------------------------------------------------------------
+
+INSERT INTO schools (id, name, district)
+VALUES ('99999999-9999-9999-9999-999999999999', 'Decodex Demo School', 'Demo District')
+ON CONFLICT (id) DO UPDATE
+SET name = EXCLUDED.name,
+    district = EXCLUDED.district;
+
+-- ---------------------------------------------------------------------------
 -- 1. Demo Users
 -- ---------------------------------------------------------------------------
 
 -- Original test student (kept for backward compatibility)
-INSERT INTO users (email, password_hash, role, display_name, grade_level, invite_code, date_of_birth) VALUES
-('student@decodex.com', '$2b$12$UbTLYYnuUKm8U3V5/U/UP.g.g0Ya2CA6.kKoFI.d6bG8zSsxKLBC.', 'student', 'Aarav', 4, 'AARAV2026', '2016-04-15')
+INSERT INTO users (email, password_hash, role, display_name, school_id, grade_level, invite_code, date_of_birth) VALUES
+('student@decodex.com', '$2b$12$UbTLYYnuUKm8U3V5/U/UP.g.g0Ya2CA6.kKoFI.d6bG8zSsxKLBC.', 'student', 'Aarav', '99999999-9999-9999-9999-999999999999', 4, 'AARAV2026', '2016-04-15')
 ON CONFLICT (email) DO NOTHING;
 
 -- Demo teacher
-INSERT INTO users (id, email, password_hash, role, display_name)
+INSERT INTO users (id, email, password_hash, role, display_name, school_id)
 VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
         'teacher@decodex.com',
         '$2b$12$yIemge/MYhyjI.BAc4eDkeD1Ou2QuUJYsNCZ6oDbGHJ1Vtnnqmqqi',
         'teacher',
-        'Ms. Rivera')
+        'Ms. Rivera',
+        '99999999-9999-9999-9999-999999999999')
 ON CONFLICT (email) DO NOTHING;
 
 -- Demo admin
@@ -32,12 +43,13 @@ VALUES ('dddddddd-1111-2222-3333-444444444444',
 ON CONFLICT (email) DO NOTHING;
 
 -- Demo student (invite_code + date_of_birth for consent KBV flow)
-INSERT INTO users (id, email, password_hash, role, display_name, grade_level, invite_code, date_of_birth)
+INSERT INTO users (id, email, password_hash, role, display_name, school_id, grade_level, invite_code, date_of_birth)
 VALUES ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
         'demostudent@decodex.com',
         '$2b$12$z4d5ohfZ4LBonaoA9ErWdu/wSswymg13ms/uCkExv.uir4oRYkkSO',
         'student',
         'Sam',
+        '99999999-9999-9999-9999-999999999999',
         3,
         'DEMO01',
         '2017-03-22')

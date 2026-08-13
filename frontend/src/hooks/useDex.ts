@@ -1,6 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
 import { getApiBaseUrl } from '../lib/api';
-import { TUTOR_NAME } from '../lib/constants';
 
 // ---------------------------------------------------------------------------
 // useDex — Voice-First Tutor Hook
@@ -93,10 +92,11 @@ export function useDex(): DexHook {
   // Records audio via MediaRecorder, POSTs to /api/v1/dex/transcribe,
   // returns the Whisper transcript.
   const listenLong = useCallback((): Promise<string> => {
-    return new Promise(async (resolve) => {
+    return new Promise((resolve) => {
       setState('listening');
 
-      try {
+      const startRecording = async () => {
+        try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mediaRecorder = new MediaRecorder(stream);
         const chunks: Blob[] = [];
@@ -153,10 +153,13 @@ export function useDex(): DexHook {
             mediaRecorder.stop();
           }
         }, 10000);
-      } catch {
-        setState('idle');
-        resolve('');
-      }
+        } catch {
+          setState('idle');
+          resolve('');
+        }
+      };
+
+      void startRecording();
     });
   }, []);
 

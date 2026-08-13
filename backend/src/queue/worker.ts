@@ -87,7 +87,15 @@ export async function processAudioJob(data: AudioJobData): Promise<{ success: bo
       logger.error({ err: hsError }, 'Health score computation failed (non-fatal)');
     }
 
-    // 8. Update Gamification (V2 — XP, streaks, achievements)
+    // 8. Finalize any linked teacher assignment after its health score is available.
+    try {
+      const { completeAssignmentForSession } = await import('../services/assignments');
+      await completeAssignmentForSession(sessionId);
+    } catch (assignmentError) {
+      logger.error({ err: assignmentError }, 'Assignment completion update failed (non-fatal)');
+    }
+
+    // 9. Update Gamification (V2 — XP, streaks, achievements)
     try {
       const { recordSessionCompletion } = await import('../services/gamification');
       await recordSessionCompletion(studentId);
@@ -95,7 +103,7 @@ export async function processAudioJob(data: AudioJobData): Promise<{ success: bo
       logger.error({ err: gamError }, 'Gamification update failed (non-fatal)');
     }
 
-    // 9. Complete
+    // 10. Complete
     sseClient?.sendEvent('status', { step: 'complete', message: 'Processing complete!', wpm: wordsPerMinute });
     
     return { success: true, wpm: wordsPerMinute };

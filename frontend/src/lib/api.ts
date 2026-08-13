@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 
 export interface ApiError extends Error {
   code?: string;
@@ -70,6 +70,12 @@ export function useApiQuery<T>(endpoint: string, options?: RequestInit) {
   const [loading, setLoading] = useState(!endpoint.includes('/skip'));
   const [error, setError] = useState<Error | null>(null);
   const [key, setKey] = useState(0);
+  const optionsKey = useMemo(() => JSON.stringify(options ?? {}), [options]);
+  const optionsRef = useRef(options);
+
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
 
   useEffect(() => {
     if (!endpoint || endpoint.includes('/skip')) {
@@ -80,7 +86,7 @@ export function useApiQuery<T>(endpoint: string, options?: RequestInit) {
     setLoading(true);
     const controller = new AbortController();
     
-    apiFetch<T>(endpoint, { ...options, signal: controller.signal })
+    apiFetch<T>(endpoint, { ...optionsRef.current, signal: controller.signal })
       .then(setData)
       .catch(err => {
         if (err.name !== 'AbortError') {
@@ -90,7 +96,7 @@ export function useApiQuery<T>(endpoint: string, options?: RequestInit) {
       .finally(() => setLoading(false));
 
     return () => controller.abort();
-  }, [endpoint, key]);
+  }, [endpoint, key, optionsKey]);
 
   return { data, loading, error, refetch: () => setKey(k => k + 1) };
 }

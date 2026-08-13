@@ -11,7 +11,7 @@ const requireTeacher = requireRole(['teacher', 'admin']);
 // Get error heatmap across all students.
 router.get('/heatmap', authenticate, requireTeacher, async (req: AuthRequest, res) => {
   try {
-    const heatmap = await getClassHeatmap();
+    const heatmap = await getClassHeatmap({ id: req.user?.id, role: req.user?.role });
     res.json({ heatmap });
   } catch (error) {
     console.error('Error fetching classroom heatmap:', error);
@@ -23,7 +23,7 @@ router.get('/heatmap', authenticate, requireTeacher, async (req: AuthRequest, re
 // Get class-wide weakness analysis.
 router.get('/weaknesses', authenticate, requireTeacher, async (req: AuthRequest, res) => {
   try {
-    const weaknesses = await getClassWeaknesses();
+    const weaknesses = await getClassWeaknesses({ id: req.user?.id, role: req.user?.role });
     res.json({ weaknesses });
   } catch (error) {
     console.error('Error fetching class weaknesses:', error);
@@ -35,7 +35,7 @@ router.get('/weaknesses', authenticate, requireTeacher, async (req: AuthRequest,
 // Get skill distribution across the class.
 router.get('/skill-distribution', authenticate, requireTeacher, async (req: AuthRequest, res) => {
   try {
-    const distribution = await getSkillDistribution();
+    const distribution = await getSkillDistribution({ id: req.user?.id, role: req.user?.role });
     res.json({ distribution });
   } catch (error) {
     console.error('Error fetching skill distribution:', error);

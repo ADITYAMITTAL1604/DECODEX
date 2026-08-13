@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, Square, Loader2, AlertCircle } from 'lucide-react';
 
 interface AudioRecorderProps {
   onRecordingComplete: (blob: Blob) => void;

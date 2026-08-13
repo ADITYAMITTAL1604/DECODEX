@@ -1,12 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Target, ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
-
-interface WordDetail {
-  word: string;
-  target?: string;
-  spoken?: string | null;
-}
 
 interface Drill {
   id: string;
