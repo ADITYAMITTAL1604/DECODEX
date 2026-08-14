@@ -82,7 +82,7 @@ INSERT INTO passages (id, title, content, grade_level, lexile_score, word_count)
 ('22222222-2222-2222-2222-222222222222', 'A Trip to the Moon', 'Imagine taking a rocket ship to the moon. You would need a special suit to breathe because there is no air in space. The moon has no wind or rain, so footprints stay there forever. You could jump very high because gravity is much weaker there than on Earth. It would be a quiet and dusty place.', 3, 600, 59),
 
 ('33333333-3333-3333-3333-333333333333', 'The Water Cycle', 'Water is always moving on Earth. The sun heats up water in oceans and lakes, causing it to turn into an invisible gas called water vapor. This is evaporation. As the vapor rises into the cool sky, it turns back into tiny liquid drops, forming clouds. This is condensation. When the drops get heavy, they fall as rain or snow, which is precipitation. Finally, the water flows back into rivers and oceans, and the cycle begins again.', 5, 850, 77)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
 -- 3. Completed Reading Sessions for demo student
@@ -160,7 +160,8 @@ VALUES (
     {"sourceWord":"down","spokenWord":"down","type":"match","index":51}
   ]',
   'completed'
-);
+)
+ON CONFLICT (id) DO NOTHING;
 
 -- Session 2: "A Trip to the Moon" (passage 2, grade 3)
 -- Transcript errors:
@@ -241,7 +242,8 @@ VALUES (
     {"sourceWord":"place","spokenWord":"place","type":"match","index":57}
   ]',
   'completed'
-);
+)
+ON CONFLICT (id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
 -- 4. Error Classifications (O-G taxonomy)
@@ -261,7 +263,8 @@ INSERT INTO error_classifications (id, session_id, word_index, source_word, spok
 ('dd000003-0000-0000-0000-000000000003', 'dddddddd-dddd-dddd-dddd-dddddddddddd', 24, 'higher', 'house', 'SUB',
  'Visually similar initial letter "h" but wrong word; substitution.'),
 ('dd000004-0000-0000-0000-000000000004', 'dddddddd-dddd-dddd-dddd-dddddddddddd', 48, 'happy', 'glad', 'SUB',
- 'Semantic substitution — meaning preserved but wrong word read.');
+ 'Semantic substitution — meaning preserved but wrong word read.')
+ON CONFLICT (id) DO NOTHING;
 
 -- Session 2 errors:
 --   index 1:  "taking"→"talking" — SUB (minimal-pair substitution)
@@ -280,58 +283,65 @@ INSERT INTO error_classifications (id, session_id, word_index, source_word, spok
 ('ee000004-0000-0000-0000-000000000004', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 44, 'weaker', 'weeker', 'REV',
  'Vowel digraph reversal: "ea" read as "ee" — a common phoneme confusion.'),
 ('ee000005-0000-0000-0000-000000000005', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 53, NULL, 'really', 'INS',
- 'Inserted word "really" not present in the source passage.');
+ 'Inserted word "really" not present in the source passage.')
+ON CONFLICT (id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
 -- 5. Error Profiles (aggregated per session)
 -- ---------------------------------------------------------------------------
 
 -- Session 1: 1 REV, 2 SUB, 1 OMI = 4 errors out of 48 words → 0.083 error rate
-INSERT INTO error_profiles (student_id, session_id, rev_count, sub_count, omi_count, ins_count, bld_count, pac_count, uncertain_count, total_words_read, total_errors, error_rate)
-VALUES ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'dddddddd-dddd-dddd-dddd-dddddddddddd',
-        1, 2, 1, 0, 0, 0, 0, 48, 4, 0.083);
+INSERT INTO error_profiles (id, student_id, session_id, rev_count, sub_count, omi_count, ins_count, bld_count, pac_count, uncertain_count, total_words_read, total_errors, error_rate)
+VALUES ('dd000010-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+        1, 2, 1, 0, 0, 0, 0, 48, 4, 0.083)
+ON CONFLICT (id) DO NOTHING;
 
 -- Session 2: 1 REV, 2 SUB, 1 OMI, 1 INS = 5 errors out of 59 words → 0.085 error rate
-INSERT INTO error_profiles (student_id, session_id, rev_count, sub_count, omi_count, ins_count, bld_count, pac_count, uncertain_count, total_words_read, total_errors, error_rate)
-VALUES ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
-        1, 2, 1, 1, 0, 0, 0, 59, 5, 0.085);
+INSERT INTO error_profiles (id, student_id, session_id, rev_count, sub_count, omi_count, ins_count, bld_count, pac_count, uncertain_count, total_words_read, total_errors, error_rate)
+VALUES ('ee000010-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+        1, 2, 1, 1, 0, 0, 0, 59, 5, 0.085)
+ON CONFLICT (id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
 -- 6. Drills (derived from error patterns — matches drills.ts logic)
 -- ---------------------------------------------------------------------------
 
 -- Session 1: dominant drillable category = SUB (2 hits) → Sight Word Practice
-INSERT INTO drills (session_id, student_id, target_category, drill_type, content) VALUES
-('dddddddd-dddd-dddd-dddd-dddddddddddd', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'SUB', 'Sight Word Practice',
- '{"instructions":"Read these high-frequency words.","target":"Common substitutions","words":["higher","happy","house","glad"]}');
+INSERT INTO drills (id, session_id, student_id, target_category, drill_type, content) VALUES
+('dd000020-0000-0000-0000-000000000001', 'dddddddd-dddd-dddd-dddd-dddddddddddd', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'SUB', 'Sight Word Practice',
+ '{"instructions":"Read these high-frequency words.","target":"Common substitutions","words":["higher","happy","house","glad"]}')
+ON CONFLICT (id) DO NOTHING;
 
 -- Session 1: secondary drill for REV (1 hit) → Visual Discrimination
-INSERT INTO drills (session_id, student_id, target_category, drill_type, content) VALUES
-('dddddddd-dddd-dddd-dddd-dddddddddddd', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'REV', 'Visual Discrimination',
- '{"instructions":"Select the letter that matches the sound.","target":"b/d distinction","words":["was","saw"]}');
+INSERT INTO drills (id, session_id, student_id, target_category, drill_type, content) VALUES
+('dd000020-0000-0000-0000-000000000002', 'dddddddd-dddd-dddd-dddd-dddddddddddd', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'REV', 'Visual Discrimination',
+ '{"instructions":"Select the letter that matches the sound.","target":"b/d distinction","words":["was","saw"]}')
+ON CONFLICT (id) DO NOTHING;
 
 -- Session 2: dominant drillable category = SUB (2 hits) → Sight Word Practice
-INSERT INTO drills (session_id, student_id, target_category, drill_type, content) VALUES
-('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'SUB', 'Sight Word Practice',
- '{"instructions":"Read these high-frequency words.","target":"Common substitutions","words":["taking","talking","breathe","breath"]}');
+INSERT INTO drills (id, session_id, student_id, target_category, drill_type, content) VALUES
+('ee000020-0000-0000-0000-000000000001', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'SUB', 'Sight Word Practice',
+ '{"instructions":"Read these high-frequency words.","target":"Common substitutions","words":["taking","talking","breathe","breath"]}')
+ON CONFLICT (id) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
 -- 7. V2 Seed Data — AI Intervention Ecosystem
 -- ---------------------------------------------------------------------------
 
 -- Seed Health Scores for Demo Student (Sam)
-INSERT INTO health_scores (student_id, session_id, score, risk_level, fluency, accuracy, wpm_normalized, error_frequency, error_severity, improvement_trend, components)
-VALUES ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 68, 'medium', 55, 91, 40, 83, 70, 50, '{"wpmNormalized":40,"accuracy":91,"fluency":55,"errorFrequency":83,"errorSeverity":70,"improvementTrend":50}')
-ON CONFLICT DO NOTHING;
+INSERT INTO health_scores (id, student_id, session_id, score, risk_level, fluency, accuracy, wpm_normalized, error_frequency, error_severity, improvement_trend, components)
+VALUES ('dd000030-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 68, 'medium', 55, 91, 40, 83, 70, 50, '{"wpmNormalized":40,"accuracy":91,"fluency":55,"errorFrequency":83,"errorSeverity":70,"improvementTrend":50}')
+ON CONFLICT (id) DO NOTHING;
 
 -- Seed Gamification Profile for Demo Student (Sam)
-INSERT INTO gamification_profiles (student_id, xp, level, current_streak, longest_streak, total_sessions, total_drills_completed, total_stories_read)
-VALUES ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 185, 2, 3, 5, 2, 3, 1)
+INSERT INTO gamification_profiles (id, student_id, xp, level, current_streak, longest_streak, total_sessions, total_drills_completed, total_stories_read)
+VALUES ('dd000040-0000-0000-0000-000000000001', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 185, 2, 3, 5, 2, 3, 1)
 ON CONFLICT (student_id) DO UPDATE SET xp = 185, level = 2, current_streak = 3;
 
 -- Seed Risk Screening for Demo Student (Sam)
-INSERT INTO risk_screenings (student_id, risk_level, confidence, indicators, evidence, sessions_analyzed)
+INSERT INTO risk_screenings (id, student_id, risk_level, confidence, indicators, evidence, sessions_analyzed)
 VALUES (
+  'dd000050-0000-0000-0000-000000000001',
   'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
   'medium',
   75,
@@ -339,6 +349,4 @@ VALUES (
   '[{"indicator":"Letter reversals","category":"REV","frequency":2,"severity":"moderate","details":"2 reversals detected across 2 sessions."},{"indicator":"Substitutions","category":"SUB","frequency":4,"severity":"moderate","details":"4 substitutions detected across 2 sessions."}]',
   2
 )
-ON CONFLICT DO NOTHING;
-
-
+ON CONFLICT (id) DO NOTHING;

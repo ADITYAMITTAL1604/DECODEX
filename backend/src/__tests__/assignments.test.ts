@@ -108,6 +108,21 @@ describe('Teacher assignments', () => {
     expect(response.body.error.code).toBe('NOT_FOUND');
   });
 
+  it('returns 500 when the teacher assignment query hits a database schema error', async () => {
+    mockQuery.mockRejectedValueOnce(Object.assign(
+      new Error('relation "assignments" does not exist'),
+      { code: '42P01' }
+    ));
+
+    const response = await request(app)
+      .get('/api/v1/assignments/teacher')
+      .set('Cookie', `token=${generateTestToken(TEST_USERS.teacher)}`);
+
+    expect(response.status).toBe(500);
+    expect(response.body.error.code).toBe('INTERNAL_ERROR');
+    expect(response.body.error.message).toBe('Failed to fetch assignments');
+  });
+
   it('links a started assignment to a reading session', async () => {
     const sessionId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
     mockQuery

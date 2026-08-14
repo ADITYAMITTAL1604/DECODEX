@@ -171,7 +171,7 @@ router.post('/', authenticate, requireTeacher, async (req: AuthRequest, res) => 
     });
   } catch (error: any) {
     const status = error.status || 500;
-    const code = error.code || 'INTERNAL_ERROR';
+    const code = status === 500 ? 'INTERNAL_ERROR' : error.code || 'REQUEST_ERROR';
     const message = status === 500 ? 'Failed to create assignment' : error.message;
     if (status === 500) console.error('Error creating assignment:', error);
     res.status(status).json({ error: { code, message } });

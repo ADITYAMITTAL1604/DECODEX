@@ -158,6 +158,7 @@ delete process.env.GROQ_API_KEY;
 
 vi.mock('../../db/init', () => ({
   initDB: vi.fn().mockResolvedValue(undefined),
+  initDBWithRetry: vi.fn().mockResolvedValue(undefined),
 }));
 
 // ---- Reset mocks before each test ----

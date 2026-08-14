@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
@@ -38,7 +38,7 @@ import ttsRoutes from './routes/tts';
 import dexRoutes from './routes/dex';
 
 // Initialize DB schema & migrations
-import { initDB } from './db/init';
+import { initDBWithRetry } from './db/init';
 
 // Initialize background workers
 import './queue/worker';
@@ -145,20 +145,87 @@ app.get('/', (req, res) => {
   res.redirect(frontendUrl);
 });
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+async function checkDatabaseReadiness() {
+  await queryCriticalTable('assignments', 'SELECT 1 FROM assignments LIMIT 1');
+  await queryCriticalTable('assignment_students', 'SELECT 1 FROM assignment_students LIMIT 1');
+
+  return {
+    assignments: 'ok',
+    assignment_students: 'ok',
+  };
+}
+
+async function queryCriticalTable(name: string, sql: string) {
+  try {
+    await import('./db').then(({ query }) => query(sql));
+  } catch (error) {
+    throw Object.assign(new Error(`Critical table is not queryable: ${name}`), { cause: error });
+  }
+}
+
+// Health/readiness check endpoint. Render uses this path before routing traffic.
+app.get('/health', async (req, res) => {
+  try {
+    const criticalTables = await checkDatabaseReadiness();
+    res.status(200).json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      checks: {
+        database: 'ok',
+        criticalTables,
+      },
+    });
+  } catch (error) {
+    console.error('Health check failed:', error);
+    res.status(503).json({
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      error: {
+        code: 'SERVICE_UNAVAILABLE',
+        message: 'Database readiness check failed',
+      },
+    });
+  }
 });
 
-initDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server listening on port ${PORT}`);
-  });
-}).catch(err => {
-  console.error('Failed to initialize database on startup:', err);
-  app.listen(PORT, () => {
-    console.log(`Server listening on port ${PORT} (DB init failed)`);
-  });
+app.use('/api/v1', (req, res) => {
+  res.status(404).json({ error: { code: 'NOT_FOUND', message: 'API route not found' } });
 });
+
+app.use((req, res) => {
+  res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Route not found' } });
+});
+
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  console.error('Unhandled request error:', err);
+
+  if (res.headersSent) {
+    return next(err);
+  }
+
+  const status = Number.isInteger(err?.status) && err.status >= 400 && err.status < 600
+    ? err.status
+    : 500;
+  const code = status >= 500 ? 'INTERNAL_ERROR' : err?.code || 'REQUEST_ERROR';
+  const message = status >= 500 ? 'Internal server error' : err?.message || 'Request failed';
+
+  res.status(status).json({ error: { code, message } });
+});
+
+async function startServer() {
+  try {
+    await initDBWithRetry({ label: 'Database startup initialization' });
+    app.listen(PORT, () => {
+      console.log(`Server listening on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error('Failed to initialize database on startup:', err);
+    process.exit(1);
+  }
+}
+
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
 
 export default app;
