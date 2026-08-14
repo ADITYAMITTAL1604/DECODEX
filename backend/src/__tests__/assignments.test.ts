@@ -160,3 +160,95 @@ describe('Teacher assignments', () => {
     expect(awardXP).not.toHaveBeenCalled();
   });
 });
+
+describe('Assignment detail access control (GET /:id, PATCH /:id)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const otherTeacherId = '88888888-8888-8888-8888-888888888888';
+  const assignmentId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  const nonexistentId = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+
+  describe('GET /api/v1/assignments/:id', () => {
+    it('returns 200 for the owning teacher', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ id: assignmentId, teacher_id: TEST_USERS.teacher.id }] }) // exists check
+        .mockResolvedValueOnce({ rows: [{ id: assignmentId, title: 'Test Assignment', passage_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' }] }) // full details
+        .mockResolvedValueOnce({ rows: [] }); // students
+
+      const response = await request(app)
+        .get(`/api/v1/assignments/${assignmentId}`)
+        .set('Cookie', `token=${generateTestToken(TEST_USERS.teacher)}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.assignment.id).toBe(assignmentId);
+    });
+
+    it('returns 403 for a different teacher (not 404)', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ id: assignmentId, teacher_id: TEST_USERS.teacher.id }] }); // exists but owned by different teacher
+
+      const response = await request(app)
+        .get(`/api/v1/assignments/${assignmentId}`)
+        .set('Cookie', `token=${generateTestToken({ id: otherTeacherId, role: 'teacher' })}`);
+
+      expect(response.status).toBe(403);
+      expect(response.body.error.code).toBe('FORBIDDEN');
+      expect(response.body.error.message).toBe('You do not have access to this assignment');
+    });
+
+    it('returns 404 for a well-formed but nonexistent UUID', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // does not exist
+
+      const response = await request(app)
+        .get(`/api/v1/assignments/${nonexistentId}`)
+        .set('Cookie', `token=${generateTestToken(TEST_USERS.teacher)}`);
+
+      expect(response.status).toBe(404);
+      expect(response.body.error.code).toBe('NOT_FOUND');
+    });
+  });
+
+  describe('PATCH /api/v1/assignments/:id', () => {
+    it('returns 200 for the owning teacher updating title', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ id: assignmentId, teacher_id: TEST_USERS.teacher.id }] }) // exists check
+        .mockResolvedValueOnce({ rows: [{ id: assignmentId, title: 'Updated Title' }] }); // update result
+
+      const response = await request(app)
+        .patch(`/api/v1/assignments/${assignmentId}`)
+        .set('Cookie', `token=${generateTestToken(TEST_USERS.teacher)}`)
+        .send({ title: 'Updated Title' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.assignment.title).toBe('Updated Title');
+    });
+
+    it('returns 403 for a different teacher (not 404)', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ id: assignmentId, teacher_id: TEST_USERS.teacher.id }] }); // exists but owned by different teacher
+
+      const response = await request(app)
+        .patch(`/api/v1/assignments/${assignmentId}`)
+        .set('Cookie', `token=${generateTestToken({ id: otherTeacherId, role: 'teacher' })}`)
+        .send({ title: 'Hacked Title' });
+
+      expect(response.status).toBe(403);
+      expect(response.body.error.code).toBe('FORBIDDEN');
+      expect(response.body.error.message).toBe('You do not have access to this assignment');
+    });
+
+    it('returns 404 for a well-formed but nonexistent UUID', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // does not exist
+
+      const response = await request(app)
+        .patch(`/api/v1/assignments/${nonexistentId}`)
+        .set('Cookie', `token=${generateTestToken(TEST_USERS.teacher)}`)
+        .send({ title: 'New Title' });
+
+      expect(response.status).toBe(404);
+      expect(response.body.error.code).toBe('NOT_FOUND');
+    });
+  });
+});

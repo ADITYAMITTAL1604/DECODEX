@@ -313,19 +313,34 @@ router.get('/:id', authenticate, requireTeacher, async (req: AuthRequest, res) =
   }
 
   try {
+    // First, check if the assignment exists (regardless of ownership)
+    const exists = await query(
+      `SELECT id, teacher_id
+       FROM assignments
+       WHERE id = $1
+         AND deleted_at IS NULL`,
+      [req.params.id]
+    );
+
+    if (exists.rows.length === 0) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Assignment not found' } });
+    }
+
+    // Check ownership: admin bypasses, otherwise teacher_id must match
+    const assignmentOwnerId = exists.rows[0].teacher_id;
+    if (req.user?.role !== 'admin' && assignmentOwnerId !== req.user?.id) {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'You do not have access to this assignment' } });
+    }
+
+    // Fetch full assignment details with passage info
     const assignment = await query(
       `SELECT a.*, p.title as passage_title, p.grade_level, p.word_count
        FROM assignments a
        JOIN passages p ON p.id = a.passage_id
        WHERE a.id = $1
-         AND a.deleted_at IS NULL
-         AND ($2 = 'admin' OR a.teacher_id = $3)`,
-      [req.params.id, req.user?.role, req.user?.id]
+         AND a.deleted_at IS NULL`,
+      [req.params.id]
     );
-
-    if (assignment.rows.length === 0) {
-      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Assignment not found' } });
-    }
 
     const students = await query(
       `SELECT
@@ -359,7 +374,26 @@ router.patch('/:id', authenticate, requireTeacher, async (req: AuthRequest, res)
   }
 
   try {
-    const values: any[] = [req.params.id, req.user?.role, req.user?.id];
+    // First, check if the assignment exists (regardless of ownership)
+    const exists = await query(
+      `SELECT id, teacher_id
+       FROM assignments
+       WHERE id = $1
+         AND deleted_at IS NULL`,
+      [req.params.id]
+    );
+
+    if (exists.rows.length === 0) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Assignment not found' } });
+    }
+
+    // Check ownership: admin bypasses, otherwise teacher_id must match
+    const assignmentOwnerId = exists.rows[0].teacher_id;
+    if (req.user?.role !== 'admin' && assignmentOwnerId !== req.user?.id) {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'You do not have access to this assignment' } });
+    }
+
+    const values: any[] = [req.params.id];
     const updates: string[] = [];
 
     if (Object.prototype.hasOwnProperty.call(req.body || {}, 'title')) {
@@ -383,18 +417,20 @@ router.patch('/:id', authenticate, requireTeacher, async (req: AuthRequest, res)
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'No assignment updates provided' } });
     }
 
+    values.push(new Date());
+    updates.push(`updated_at = $${values.length}`);
+
     const result = await query(
       `UPDATE assignments
-       SET ${updates.join(', ')},
-           updated_at = NOW()
+       SET ${updates.join(', ')}
        WHERE id = $1
          AND deleted_at IS NULL
-         AND ($2 = 'admin' OR teacher_id = $3)
        RETURNING *`,
       values
     );
 
     if (result.rows.length === 0) {
+      // This should not happen since we already verified existence, but handle race condition
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Assignment not found' } });
     }
 
