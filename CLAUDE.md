@@ -77,7 +77,10 @@ Centralized `canAccessStudent(actor, target)` predicate used by all teacher/pare
 ```bash
 npm run install:all       # Install all dependencies (skills + backend + frontend)
 npm run skills:install    # Install skill dependencies
+python app.py             # One-command dev launcher — starts both backend + frontend dev servers (stdlib only)
 ```
+
+`app.py` is a repo-root Python 3 stdlib launcher (no extra packages). It checks for Postgres/Redis, installs deps if `node_modules/` is missing, and boots backend (3000) + frontend (5173) with clean process-group teardown on exit.
 
 ### Backend
 ```bash
@@ -85,7 +88,8 @@ cd backend
 npm run dev               # Start dev server with ts-node-dev (http://localhost:3000)
 npm run build             # TypeScript compile + copy DB files
 npm start                 # Run production build
-npm run start:prod        # Seed prod data + run production build
+npm run migrate           # Run DB migrations standalone (src/scripts/migrate.ts)
+npm run start:prod        # Run migrations, then start production server
 npm test                  # Run tests with vitest
 npm run test:coverage     # Run tests with coverage
 ```
@@ -165,7 +169,7 @@ Student companion avatar (`DexAvatar.tsx`) renders state-based visuals (idle, sp
 │   │   ├── queue/               # Bull worker (worker.ts, index.ts, consentErasure.ts)
 │   │   ├── db/                  # Schema, migrations (init.ts, schema.sql, migration_v2-v11.sql, seed.sql), analytics, index.ts
 │   │   ├── lib/                 # logger.ts (Pino)
-│   │   ├── scripts/             # seed-prod.ts, reset-database.ts, backfill-audio-base64.ts
+│   │   ├── scripts/             # migrate.ts, seed-prod.ts, reset-database.ts, backfill-audio-base64.ts
 │   │   └── __tests__/           # Backend test suite (vitest) — auth, alignment-reversals, assignments, classification-corrections, consent-security, consent-kbv-hardening, copilot-parent-language, copilot-scope, dex-transcribe-language, dex-grading, gamification-streak-freeze, parent-dashboard, queue-dead-letter, rate-limiting, reading-preferences, sessions-idor, tts, worker-stt-language
 │   ├── vitest.config.ts
 │   └── tsconfig.json
@@ -183,7 +187,13 @@ Student companion avatar (`DexAvatar.tsx`) renders state-based visuals (idle, sp
 ├── documents/                   # PRD, TRD, frontend spec, security analysis, feature tickets, master implementation plan, privacy policy, terms, project analysis
 ├── .github/workflows/           # CI pipeline (Node 20)
 ├── tools/                       # Standalone helper scripts (e.g., browser_assignment_flow.py — Playwright E2E for the teacher-assignment flow)
-├── docker-compose.yml           # Local dev infrastructure
+├── app.py                       # One-command dev launcher (backend + frontend, stdlib-only)
+├── AGENTS.md                    # Agent onboarding guide (read before coding; points to .cursor/skills)
+├── DEMO.md                      # Demo logins, invite code (`DEMO01`), and seeded-data walkthrough
+├── docker-compose.yml           # Local dev infrastructure (Postgres 5433 + Redis 6379)
+├── docker-compose.prod.yml      # Full production stack (Postgres + Redis + backend, 5432/6379)
+├── render.yaml                  # Render blueprint (deploys backend from render.com, health check on /health)
+├── skills-lock.json             # Lockfile for community skills (restored via `npm run skills:install`)
 ├── .agents/skills/              # Community skills (skills.sh / npm)
 └── .cursor/skills/              # Decodex-specific skills (authoritative)
 ```
@@ -203,6 +213,10 @@ Student companion avatar (`DexAvatar.tsx`) renders state-based visuals (idle, sp
 | `GMAIL_USER` / `GMAIL_APP_PASSWORD` | No | For consent email delivery |
 | `SENTRY_DSN` | No | Sentry error tracking DSN |
 | `ELEVENLABS_API_KEY` | No | ElevenLabs TTS (primary voice provider) |
+| `AUDIO_STORAGE_PROVIDER` | No | Audio object storage provider: `local` (disk, default) or `supabase` |
+| `AUDIO_STORAGE_PATH` | No | Local disk path for stored audio (default `./audio-storage`) |
+| `AUDIO_STORAGE_BUCKET` | No | Supabase Storage bucket name (when provider is `supabase`) |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | No | Supabase credentials (required for Supabase Storage) |
 
 *At least one of `OPENAI_API_KEY` or `GROQ_API_KEY` required; Groq is the default primary.
 
@@ -255,6 +269,7 @@ Student companion avatar (`DexAvatar.tsx`) renders state-based visuals (idle, sp
 - `src/services/riskScreening.ts` — Dyslexia risk screening
 - `src/services/tts.ts` — ElevenLabs + browser TTS fallback
 - `src/services/classroomAnalytics.ts` — Teacher dashboard analytics
+- `src/routes/analytics.ts` — Student error trend series (`GET /api/v1/analytics/student/trends`)
 - `src/services/assignments.ts` — Assignment scoring + reward awarding
 - `src/services/studentAccess.ts` — `canAccessStudent` IDOR guard (teacher school, parent link, admin bypass)
 - `src/services/email.ts` — Transactional email (parent invites, consent notifications)
@@ -287,24 +302,36 @@ Student companion avatar (`DexAvatar.tsx`) renders state-based visuals (idle, sp
 - `src/pages/LearningPathPage.tsx` — Adaptive learning path with interactive exercises
 - `src/pages/StoryReaderPage.tsx` — Narrated story reader with 3–4 word chunk evaluation
 - `src/pages/CopilotPanel.tsx` — Teacher intervention strategy view
-- `src/pages/TeacherDashboard.tsx` — Classroom analytics (heatmap, weaknesses, skill dist)
+- `src/pages/TeacherDashboard.tsx` — Classroom analytics (heatmap, weaknesses, skill dist); dual-theme dashboard with motion, skeleton loading, and gamified stat callouts
+- `src/pages/Dashboard.tsx` — Student-facing dashboard (role-adaptive), recent sessions, drills, assignments
 - `src/pages/ParentHome.tsx` — Parent portal with risk screening & consent management
+- `src/pages/PrivacyPolicy.tsx` / `src/pages/TermsOfService.tsx` — Legal pages, routed from the app shell/footer
 
 ---
 
 ## CI/CD
 
 GitHub Actions workflow at `.github/workflows/ci.yml` (Node 20) runs:
-1. Backend `npm ci` → build → `npm test`
+1. Backend `npm ci` → build → `npm test` (with a CI-safe `JWT_SECRET` + `NODE_ENV=test`)
 2. Frontend `npm ci` → lint (oxlint) → build → `npm test`
 
 ---
 
+## Deployment
+
+Two deploy paths are supported:
+
+- **Render** (`render.yaml`) — hosts the backend web service on Render's free tier. Build command is `npm install --include=dev && npm run build`, start command is `npm run start:prod` (runs DB migrations then boots), and bootstrap health check hits `/health`. Secrets (`DATABASE_URL`, `REDIS_URL`, `OPENAI_API_KEY`, `SENTRY_DSN`) are set via the Render dashboard; `JWT_SECRET` is auto-generated.
+- **Docker Compose production** (`docker-compose.prod.yml`) — full stack (Postgres 15 on 5432, Redis 7, backend on 3000 with a `Dockerfile`). Requires `OPENAI_API_KEY` provided externally; audio storage set to `local`.
+
+The backend exposes a **readiness `GET /health`** endpoint (in `server.ts`) that verifies Postgres connectivity plus a set of critical tables and returns HTTP 503 until ready — Render routes traffic only after it passes.
+
 ## Deployed URLs
 
 - **Frontend**: https://decodex-five.vercel.app/
-- **Backend Health**: https://decodex-backend.onrender.com/health
+- **Backend Health**: https://decodex-backend.onrender.com/health (readiness check — verifies DB + critical tables, returns 503 while unavailable)
 - **Test Accounts**: `student@decodex.com` / `teacher@decodex.com` / `parent@decodex.com` / `admin@decodex.com` — password `password123`
+- **Demo**: see `DEMO.md` — seeded demo student `demostudent@decodex.com`, consent invite code `DEMO01`, pre-loaded sessions/drills (no AI key or worker needed)
 
 ---
 
@@ -316,6 +343,8 @@ GitHub Actions workflow at `.github/workflows/ci.yml` (Node 20) runs:
 4. Database runs on port 5433 (not default 5432) to avoid conflicts
 5. For ElevenLabs TTS, add `ELEVENLABS_API_KEY` to backend `.env`
 6. For Sentry, add `SENTRY_DSN` to backend `.env`
+7. For audio object storage, add `AUDIO_STORAGE_PROVIDER` (and `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` if using `supabase`); disabled by default — audio stays ephemeral
+8. Quick one-command start: `python app.py` (launches both servers; verify with `curl http://localhost:3000/health`)
 
 ---
 
