@@ -16,6 +16,23 @@ export default function Dashboard() {
   const [consentStatus, setConsentStatus] = useState<{ invite_code: string | null; consent_granted: boolean; consent_date: string | null; pending_parent_name?: string | null; pending_parent_email?: string | null } | null>(null);
   const [approving, setApproving] = useState(false);
 
+  // Encouragement message rotation state (must be before early returns)
+  const encouragementMessages = [
+    "Every word you read makes you stronger! 💪",
+    "You're building a reading superpower! 🦸‍♀️",
+    "Small steps every day lead to big victories! 🌟",
+    "Your brain grows with every story! 🧠✨",
+    "Keep going — you're doing amazing! 🎉",
+  ];
+  const [encouragementIndex, setEncouragementIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setEncouragementIndex(prev => (prev + 1) % encouragementMessages.length);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [encouragementMessages.length]);
+
   const { data: trendsData, loading } = useApiQuery<any>('/analytics/student/trends');
   const { data: healthData } = useApiQuery<any>(user?.role === 'student' ? `/health-score/${user?.id}` : '/health-score/skip');
   const { data: gamData } = useApiQuery<any>(user?.role === 'student' ? `/gamification/${user?.id}/profile` : '/gamification/skip');
@@ -95,22 +112,6 @@ export default function Dashboard() {
       }
     }
   };
-
-  const encouragementMessages = [
-    "Every word you read makes you stronger! 💪",
-    "You're building a reading superpower! 🦸‍♀️",
-    "Small steps every day lead to big victories! 🌟",
-    "Your brain grows with every story! 🧠✨",
-    "Keep going — you're doing amazing! 🎉",
-  ];
-  const [encouragementIndex, setEncouragementIndex] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setEncouragementIndex(prev => (prev + 1) % encouragementMessages.length);
-    }, 8000);
-    return () => clearInterval(interval);
-  }, []);
 
   return (
     <motion.main 

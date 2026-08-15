@@ -42,7 +42,7 @@ const CATEGORY_STYLES: Record<string, string> = {
   UNC: 'cat-unc',
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
+const _CATEGORY_LABELS: Record<string, string> = {
   REV: 'Reversal (b/d)',
   SUB: 'Substitution',
   OMI: 'Omission',

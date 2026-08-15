@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { apiFetch, useApiQuery } from '../lib/api';
 import { useDex } from '../hooks/useDex';
 import DexAvatar from '../components/DexAvatar';
-import { Skeleton, SkeletonCard } from '../components/Skeleton';
+import { Skeleton } from '../components/Skeleton';
 
 interface ActiveActivity {
   pathId: string;

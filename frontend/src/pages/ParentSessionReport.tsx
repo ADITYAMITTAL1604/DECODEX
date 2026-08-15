@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useApiQuery, getApiBaseUrl } from '../lib/api';
-import DexAvatar from '../components/DexAvatar';
 
 const CATEGORY_STYLES: Record<string, { label: string; style: string }> = {
   REV: { label: 'Reversal (b/d)', style: 'cat-rev' },

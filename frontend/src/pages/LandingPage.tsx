@@ -28,7 +28,7 @@ export default function LandingPage() {
       setMsgIndex(prev => (prev + 1) % encouragementMessages.length);
     }, 6000);
     return () => clearInterval(interval);
-  }, []);
+  }, [encouragementMessages.length]);
 
   return (
     <div className="w-full text-on-surface">

@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { apiFetch } from '../lib/api';
 import { Skeleton } from '../components/Skeleton';
 import { HealthScoreGauge } from '../components/HealthScoreGauge';
-import DexAvatar from '../components/DexAvatar';
 
 interface LinkedChild {
   id: string;

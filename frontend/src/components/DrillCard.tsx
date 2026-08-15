@@ -1,7 +1,6 @@
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Target, ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
-import DexAvatar from './DexAvatar';
 
 interface Drill {
   id: string;

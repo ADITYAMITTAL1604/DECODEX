@@ -37,7 +37,7 @@ export default function SessionActive() {
       }, 4000);
       return () => clearInterval(interval);
     }
-  }, [status.step]);
+  }, [status.step, encouragements.length]);
 
   useEffect(() => {
     if (existingSessionId) {
