@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
-import decodexLogo from '../assets/decodex-logo.png';
+import decodexLogo from '../assets/decodex-logo.jpg';
 import DexAvatar from '../components/DexAvatar';
 
 type AccountType = 'student' | 'parent';

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../lib/api';
-import decodexLogo from '../assets/decodex-logo.png';
+import decodexLogo from '../assets/decodex-logo.jpg';
 import DexAvatar from '../components/DexAvatar';
 
 export default function Login() {

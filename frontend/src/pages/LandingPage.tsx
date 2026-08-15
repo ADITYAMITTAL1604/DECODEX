@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import decodexLogo from '../assets/decodex-logo.png';
+import decodexLogo from '../assets/decodex-logo.jpg';
 import DexAvatar from '../components/DexAvatar';
 import { TUTOR_NAME } from '../lib/constants';
 

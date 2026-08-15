@@ -119,9 +119,17 @@ export default function DexAvatar({
           <img
             src={dexCharacterImg}
             alt={TUTOR_NAME}
+            width={480}
+            height={311}
+            loading="eager"
+            fetchPriority="high"
             className={`w-full h-full object-contain filter drop-shadow-md transition-transform duration-300 ${
               state === 'celebrating' ? 'scale-105' : ''
             }`}
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              e.currentTarget.parentElement!.insertAdjacentHTML('beforeend', '<span class="text-6xl" aria-hidden="true">🤖</span>');
+            }}
           />
         </div>
 
