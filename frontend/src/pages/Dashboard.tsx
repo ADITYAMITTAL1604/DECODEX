@@ -3,51 +3,12 @@ import { useAuth } from '../context/AuthContext';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { apiFetch, useApiQuery } from '../lib/api';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area } from 'recharts';
 import { Skeleton } from '../components/Skeleton';
 import DexAvatar from '../components/DexAvatar';
 import { TUTOR_NAME } from '../lib/constants';
+import { HealthScoreGauge } from '../components/HealthScoreGauge';
 
-// ---------------------------------------------------------------------------
-// Health Score Gauge Component — animated SVG radial gauge
-// ---------------------------------------------------------------------------
-function HealthScoreGauge({ score, riskLevel }: { score: number; riskLevel: string }) {
-  const radius = 64;
-  const circumference = 2 * Math.PI * radius;
-  const progress = (score / 100) * circumference;
-  const dashOffset = circumference - progress;
-
-  const colorMap: Record<string, string> = {
-    excellent: '#10b981',
-    good: '#22c55e',
-    medium: '#f59e0b',
-    high: '#f97316',
-    critical: '#ef4444',
-  };
-  const color = colorMap[riskLevel] || '#006474';
-
-  return (
-    <div className="relative w-40 h-40 mx-auto">
-      <svg className="w-full h-full -rotate-90" viewBox="0 0 144 144">
-        <circle cx="72" cy="72" r={radius} fill="none" stroke="currentColor" strokeWidth="10" className="text-surface-container-high opacity-30" />
-        <circle
-          cx="72" cy="72" r={radius} fill="none"
-          stroke={color} strokeWidth="10" strokeLinecap="round"
-          strokeDasharray={circumference} strokeDashoffset={dashOffset}
-          style={{ transition: 'stroke-dashoffset 1.5s ease-out' }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-display text-4xl font-extrabold" style={{ color }}>{score}</span>
-        <span className="font-display text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{riskLevel}</span>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Main Dashboard
-// ---------------------------------------------------------------------------
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -82,7 +43,6 @@ export default function Dashboard() {
     }
   }, [user?.role, fetchConsentStatus]);
 
-  // Role-based dashboard redirects (placed after all hooks)
   if (user?.role === 'parent') {
     return <Navigate to="/parent/home" replace />;
   }
@@ -136,6 +96,22 @@ export default function Dashboard() {
     }
   };
 
+  const encouragementMessages = [
+    "Every word you read makes you stronger! 💪",
+    "You're building a reading superpower! 🦸‍♀️",
+    "Small steps every day lead to big victories! 🌟",
+    "Your brain grows with every story! 🧠✨",
+    "Keep going — you're doing amazing! 🎉",
+  ];
+  const [encouragementIndex, setEncouragementIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setEncouragementIndex(prev => (prev + 1) % encouragementMessages.length);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <motion.main 
       initial="hidden" 
@@ -144,15 +120,17 @@ export default function Dashboard() {
       className="flex-grow w-full max-w-[1000px] mx-auto px-container-padding py-8 sm:py-12 relative z-10"
     >
       <motion.section variants={bouncyItemVariants} className="mb-8 sm:mb-12 flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-extrabold text-primary mb-2">
-            <span className="[data-theme=student]_&:hidden">{/* teacher/default */}</span>
-            Welcome back, {user?.display_name}! 🌟
-          </h1>
-          <p className="font-body text-base sm:text-xl text-on-surface-variant">Ready to grow your reading skills today?</p>
+        <div className="flex items-center gap-4">
+          <DexAvatar state="idle" size="sm" showCaptionBubble={false} />
+          <div>
+            <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-extrabold text-primary mb-2">
+              Welcome back, {user?.display_name}! 🌟
+            </h1>
+            <p className="font-body text-base sm:text-xl text-on-surface-variant student-text">Ready to grow your reading skills today?</p>
+          </div>
         </div>
         {gamProfile && (
-          <div className="inline-flex items-center gap-3 glass-badge px-4 py-2 rounded-full border border-primary/20 w-max">
+          <div className="inline-flex items-center gap-3 glass-card px-4 py-2 rounded-full border border-primary/20 w-max">
             <span className="material-symbols-outlined text-primary text-sm">star</span>
             <span className="font-display text-xs font-bold tracking-[0.06em] text-on-surface">Level {gamProfile.level}</span>
             <span className="text-on-surface-variant">•</span>
@@ -167,10 +145,11 @@ export default function Dashboard() {
         )}
       </motion.section>
 
-      {/* Dex Companion Banner on Student Dashboard */}
+      {/* Dex Companion Banner — persistent warm anchor */}
       {user?.role === 'student' && (
-        <motion.section variants={bouncyItemVariants} className="mb-8 p-6 rounded-3xl bg-gradient-to-br from-white/95 via-blue-50/60 to-indigo-50/60 border-2 border-blue-200/50 shadow-[0_8px_32px_rgba(37,99,235,0.12)] flex flex-col lg:flex-row items-center justify-between gap-6 overflow-hidden">
-          <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left flex-wrap md:flex-nowrap">
+        <motion.section variants={bouncyItemVariants} className="mb-8 p-6 rounded-3xl bg-gradient-to-br from-white/95 via-blue-50/60 to-indigo-50/60 border-2 border-blue-200/50 shadow-[0_8px_32px_rgba(37,99,235,0.12)] flex flex-col lg:flex-row items-center justify-between gap-6 overflow-hidden relative">
+          <div className="absolute -top-4 -right-4 w-24 h-24 bg-primary/5 rounded-full blur-2xl" />
+          <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left flex-wrap md:flex-nowrap relative z-10">
             <DexAvatar
               state="idle"
               size="md"
@@ -184,13 +163,13 @@ export default function Dashboard() {
               <h2 className="font-display text-xl sm:text-2xl font-bold text-on-surface">
                 Hi {user.display_name.split(' ')[0]}! I'm {TUTOR_NAME}!
               </h2>
-              <p className="font-body text-sm text-on-surface-variant mt-1 max-w-md">
-                Let's practice reading together today! Remember: <strong>you must practice reading daily</strong> — even if not a whole story, reading even a small part of a story every day will help you continuously improve yourself!
+              <p className="font-body text-sm text-on-surface-variant mt-1 max-w-md student-text">
+                {encouragementMessages[encouragementIndex]}
               </p>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto shrink-0">
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto shrink-0 relative z-10">
             <Link
               to="/stories"
               className="w-full sm:w-auto h-12 px-8 rounded-full btn-clay flex items-center justify-center gap-2 text-sm uppercase tracking-wider"
@@ -202,7 +181,7 @@ export default function Dashboard() {
         </motion.section>
       )}
 
-      {/* Consent banner (unchanged behavior) */}
+      {/* Consent banner */}
       {user?.role === 'student' && consentStatus && !consentStatus.consent_granted && consentStatus.pending_parent_name ? (
         <motion.section variants={bouncyItemVariants} className="mb-8 rounded-3xl bg-amber-500/10 border-2 border-amber-500/30 p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm animate-in fade-in">
           <div>
@@ -226,45 +205,51 @@ export default function Dashboard() {
       {(user?.role === 'student' || user?.role === 'admin') && healthScore && (
         <motion.section variants={bouncyItemVariants} className="mb-10 grid gap-card-gap grid-cols-1 md:grid-cols-3">
           {/* Health Score Card */}
-          <div className="glass-card rounded-3xl p-6 border border-white/80 flex flex-col items-center text-center shadow-sm">
-            <p className="font-display text-xs font-bold uppercase tracking-[0.08em] text-on-surface-variant mb-3">Reading Health Score</p>
-            <HealthScoreGauge score={healthScore.score} riskLevel={healthScore.riskLevel} />
-            <p className="font-body text-sm text-on-surface-variant mt-3">
-              {healthScore.score >= 75 ? 'Great progress! Keep it up.' : healthScore.score >= 50 ? 'You\'re improving! Practice daily.' : 'Let\'s work on building your skills.'}
-            </p>
+          <div className="stat-card stat-card-hover flex flex-col items-center text-center relative overflow-hidden" style={{ borderLeftColor: 'var(--color-primary)' }}>
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent" />
+            <p className="stat-label relative z-10" style={{ color: 'var(--color-primary)' }}>Reading Health Score</p>
+            <div className="relative z-10 mb-3">
+              <HealthScoreGauge score={healthScore.score} riskLevel={healthScore.riskLevel} />
+            </div>
+            <div className="relative z-10">
+              <p className="stat-sublabel text-on-surface-variant mt-3 student-text">
+                {healthScore.score >= 75 ? 'Great progress! Keep it up.' : healthScore.score >= 50 ? 'You\'re improving! Practice daily.' : 'Let\'s work on building your skills.'}
+              </p>
+            </div>
           </div>
 
           {/* XP & Level Card */}
           {gamProfile && (
-            <div className="glass-card rounded-3xl p-6 border border-white/80 flex flex-col shadow-sm">
-              <p className="font-display text-xs font-bold uppercase tracking-[0.08em] text-on-surface-variant mb-3">Your Progress</p>
-              <div className="flex items-center gap-3 mb-4">
+            <div className="stat-card stat-card-hover flex flex-col relative overflow-hidden" style={{ borderLeftColor: 'var(--color-secondary)' }}>
+              <div className="absolute inset-0 bg-gradient-to-br from-secondary/5 to-transparent" />
+              <p className="stat-label relative z-10" style={{ color: 'var(--color-secondary)' }}>Your Progress</p>
+              <div className="flex items-center gap-3 mb-4 relative z-10">
                 <div className="w-12 h-12 rounded-2xl bg-primary-container/20 flex items-center justify-center shadow-inner">
                   <span className="material-symbols-outlined text-2xl text-primary" style={{fontVariationSettings: "'FILL' 1"}}>military_tech</span>
                 </div>
                 <div>
-                  <p className="font-display text-2xl font-extrabold text-primary">Level {gamProfile.level}</p>
-                  <p className="font-body text-xs text-on-surface-variant">{gamProfile.xpToNextLevel} XP to next level</p>
+                  <p className="stat-value text-primary">Level {gamProfile.level}</p>
+                  <p className="stat-sublabel text-on-surface-variant">{gamProfile.xpToNextLevel} XP to next level</p>
                 </div>
               </div>
               {/* XP Progress Bar */}
-              <div className="w-full bg-surface-container-high h-3 rounded-full overflow-hidden mb-4">
+              <div className="w-full bg-surface-container-high h-3 rounded-full overflow-hidden mb-4 relative z-10">
                 <div
-                  className="bg-primary h-full rounded-full transition-all duration-700"
+                  className="progress-bar-fill bg-gradient-to-r from-primary to-primary/60"
                   style={{ width: `${gamProfile.levelProgress}%` }}
                 />
               </div>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div>
+              <div className="grid grid-cols-3 gap-2 text-center relative z-10">
+                <div className="p-2 rounded-xl bg-primary-container/10">
                   <p className="font-display text-lg font-bold text-on-surface">{gamProfile.totalSessions}</p>
                   <p className="font-body text-[10px] text-on-surface-variant uppercase tracking-wider">Sessions</p>
                 </div>
-                <div>
+                <div className="p-2 rounded-xl bg-secondary-container/10">
                   <p className="font-display text-lg font-bold text-on-surface">{gamProfile.totalDrillsCompleted}</p>
                   <p className="font-body text-[10px] text-on-surface-variant uppercase tracking-wider">Drills</p>
                 </div>
-                <div>
-                  <p className="font-display text-lg font-bold text-amber-600">{gamProfile.currentStreak}</p>
+                <div className="p-2 rounded-xl bg-amber-100">
+                  <p className="font-display text-lg font-bold text-amber-700">{gamProfile.currentStreak}</p>
                   <p className="font-body text-[10px] text-on-surface-variant uppercase tracking-wider">Day Streak</p>
                 </div>
               </div>
@@ -272,25 +257,26 @@ export default function Dashboard() {
           )}
 
           {/* Achievements Showcase */}
-          <div className="glass-card rounded-3xl p-6 border border-white/80 flex flex-col shadow-sm">
-            <p className="font-display text-xs font-bold uppercase tracking-[0.08em] text-on-surface-variant mb-3">Achievements</p>
+          <div className="stat-card stat-card-hover flex flex-col relative overflow-hidden" style={{ borderLeftColor: 'var(--risk-excellent-border)' }}>
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald/5 to-transparent" />
+            <p className="stat-label relative z-10" style={{ color: 'var(--risk-excellent-border)' }}>Achievements</p>
             {earnedAchievements.length > 0 ? (
-              <div className="grid grid-cols-3 gap-2 flex-grow">
+              <div className="grid grid-cols-3 gap-2 flex-grow relative z-10">
                 {earnedAchievements.slice(0, 6).map((ach: any) => (
-                  <div key={ach.id} className="flex flex-col items-center text-center p-2 rounded-xl bg-primary-container/10 hover:bg-primary-container/20 transition-colors">
+                  <div key={ach.id} className="flex flex-col items-center text-center p-2 rounded-xl bg-primary-container/10 hover:bg-primary-container/20 hover:scale-105 transition-all duration-200 cursor-pointer">
                     <span className="material-symbols-outlined text-2xl text-primary mb-1" style={{fontVariationSettings: "'FILL' 1"}}>{ach.icon}</span>
                     <span className="font-display text-[9px] font-bold text-on-surface leading-tight">{ach.name}</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="flex-grow flex flex-col items-center justify-center text-center">
-                <span className="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2">emoji_events</span>
-                <p className="font-body text-sm text-on-surface-variant">Complete sessions to earn badges!</p>
+              <div className="flex-grow flex flex-col items-center justify-center text-center relative z-10">
+                <DexAvatar state="celebrating" size="sm" showCaptionBubble={false} />
+                <p className="font-body text-sm text-on-surface-variant mt-2 student-text">Complete sessions to earn badges!</p>
               </div>
             )}
             {achievements.length > 0 && (
-              <p className="font-body text-xs text-on-surface-variant mt-3 text-center">{earnedAchievements.length} / {achievements.length} earned</p>
+              <p className="font-body text-xs text-on-surface-variant mt-3 text-center relative z-10">{earnedAchievements.length} / {achievements.length} earned</p>
             )}
           </div>
         </motion.section>
@@ -299,7 +285,7 @@ export default function Dashboard() {
       {/* Learning Path Preview */}
       {(user?.role === 'student' || user?.role === 'admin') && learningPath && (
         <motion.section variants={bouncyItemVariants} className="mb-10">
-          <div className="glass-card rounded-3xl p-6 border border-white/80 shadow-sm">
+          <div className="stat-card stat-card-hover">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary-container/20 flex items-center justify-center shadow-inner">
@@ -312,11 +298,18 @@ export default function Dashboard() {
               </div>
               <Link to="/learning-path" className="text-primary font-display text-xs font-bold uppercase tracking-wider hover:underline">View Plan →</Link>
             </div>
-            {/* Mini progress bar */}
-            <div className="flex gap-1.5">
+            {/* Mini progress bar — connected pills with clearer state colors */}
+            <div className="flex gap-1.5 relative">
               {learningPath.weeks?.map((week: any, i: number) => (
-                <div key={i} className={`h-2 flex-1 rounded-full transition-colors ${week.completed ? 'bg-primary' : i + 1 === learningPath.currentWeek ? 'bg-primary/40 animate-pulse' : 'bg-surface-container-high'}`} />
+                <div
+                  key={i}
+                  className={`flex-1 h-2.5 rounded-full transition-all duration-300 relative ${
+                    week.completed ? 'bg-emerald-500' : i + 1 === learningPath.currentWeek ? 'bg-primary animate-pulse' : 'bg-surface-container-high'
+                  }`}
+                />
               ))}
+              {/* Connector line between pills */}
+              <div className="absolute top-1/2 -translate-y-1/2 w-full h-0.5 bg-surface-container-high pointer-events-none" style={{ zIndex: -1 }} />
             </div>
           </div>
         </motion.section>
@@ -325,14 +318,14 @@ export default function Dashboard() {
       {/* Consent + Invite Section */}
       {user?.role === 'student' && consentStatus ? (
         <motion.section variants={bouncyItemVariants} className="mb-10 grid gap-4 md:grid-cols-[1.1fr_1fr]">
-          <div className="rounded-3xl glass-card p-6 border border-white/80">
-            <p className="font-display text-xs font-bold uppercase tracking-[0.08em] text-on-surface-variant">Share with a parent</p>
-            <p className="mt-2 font-body text-on-surface-variant">Ask a parent to enter this invite code in their Decodex account.</p>
+          <div className="stat-card stat-card-hover">
+            <p className="stat-label" style={{ color: 'var(--color-secondary)' }}>Share with a parent</p>
+            <p className="font-body text-on-surface-variant mt-2 student-text">Ask a parent to enter this invite code in their Decodex account.</p>
             <p className="mt-4 inline-block rounded-2xl bg-white/90 shadow-sm border border-primary/20 px-4 py-3 font-display text-xl font-bold tracking-[0.12em] text-primary">{consentStatus.invite_code || 'Invite code unavailable'}</p>
           </div>
-          <div className={`rounded-3xl p-6 backdrop-blur-md shadow-sm border ${consentStatus.consent_granted ? 'bg-primary-fixed/80 text-on-primary-fixed border-primary/20' : 'bg-secondary-fixed/80 text-on-secondary-fixed border-secondary/20'}`}>
-            <p className="font-display text-xs font-bold uppercase tracking-[0.08em]">Recording consent</p>
-            <p className="mt-2 font-body text-lg">{consentStatus.consent_granted ? 'Parent consent is confirmed. Recording is ready when you are.' : 'Recording is locked until a parent confirms consent.'}</p>
+          <div className={`stat-card stat-card-hover ${consentStatus.consent_granted ? 'border-l-emerald-500' : 'border-l-amber-500'}`}>
+            <p className="stat-label" style={{ color: consentStatus.consent_granted ? 'var(--risk-excellent-border)' : 'var(--risk-medium-border)' }}>Recording consent</p>
+            <p className="font-body text-lg mt-2 student-text">{consentStatus.consent_granted ? 'Parent consent is confirmed. Recording is ready when you are.' : 'Recording is locked until a parent confirms consent.'}</p>
           </div>
         </motion.section>
       ) : null}
@@ -342,34 +335,39 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="font-display text-2xl font-bold text-on-surface">Assigned Practice</h2>
-              <p className="font-body text-sm text-on-surface-variant mt-1">Reading work your teacher has shared with you.</p>
+              <p className="font-body text-sm text-on-surface-variant mt-1 student-text">Reading work your teacher has shared with you.</p>
             </div>
             <span className="material-symbols-outlined text-3xl text-primary" aria-hidden="true">assignment</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {assignedPractice.map((assignment: any) => {
               const completed = assignment.status === 'completed' || assignment.status === 'late';
+              const statusConfig = completed 
+                ? { badge: 'risk-excellent', border: 'var(--risk-excellent-border)' }
+                : assignment.status === 'in_progress'
+                ? { badge: 'bg-primary/10 text-primary border-primary/30', border: 'var(--color-primary)' }
+                : { badge: 'risk-medium', border: 'var(--risk-medium-border)' };
               return (
-                <article key={assignment.id} className="glass-card rounded-3xl border border-white/80 p-5 shadow-sm flex flex-col gap-4">
+                <article key={assignment.id} className={`glass-card stat-card-hover border-l-4 p-5 shadow-sm flex flex-col gap-4`} style={{ borderLeftColor: statusConfig.border }}>
                   <div>
                     <div className="flex items-start justify-between gap-3">
                       <h3 className="font-display text-lg font-bold text-on-surface">{assignment.title}</h3>
-                      <span className={`font-display text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full ${completed ? 'bg-primary-container/25 text-primary' : 'bg-secondary-container/25 text-secondary'}`}>{completed ? 'Complete' : assignment.status.replace('_', ' ')}</span>
+                      <span className={`font-display text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full ${typeof statusConfig.badge === 'string' && statusConfig.badge.startsWith('risk-') ? `badge-risk ${statusConfig.badge}` : statusConfig.badge}`}>{completed ? 'Complete' : assignment.status.replace('_', ' ')}</span>
                     </div>
-                    <p className="font-body text-sm text-on-surface-variant mt-2">{assignment.passage_title}</p>
-                    {assignment.instructions && <p className="font-body text-sm text-on-surface-variant mt-2">{assignment.instructions}</p>}
+                    <p className="font-body text-sm text-on-surface-variant mt-2 student-text">{assignment.passage_title}</p>
+                    {assignment.instructions && <p className="font-body text-sm text-on-surface-variant mt-2 student-text">{assignment.instructions}</p>}
                   </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-body text-on-surface-variant">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-body text-on-surface-variant student-text">
                     <span>{assignment.due_date ? `Due ${new Date(assignment.due_date).toLocaleDateString()}` : 'No due date'}</span>
                     {completed && assignment.score != null && <span>Score {assignment.score}/100</span>}
                     {completed && assignment.reward_xp > 0 && <span>+{assignment.reward_xp} XP</span>}
                   </div>
                   {completed ? (
-                    <Link to={`/sessions/${assignment.session_id}/results`} className="inline-flex items-center justify-center gap-2 border border-primary text-primary px-4 py-2.5 rounded-xl font-display text-sm font-bold">
+                    <Link to={`/sessions/${assignment.session_id}/results`} className="inline-flex items-center justify-center gap-2 border border-primary text-primary px-4 py-2.5 rounded-xl font-display text-sm font-bold hover:bg-primary/5 transition-colors">
                       View results <span className="material-symbols-outlined text-lg">arrow_forward</span>
                     </Link>
                   ) : (
-                    <button onClick={() => handleStartAssignment(assignment)} className="inline-flex items-center justify-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-xl font-display text-sm font-bold">
+                    <button onClick={() => handleStartAssignment(assignment)} className="inline-flex items-center justify-center gap-2 btn-clay px-4 py-2.5 rounded-xl font-display text-sm font-bold">
                       {assignment.status === 'in_progress' ? 'Continue assignment' : 'Start assignment'} <span className="material-symbols-outlined text-lg">play_arrow</span>
                     </button>
                   )}
@@ -380,37 +378,55 @@ export default function Dashboard() {
         </motion.section>
       )}
 
-      {/* Action Cards */}
-      <motion.section variants={containerVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-card-gap mb-12 sm:mb-16">
-        <motion.div variants={bouncyItemVariants}>
-          <Link to="/passages" className="h-full glass-card glass-card-hover rounded-3xl p-6 flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-primary/20 border-0">
-            <div className="h-16 w-16 bg-gradient-to-br from-blue-400/20 to-blue-600/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
-              <span className="material-symbols-outlined text-3xl text-primary" style={{fontVariationSettings: "'FILL' 1"}}>book</span>
-            </div>
-            <h2 className="font-display text-xl font-bold text-on-surface mb-1 group-hover:text-primary transition-colors">Start Reading</h2>
-            <p className="font-body text-sm text-on-surface-variant">Choose a passage and read aloud.</p>
-          </Link>
-        </motion.div>
+      {/* Action Cards — with Dex companion as persistent sidebar on desktop */}
+      <motion.section variants={containerVariants} className="relative mb-12 sm:mb-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-card-gap">
+          <motion.div variants={bouncyItemVariants}>
+            <Link to="/passages" className="h-full stat-card stat-card-hover flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-primary/20" style={{ borderLeftColor: 'var(--color-primary)' }}>
+              <div className="stat-icon bg-primary/10 text-primary">
+                <span className="material-symbols-outlined text-3xl" style={{fontVariationSettings: "'FILL' 1"}}>book</span>
+              </div>
+              <h2 className="font-display text-xl font-bold text-on-surface mb-1 group-hover:text-primary transition-colors">Start Reading</h2>
+              <p className="font-body text-sm text-on-surface-variant student-text">Choose a passage and read aloud.</p>
+            </Link>
+          </motion.div>
 
-        <motion.div variants={bouncyItemVariants}>
-          <Link to="/stories" className="h-full glass-card glass-card-hover rounded-3xl p-6 flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-secondary/20 border-0">
-            <div className="h-16 w-16 bg-gradient-to-br from-amber-400/20 to-orange-500/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
-              <span className="material-symbols-outlined text-3xl text-secondary" style={{fontVariationSettings: "'FILL' 1"}}>auto_stories</span>
-            </div>
-            <h2 className="font-display text-xl font-bold text-on-surface mb-1 group-hover:text-secondary transition-colors">AI Stories</h2>
-            <p className="font-body text-sm text-on-surface-variant">Practice with stories made for you.</p>
-          </Link>
-        </motion.div>
+          <motion.div variants={bouncyItemVariants}>
+            <Link to="/stories" className="h-full stat-card stat-card-hover flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-secondary/20" style={{ borderLeftColor: 'var(--color-secondary)' }}>
+              <div className="stat-icon bg-secondary/10 text-secondary">
+                <span className="material-symbols-outlined text-3xl" style={{fontVariationSettings: "'FILL' 1"}}>auto_stories</span>
+              </div>
+              <h2 className="font-display text-xl font-bold text-on-surface mb-1 group-hover:text-secondary transition-colors">AI Stories</h2>
+              <p className="font-body text-sm text-on-surface-variant student-text">Practice with stories made for you.</p>
+            </Link>
+          </motion.div>
 
-        <motion.div variants={bouncyItemVariants}>
-          <Link to="/learning-path" className="h-full glass-card glass-card-hover rounded-3xl p-6 flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-primary/20 border-0">
-            <div className="h-16 w-16 bg-gradient-to-br from-pink-400/20 to-rose-500/20 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-inner">
-              <span className="material-symbols-outlined text-3xl text-primary" style={{fontVariationSettings: "'FILL' 1"}}>route</span>
+          <motion.div variants={bouncyItemVariants}>
+            <Link to="/learning-path" className="h-full stat-card stat-card-hover flex flex-col items-center text-center group focus:outline-none focus:ring-4 focus:ring-primary/20" style={{ borderLeftColor: 'var(--color-accent)' }}>
+              <div className="stat-icon bg-accent/10 text-accent">
+                <span className="material-symbols-outlined text-3xl" style={{fontVariationSettings: "'FILL' 1"}}>route</span>
+              </div>
+              <h2 className="font-display text-xl font-bold text-on-surface mb-1 group-hover:text-primary transition-colors">Learning Path</h2>
+              <p className="font-body text-sm text-on-surface-variant student-text">Follow your personalized plan.</p>
+            </Link>
+          </motion.div>
+
+          {/* Dex Companion — persistent sidebar on desktop, card on mobile */}
+          <motion.div variants={bouncyItemVariants} className="hidden lg:flex flex-col items-center justify-center gap-4 p-4 bg-gradient-to-br from-primary/5 to-secondary/5 rounded-3xl border border-primary/10 stat-card-hover">
+            <DexAvatar state="idle" size="md" showCaptionBubble={true} caption={encouragementMessages[encouragementIndex]} />
+            <p className="font-display text-xs font-bold uppercase tracking-wider text-on-surface-variant text-center">Your Reading Buddy</p>
+          </motion.div>
+        </div>
+        
+        {/* Mobile Dex Companion */}
+        <div className="lg:hidden mt-4">
+          <motion.div variants={bouncyItemVariants} className="stat-card stat-card-hover p-4 bg-gradient-to-br from-primary/5 to-secondary/5 rounded-3xl border border-primary/10">
+            <div className="flex items-center justify-center gap-4">
+              <DexAvatar state="idle" size="sm" showCaptionBubble={true} caption={encouragementMessages[encouragementIndex]} />
+              <p className="font-display text-xs font-bold uppercase tracking-wider text-on-surface-variant text-center">Your Reading Buddy</p>
             </div>
-            <h2 className="font-display text-xl font-bold text-on-surface mb-1 group-hover:text-primary transition-colors">Learning Path</h2>
-            <p className="font-body text-sm text-on-surface-variant">Follow your personalized plan.</p>
-          </Link>
-        </motion.div>
+          </motion.div>
+        </div>
       </motion.section>
 
       {/* Progress Charts */}
@@ -420,16 +436,16 @@ export default function Dashboard() {
           
           {loading ? (
              <div className="grid grid-cols-1 md:grid-cols-2 gap-card-gap">
-               <div className="glass-card rounded-3xl p-6 flex flex-col h-80">
-                 <Skeleton className="h-full w-full" />
-               </div>
-               <div className="glass-card rounded-3xl p-6 flex flex-col h-80">
-                 <Skeleton className="h-full w-full" />
-               </div>
-             </div>
+              <div className="stat-card stat-card-hover flex flex-col h-80">
+                <Skeleton className="h-full w-full" />
+              </div>
+              <div className="stat-card stat-card-hover flex flex-col h-80">
+                <Skeleton className="h-full w-full" />
+              </div>
+            </div>
           ) : trendsData?.trends && trendsData.trends.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-card-gap">
-              <div className="glass-card rounded-3xl p-6 flex flex-col">
+              <div className="stat-card stat-card-hover flex flex-col">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="font-display text-xs font-bold uppercase tracking-[0.08em] text-on-surface-variant">Reading Speed (WPM)</h3>
                   <span className="material-symbols-outlined text-primary">trending_up</span>
@@ -437,41 +453,53 @@ export default function Dashboard() {
                 <div className="flex-grow h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={trendsData.trends.map((t: any, i: number) => ({ name: `S${i+1}`, wpm: t.words_per_minute != null ? Math.round(t.words_per_minute) : 0 }))}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e1d8d4" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6f797c', fontFamily: 'Nunito Sans'}} />
-                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#6f797c', fontFamily: 'Nunito Sans'}} />
-                      <Tooltip contentStyle={{ borderRadius: '16px', background: 'rgba(255, 255, 255, 0.95)', border: '1px solid rgba(255, 255, 255, 0.8)', boxShadow: '0 8px 24px rgba(45, 41, 38, 0.1)', fontFamily: 'Nunito Sans' }} />
-                      <Line type="monotone" dataKey="wpm" stroke="#006474" strokeWidth={3} dot={{ r: 4, fill: '#006474' }} activeDot={{ r: 6, fill: '#006474' }} />
+                      <defs>
+                        <linearGradient id="wpmGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.3} />
+                          <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e1d8d4" strokeOpacity={0.3} />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6f797c', fontFamily: 'var(--font-display)'}} />
+                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#6f797c', fontFamily: 'var(--font-display)'}} />
+                      <Tooltip contentStyle={{ borderRadius: '16px', background: 'rgba(255, 255, 255, 0.95)', border: '1px solid rgba(255, 255, 255, 0.8)', boxShadow: '0 8px 24px rgba(45, 41, 38, 0.1)', fontFamily: 'var(--font-body)' }} />
+                      <Area type="monotone" dataKey="wpm" stroke="var(--color-primary)" strokeWidth={3} fillOpacity={1} fill="url(#wpmGradient)" />
+                      <Line type="monotone" dataKey="wpm" stroke="var(--color-primary)" strokeWidth={3} dot={{ r: 4, fill: 'var(--color-primary)' }} activeDot={{ r: 6, fill: 'var(--color-primary)' }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
-              <div className="glass-card rounded-3xl p-6 flex flex-col">
+              <div className="stat-card stat-card-hover flex flex-col">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="font-display text-xs font-bold uppercase tracking-[0.08em] text-on-surface-variant">Error Rate (%)</h3>
-                  <span className="material-symbols-outlined text-tertiary">trending_down</span>
+                  <span className="material-symbols-outlined" style={{ color: 'var(--color-tertiary)' }}>trending_down</span>
                 </div>
                 <div className="flex-grow h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={trendsData.trends.map((t: any, i: number) => ({ name: `S${i+1}`, errorRate: Math.round(t.error_rate * 100) }))}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e1d8d4" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6f797c', fontFamily: 'Nunito Sans'}} />
-                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#6f797c', fontFamily: 'Nunito Sans'}} />
-                      <Tooltip contentStyle={{ borderRadius: '16px', background: 'rgba(255, 255, 255, 0.95)', border: '1px solid rgba(255, 255, 255, 0.8)', boxShadow: '0 8px 24px rgba(45, 41, 38, 0.1)', fontFamily: 'Nunito Sans' }} />
-                      <Line type="monotone" dataKey="errorRate" stroke="#7f5018" strokeWidth={3} dot={{ r: 4, fill: '#7f5018' }} activeDot={{ r: 6, fill: '#7f5018' }} />
+                      <defs>
+                        <linearGradient id="errorGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--color-tertiary)" stopOpacity={0.3} />
+                          <stop offset="100%" stopColor="var(--color-tertiary)" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e1d8d4" strokeOpacity={0.3} />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6f797c', fontFamily: 'var(--font-display)'}} />
+                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#6f797c', fontFamily: 'var(--font-display)'}} />
+                      <Tooltip contentStyle={{ borderRadius: '16px', background: 'rgba(255, 255, 255, 0.95)', border: '1px solid rgba(255, 255, 255, 0.8)', boxShadow: '0 8px 24px rgba(45, 41, 38, 0.1)', fontFamily: 'var(--font-body)' }} />
+                      <Area type="monotone" dataKey="errorRate" stroke="var(--color-tertiary)" strokeWidth={3} fillOpacity={1} fill="url(#errorGradient)" />
+                      <Line type="monotone" dataKey="errorRate" stroke="var(--color-tertiary)" strokeWidth={3} dot={{ r: 4, fill: 'var(--color-tertiary)' }} activeDot={{ r: 6, fill: 'var(--color-tertiary)' }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="mt-8 glass-card rounded-3xl p-8 border border-white/80 text-center flex flex-col items-center justify-center">
-              <div className="w-20 h-20 mb-4 rounded-2xl bg-primary-container/20 text-primary flex items-center justify-center shadow-inner">
-                <span className="material-symbols-outlined text-5xl" style={{fontVariationSettings: "'FILL' 1"}}>menu_book</span>
-              </div>
+            <div className="stat-card stat-card-hover text-center flex flex-col items-center justify-center">
+              <DexAvatar state="concerned" size="lg" showCaptionBubble={false} />
               <h3 className="font-display text-2xl font-bold text-on-surface mb-2">No sessions yet</h3>
-              <p className="font-body text-lg text-on-surface-variant">Click "Start Reading" above to begin your journey!</p>
+              <p className="font-body text-lg text-on-surface-variant student-text">Click "Start Reading" above to begin your journey!</p>
             </div>
           )}
         </motion.section>

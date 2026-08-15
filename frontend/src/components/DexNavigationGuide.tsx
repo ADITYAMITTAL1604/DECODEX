@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useDex } from '../hooks/useDex';
 import { TUTOR_NAME } from '../lib/constants';
+import DexAvatar from './DexAvatar';
 
 const STORAGE_KEY = 'dex_navigation_guide_visited';
 
@@ -110,11 +111,11 @@ export default function DexNavigationGuide() {
   return (
     <button
       onClick={handleSpeak}
-      className="fixed bottom-6 left-6 z-40 flex items-center gap-2 px-4 py-2.5 bg-white/95 backdrop-blur-md border border-secondary/30 rounded-full shadow-lg text-on-surface font-body text-sm font-medium hover:bg-secondary/10 hover:shadow-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+      className="fixed bottom-6 left-6 z-40 flex items-center gap-2 px-4 py-2.5 stat-card stat-card-hover border border-secondary/30 rounded-full shadow-lg text-on-surface font-body text-sm font-medium hover:bg-secondary/10 hover:shadow-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
       aria-label={`${TUTOR_NAME} will read this page to you`}
       title={`${TUTOR_NAME} will read this page to you`}
     >
-      <span className="text-2xl" aria-hidden="true">🔊</span>
+      <DexAvatar state="idle" size="sm" showCaptionBubble={false} />
       <span className="hidden sm:inline font-display text-xs uppercase tracking-[0.08em]">Read this to me</span>
     </button>
   );

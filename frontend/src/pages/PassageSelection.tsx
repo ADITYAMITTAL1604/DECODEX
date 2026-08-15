@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiFetch, useApiQuery } from '../lib/api';
+import DexAvatar from '../components/DexAvatar';
 
 interface Passage {
   id: string;
@@ -29,8 +30,8 @@ export default function PassageSelection() {
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-on-surface-variant font-body">Loading passages...</div>;
-  if (error) return <div className="p-8 text-center text-error font-body">Error loading passages: {error.message}</div>;
+  if (loading) return <div className="stat-card p-8 text-center text-on-surface-variant font-body student-text">Loading passages...</div>;
+  if (error) return <div className="stat-card p-8 text-center text-error font-body student-text">Error loading passages: {error.message}</div>;
 
   return (
     <main className="w-full max-w-max-content-width mx-auto px-container-padding py-8 space-y-8">
@@ -41,7 +42,7 @@ export default function PassageSelection() {
             Back to Dashboard
           </Link>
           <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-on-surface">Select a Reading Passage</h1>
-          <p className="font-body text-lg text-on-surface-variant">Choose a passage or generate a fresh AI text to begin your reading assessment.</p>
+          <p className="font-body text-lg text-on-surface-variant student-text">Choose a passage or generate a fresh AI text to begin your reading assessment.</p>
         </div>
 
         {/* Dynamic AI Passage Generator Button */}
@@ -55,24 +56,28 @@ export default function PassageSelection() {
         </button>
       </div>
       
+      {/* Dex Companion */}
+      <DexAvatar state="idle" size="sm" showCaptionBubble={true} caption="Pick a passage or create a new one — every story is a chance to grow! 🌱" className="mx-auto sm:mx-0" />
+      
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         {data?.passages.map((passage) => (
           <div 
             key={passage.id} 
-            className="p-6 sm:p-8 glass-card glass-card-hover rounded-3xl border border-white/80 flex flex-col justify-between group"
+            className="stat-card stat-card-hover flex flex-col justify-between"
+            style={{ borderLeftColor: 'var(--color-primary)' }}
           >
             <div>
               <div className="flex items-center gap-3 mb-3">
-                <div className="h-12 w-12 rounded-2xl bg-primary-container/20 flex items-center justify-center text-primary shrink-0 shadow-inner">
+                <div className="stat-icon bg-primary/10 text-primary">
                   <span className="material-symbols-outlined text-3xl">auto_stories</span>
                 </div>
                 <h3 className="font-display text-xl font-bold text-on-surface group-hover:text-primary transition-colors">{passage.title}</h3>
               </div>
               <div className="flex gap-2.5 text-xs font-display font-bold uppercase tracking-[0.08em] text-outline mb-4">
-                <span className="bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full border border-surface-variant">Grade {passage.grade_level}</span>
-                <span className="bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full border border-surface-variant">{passage.word_count} words</span>
+                <span className="badge-cat cat-sub">Grade {passage.grade_level}</span>
+                <span className="badge-cat cat-sub">{passage.word_count} words</span>
               </div>
-              <p className="font-body text-on-surface-variant text-base line-clamp-3 mb-6 leading-relaxed">
+              <p className="font-body text-on-surface-variant text-base line-clamp-3 mb-6 leading-relaxed student-text">
                 {passage.content}
               </p>
             </div>

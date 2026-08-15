@@ -27,7 +27,6 @@ export default {
         'primary-container': '#2d7d8e',
         'on-primary-container': '#f3fcff',
         'inverse-primary': '#87d2e4',
-        // Kid theme colors
         'kid-primary': 'var(--color-primary)',
         'kid-primary-container': '#4FD8E3',
         'kid-secondary': 'var(--color-secondary)',
@@ -63,6 +62,7 @@ export default {
       fontFamily: {
         'display': ['var(--font-display)', 'sans-serif'],
         'body': ['var(--font-body)', 'sans-serif'],
+        'mono': ['var(--font-mono)', 'monospace'],
       },
       maxWidth: {
         'max-content-width': '1024px',

@@ -2,19 +2,19 @@ import React, { useEffect, useRef } from 'react';
 
 // ---------------------------------------------------------------------------
 // ConfettiBurst — Lightweight CSS/Canvas confetti triggered on celebration.
-// Spawns 60 coloured particles that fly up and fade out over 1.8 s.
+// Spawns coloured particles that fly up and fade out over 1.8 s.
 // Self-cleaning: removes the canvas when the animation finishes.
+// Uses brand colors from design system: primary, secondary, accent
 // ---------------------------------------------------------------------------
 
 const COLOURS = [
-  '#06b6d4', // teal-500
-  '#14b8a6', // teal-500-alt
-  '#f59e0b', // amber-400
-  '#8b5cf6', // violet-500
-  '#10b981', // emerald-500
+  '#2563EB', // primary-500
+  '#006474', // primary-dark
+  '#F59E0B', // secondary-500
+  '#865300', // secondary-dark
+  '#EC4899', // accent-500
+  '#10b981', // emerald-500 (success)
   '#f97316', // orange-500
-  '#ec4899', // pink-500
-  '#3b82f6', // blue-500
 ];
 
 interface Particle {

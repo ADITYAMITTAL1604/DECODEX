@@ -15,6 +15,7 @@ export interface DexAvatarProps {
   caption?: string;
   size?: 'sm' | 'md' | 'lg' | 'hero';
   showCaptionBubble?: boolean;
+  className?: string;
 }
 
 const STATE_CONFIG: Record<DexState, {
@@ -80,6 +81,7 @@ export default function DexAvatar({
   caption,
   size = 'md',
   showCaptionBubble = true,
+  className,
 }: DexAvatarProps) {
   const config = STATE_CONFIG[state] || STATE_CONFIG.idle;
 
@@ -105,7 +107,7 @@ export default function DexAvatar({
   }[size];
 
   return (
-    <div className="flex flex-col items-center justify-center relative select-none">
+    <div className={`flex flex-col items-center justify-center relative select-none ${className || ''}`}>
       <ConfettiBurst active={showConfetti} />
       {/* Cartoon Character Frame Container */}
       <div className={`relative flex items-center justify-center ${config.animationClass}`}>

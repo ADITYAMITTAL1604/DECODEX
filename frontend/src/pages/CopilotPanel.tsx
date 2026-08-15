@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { apiFetch, useApiQuery } from '../lib/api';
+import DexAvatar from '../components/DexAvatar';
 
 export default function CopilotPanel() {
   const { studentId } = useParams();
@@ -29,19 +30,22 @@ export default function CopilotPanel() {
     }
   };
 
-  const riskColorMap: Record<string, string> = {
-    low: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-    medium: 'bg-amber-100 text-amber-800 border-amber-300',
-    high: 'bg-red-100 text-red-800 border-red-300',
-  };
+  type RiskLevel = 'low' | 'medium' | 'high';
+type HealthRiskLevel = 'excellent' | 'good' | 'medium' | 'high' | 'critical';
 
-  const healthColorMap: Record<string, string> = {
-    excellent: 'text-emerald-600',
-    good: 'text-green-600',
-    medium: 'text-amber-600',
-    high: 'text-orange-600',
-    critical: 'text-red-600',
-  };
+const riskConfig = {
+    low: { badge: 'risk-good', icon: 'sentiment_very_satisfied' },
+    medium: { badge: 'risk-medium', icon: 'sentiment_neutral' },
+    high: { badge: 'risk-high', icon: 'sentiment_dissatisfied' },
+  }[(screening?.risk as RiskLevel) || 'low'] || { badge: 'risk-good', icon: 'sentiment_very_satisfied' };
+
+  const healthRiskConfig = {
+    excellent: { color: 'var(--risk-excellent-border)', icon: 'sentiment_very_satisfied' },
+    good: { color: 'var(--risk-good-border)', icon: 'sentiment_satisfied' },
+    medium: { color: 'var(--risk-medium-border)', icon: 'sentiment_neutral' },
+    high: { color: 'var(--risk-high-border)', icon: 'sentiment_dissatisfied' },
+    critical: { color: 'var(--risk-critical-border)', icon: 'sentiment_very_dissatisfied' },
+  }[(healthScore?.riskLevel as HealthRiskLevel) || 'medium'] || { color: 'var(--color-primary)', icon: 'help' };
 
   return (
     <main className="flex-grow w-full max-w-max-content-width mx-auto px-container-padding py-8 sm:py-12 text-on-surface">
@@ -57,13 +61,13 @@ export default function CopilotPanel() {
             <span className="material-symbols-outlined text-sm">smart_toy</span>
             Decodex Copilot
           </div>
-          <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-on-surface">AI Intervention Copilot</h1>
+          <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-primary">AI Intervention Copilot</h1>
           <p className="font-body text-base text-on-surface-variant mt-1">Generate a comprehensive intervention strategy</p>
         </div>
         <button
           onClick={handleGenerate}
           disabled={generating}
-          className="h-14 px-8 rounded-2xl bg-primary text-on-primary font-display text-base font-bold uppercase tracking-[0.06em] transition-all shadow-lg hover:shadow-xl active:scale-95 disabled:opacity-60 flex items-center gap-3 cursor-pointer whitespace-nowrap"
+          className="h-14 px-8 rounded-xl bg-primary text-on-primary font-display text-base font-bold uppercase tracking-[0.06em] transition-all shadow-lg hover:shadow-xl active:scale-95 disabled:opacity-60 flex items-center gap-3 cursor-pointer whitespace-nowrap"
         >
           <span className="material-symbols-outlined">{generating ? 'hourglass_top' : 'neurology'}</span>
           {generating ? 'Generating Strategy…' : 'Generate Strategy'}
@@ -72,14 +76,14 @@ export default function CopilotPanel() {
 
       {/* Quick Stats Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        <div className="glass-card rounded-2xl p-4 border border-white/80 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary-container/20 flex items-center justify-center">
-            <span className="material-symbols-outlined text-primary">favorite</span>
+        <div className="stat-card stat-card-hover p-4 border border-white/80 flex items-center gap-3" style={{ borderLeftColor: 'var(--color-primary)' }}>
+          <div className="stat-icon bg-primary/10 text-primary">
+            <span className="material-symbols-outlined">favorite</span>
           </div>
           <div>
-            <p className="font-display text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Health Score</p>
+            <p className="stat-label" style={{ color: 'var(--color-primary)' }}>Health Score</p>
             {healthScore ? (
-              <p className={`font-display text-2xl font-extrabold ${healthColorMap[healthScore.riskLevel] || 'text-primary'}`}>
+              <p className="stat-value teacher-mono" style={{ color: healthRiskConfig.color }}>
                 {healthScore.score}/100
               </p>
             ) : (
@@ -88,14 +92,15 @@ export default function CopilotPanel() {
           </div>
         </div>
 
-        <div className="glass-card rounded-2xl p-4 border border-white/80 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-secondary-container/20 flex items-center justify-center">
-            <span className="material-symbols-outlined text-secondary">shield</span>
+        <div className="stat-card stat-card-hover p-4 border border-white/80 flex items-center gap-3" style={{ borderLeftColor: 'var(--color-secondary)' }}>
+          <div className="stat-icon bg-secondary/10 text-secondary">
+            <span className="material-symbols-outlined">shield</span>
           </div>
           <div>
-            <p className="font-display text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Risk Screening</p>
+            <p className="stat-label" style={{ color: 'var(--color-secondary)' }}>Risk Screening</p>
             {screening ? (
-              <span className={`inline-block px-3 py-0.5 rounded-full text-xs font-bold border ${riskColorMap[screening.risk] || ''}`}>
+              <span className={`inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-bold border badge-risk ${riskConfig.badge}`}>
+                <span className="material-symbols-outlined text-sm">{riskConfig.icon}</span>
                 {screening.risk.toUpperCase()} ({screening.confidence}% conf.)
               </span>
             ) : (
@@ -104,49 +109,51 @@ export default function CopilotPanel() {
           </div>
         </div>
 
-        <div className="glass-card rounded-2xl p-4 border border-white/80 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary-container/20 flex items-center justify-center">
-            <span className="material-symbols-outlined text-primary">history</span>
+        <div className="stat-card stat-card-hover p-4 border border-white/80 flex items-center gap-3" style={{ borderLeftColor: 'var(--color-accent)' }}>
+          <div className="stat-icon bg-accent/10 text-accent">
+            <span className="material-symbols-outlined">history</span>
           </div>
           <div>
-            <p className="font-display text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Previous Strategies</p>
-            <p className="font-display text-2xl font-extrabold text-primary">{history.length}</p>
+            <p className="stat-label" style={{ color: 'var(--color-accent)' }}>Previous Strategies</p>
+            <p className="stat-value text-primary teacher-mono">{history.length}</p>
           </div>
         </div>
       </div>
 
       {error && (
-        <div className="rounded-2xl bg-red-50 border border-red-200 p-4 mb-6 text-red-800 font-body text-sm">{error}</div>
+        <div className="stat-card stat-card-hover p-4 rounded-2xl border-l-4 border-red-500 text-red-800 font-body text-sm mb-6" style={{ borderLeftColor: 'var(--risk-high-border)' }}>
+          {error}
+        </div>
       )}
 
       {/* Strategy Output */}
       {strategy && (
         <div className="space-y-6 animate-in fade-in">
           {/* Summary */}
-          <div className="glass-card rounded-3xl p-6 sm:p-8 border border-white/80 shadow-sm">
+          <div className="stat-card stat-card-hover p-6 sm:p-8 border border-white/80 shadow-sm" style={{ borderLeftColor: 'var(--color-primary)' }}>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-primary-container/20 flex items-center justify-center">
-                <span className="material-symbols-outlined text-primary" style={{fontVariationSettings: "'FILL' 1"}}>summarize</span>
+              <div className="stat-icon bg-primary/10 text-primary">
+                <span className="material-symbols-outlined" style={{fontVariationSettings: "'FILL' 1"}}>summarize</span>
               </div>
               <h2 className="font-display text-xl font-bold text-on-surface">Strategy Summary</h2>
             </div>
-            <p className="font-body text-base text-on-surface leading-relaxed">{strategy.summary}</p>
+            <p className="font-body text-base text-on-surface leading-relaxed student-text">{strategy.summary}</p>
           </div>
 
           {/* Key Concerns */}
           {strategy.keyConcerns?.length > 0 && (
-            <div className="glass-card rounded-3xl p-6 sm:p-8 border border-white/80 shadow-sm">
+            <div className="stat-card stat-card-hover p-6 sm:p-8 border border-white/80 shadow-sm" style={{ borderLeftColor: 'var(--risk-medium-border)' }}>
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-amber-700" style={{fontVariationSettings: "'FILL' 1"}}>warning</span>
+                <div className="stat-icon bg-amber-100 text-amber-700">
+                  <span className="material-symbols-outlined" style={{fontVariationSettings: "'FILL' 1"}}>warning</span>
                 </div>
                 <h2 className="font-display text-xl font-bold text-on-surface">Key Concerns</h2>
               </div>
               <ul className="space-y-2">
                 {strategy.keyConcerns.map((concern: string, i: number) => (
-                  <li key={i} className="flex items-start gap-3 p-3 rounded-xl bg-amber-50/50 border border-amber-200/50">
+                  <li key={i} className="stat-card p-3 rounded-xl border border-amber-200/50 flex items-start gap-3" style={{ background: 'var(--risk-medium-bg)', opacity: 0.5 }}>
                     <span className="material-symbols-outlined text-amber-600 mt-0.5 shrink-0 text-sm">priority_high</span>
-                    <span className="font-body text-sm text-on-surface">{concern}</span>
+                    <span className="font-body text-sm text-on-surface student-text">{concern}</span>
                   </li>
                 ))}
               </ul>
@@ -155,29 +162,29 @@ export default function CopilotPanel() {
 
           {/* Weekly Roadmap */}
           {strategy.weeklyRoadmap?.length > 0 && (
-            <div className="glass-card rounded-3xl p-6 sm:p-8 border border-white/80 shadow-sm">
+            <div className="stat-card stat-card-hover p-6 sm:p-8 border border-white/80 shadow-sm" style={{ borderLeftColor: 'var(--color-primary)' }}>
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-xl bg-primary-container/20 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-primary" style={{fontVariationSettings: "'FILL' 1"}}>calendar_month</span>
+                <div className="stat-icon bg-primary/10 text-primary">
+                  <span className="material-symbols-outlined" style={{fontVariationSettings: "'FILL' 1"}}>calendar_month</span>
                 </div>
                 <h2 className="font-display text-xl font-bold text-on-surface">4-Week Intervention Roadmap</h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {strategy.weeklyRoadmap.map((week: any) => (
-                  <div key={week.week} className="rounded-2xl border border-surface-variant p-5 bg-white/30 hover:bg-white/50 transition-colors">
+                  <div key={week.week} className="stat-card stat-card-hover p-5 rounded-2xl border border-surface-container-high" style={{ background: 'var(--color-muted)' }}>
                     <div className="flex items-center gap-2 mb-3">
                       <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary text-on-primary font-display text-xs font-bold">{week.week}</span>
                       <h3 className="font-display text-sm font-bold text-on-surface">{week.focus}</h3>
                     </div>
                     <ul className="space-y-1.5 mb-3">
                       {week.objectives?.map((obj: string, i: number) => (
-                        <li key={i} className="font-body text-xs text-on-surface-variant flex items-start gap-1.5">
+                        <li key={i} className="font-body text-xs text-on-surface-variant flex items-start gap-1.5 student-text">
                           <span className="material-symbols-outlined text-primary text-[12px] mt-0.5 shrink-0">check_circle</span>
                           {obj}
                         </li>
                       ))}
                     </ul>
-                    <div className="border-t border-surface-variant pt-2">
+                    <div className="border-t border-surface-container-high pt-2">
                       <p className="font-display text-[9px] font-bold uppercase tracking-widest text-on-surface-variant mb-1">Activities</p>
                       {week.activities?.map((act: string, i: number) => (
                         <span key={i} className="inline-block px-2 py-0.5 rounded-md bg-primary-container/15 text-primary font-body text-[10px] mr-1 mb-1">{act}</span>
@@ -191,21 +198,21 @@ export default function CopilotPanel() {
 
           {/* Recommended Exercises */}
           {strategy.recommendedExercises?.length > 0 && (
-            <div className="glass-card rounded-3xl p-6 sm:p-8 border border-white/80 shadow-sm">
+            <div className="stat-card stat-card-hover p-6 sm:p-8 border border-white/80 shadow-sm" style={{ borderLeftColor: 'var(--risk-excellent-border)' }}>
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-emerald-700" style={{fontVariationSettings: "'FILL' 1"}}>fitness_center</span>
+                <div className="stat-icon bg-emerald-100 text-emerald-700">
+                  <span className="material-symbols-outlined" style={{fontVariationSettings: "'FILL' 1"}}>fitness_center</span>
                 </div>
                 <h2 className="font-display text-xl font-bold text-on-surface">Recommended Exercises</h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {strategy.recommendedExercises.map((ex: any, i: number) => (
-                  <div key={i} className="rounded-xl border border-surface-variant p-4 bg-white/20 flex items-start gap-3">
+                  <div key={i} className="stat-card stat-card-hover p-4 rounded-xl border border-surface-container-high flex items-start gap-3" style={{ background: 'var(--color-muted)' }}>
                     <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 font-display text-xs font-bold shrink-0">{ex.category}</span>
                     <div>
                       <p className="font-display text-sm font-bold text-on-surface">{ex.name}</p>
-                      <p className="font-body text-xs text-on-surface-variant mt-0.5">{ex.description}</p>
-                      <p className="font-body text-[10px] text-on-surface-variant mt-1">~{ex.estimatedMinutes} min • {ex.difficulty}</p>
+                      <p className="font-body text-xs text-on-surface-variant mt-0.5 student-text">{ex.description}</p>
+                      <p className="font-body text-[10px] text-on-surface-variant mt-1 student-text">~{ex.estimatedMinutes} min • {ex.difficulty}</p>
                     </div>
                   </div>
                 ))}
@@ -215,11 +222,11 @@ export default function CopilotPanel() {
 
           {/* Parent Communication Draft */}
           {strategy.parentCommunicationDraft && (
-            <div className="glass-card rounded-3xl p-6 sm:p-8 border border-white/80 shadow-sm">
+            <div className="stat-card stat-card-hover p-6 sm:p-8 border border-white/80 shadow-sm" style={{ borderLeftColor: 'var(--color-secondary)' }}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-blue-700" style={{fontVariationSettings: "'FILL' 1"}}>mail</span>
+                  <div className="stat-icon bg-blue-100 text-blue-700">
+                    <span className="material-symbols-outlined" style={{fontVariationSettings: "'FILL' 1"}}>mail</span>
                   </div>
                   <h2 className="font-display text-xl font-bold text-on-surface">Parent Communication Draft</h2>
                 </div>
@@ -231,7 +238,7 @@ export default function CopilotPanel() {
                   Copy
                 </button>
               </div>
-              <pre className="font-body text-sm text-on-surface whitespace-pre-wrap leading-relaxed bg-white/40 rounded-xl p-5 border border-surface-variant">{strategy.parentCommunicationDraft}</pre>
+              <pre className="stat-card font-body text-sm text-on-surface whitespace-pre-wrap leading-relaxed rounded-xl p-5 border border-surface-variant" style={{ background: 'var(--color-muted)' }}>{strategy.parentCommunicationDraft}</pre>
             </div>
           )}
         </div>
@@ -239,14 +246,15 @@ export default function CopilotPanel() {
 
       {/* Empty State */}
       {!strategy && !generating && (
-        <div className="glass-card rounded-3xl p-12 border border-white/80 text-center shadow-sm">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-primary-container/20 flex items-center justify-center shadow-inner">
-            <span className="material-symbols-outlined text-5xl text-primary" style={{fontVariationSettings: "'FILL' 1"}}>neurology</span>
+        <div className="stat-card stat-card-hover p-12 border border-white/80 text-center shadow-sm" style={{ borderLeftColor: 'var(--color-primary)' }}>
+          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-primary-container/20 text-primary flex items-center justify-center shadow-inner">
+            <span className="material-symbols-outlined text-5xl" style={{fontVariationSettings: "'FILL' 1"}}>neurology</span>
           </div>
           <h3 className="font-display text-2xl font-bold text-on-surface mb-2">Ready to Generate</h3>
-          <p className="font-body text-base text-on-surface-variant max-w-md mx-auto">
+          <p className="font-body text-base text-on-surface-variant max-w-md mx-auto student-text">
             Click "Generate Strategy" to create a comprehensive intervention plan including weekly roadmaps, recommended exercises, and a parent communication draft.
           </p>
+          <DexAvatar state="idle" size="md" showCaptionBubble={true} caption="I'll help create a personalized plan for this student! 🎯" className="mt-6 mx-auto" />
         </div>
       )}
     </main>

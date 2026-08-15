@@ -3,9 +3,10 @@ import React, { useEffect, useState } from 'react';
 interface AnimatedCounterProps {
   value: number;
   duration?: number;
+  className?: string;
 }
 
-export function AnimatedCounter({ value, duration = 2 }: AnimatedCounterProps) {
+export function AnimatedCounter({ value, duration = 2, className = '' }: AnimatedCounterProps) {
   const [displayValue, setDisplayValue] = useState(0);
   
   useEffect(() => {
@@ -28,5 +29,5 @@ export function AnimatedCounter({ value, duration = 2 }: AnimatedCounterProps) {
     window.requestAnimationFrame(step);
   }, [value, duration]);
 
-  return <span>{displayValue}</span>;
+  return <span className={`teacher-mono ${className}`}>{displayValue}</span>;
 }

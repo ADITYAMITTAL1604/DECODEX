@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { apiFetch, useApiQuery } from '../lib/api';
 import { useDex } from '../hooks/useDex';
 import DexAvatar from '../components/DexAvatar';
+import { Skeleton, SkeletonCard } from '../components/Skeleton';
 
 interface ActiveActivity {
   pathId: string;
@@ -89,8 +90,24 @@ export default function LearningPathPage() {
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-on-surface-variant font-body">Analyzing reading context...</div>;
-  if (error) return <div className="p-8 text-center text-error font-body">Error loading learning path: {error.message}</div>;
+  if (loading) {
+    return (
+      <main className="flex-grow w-full max-w-[1000px] mx-auto px-container-padding py-8 sm:py-12">
+        <Skeleton className="h-32 w-full mb-8" />
+        <Skeleton className="h-40 w-full mb-8" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          <Skeleton className="h-48 w-full" />
+          <Skeleton className="h-48 w-full" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-40 w-full" />
+          ))}
+        </div>
+      </main>
+    );
+  }
+  if (error) return <div className="stat-card p-8 text-center text-error font-body student-text">Error loading learning path: {error.message}</div>;
 
   const canGenerate = learningPath?.canGenerate ?? true;
   const currentSessions = learningPath?.completedSessionsCount ?? 0;
@@ -101,11 +118,13 @@ export default function LearningPathPage() {
   const trackMode = learningPath?.trackMode || 'Steady Mastery Track';
   const riskLevel = learningPath?.riskLevel || 'low';
 
-  const riskBadgeStyle = riskLevel === 'high'
-    ? 'bg-red-100 text-red-800 border-red-300'
-    : riskLevel === 'medium'
-    ? 'bg-amber-100 text-amber-800 border-amber-300'
-    : 'bg-emerald-100 text-emerald-800 border-emerald-300';
+  type RiskLevel = 'low' | 'medium' | 'high';
+
+  const riskConfig = {
+    low: { badge: 'risk-good', icon: 'sentiment_very_satisfied' },
+    medium: { badge: 'risk-medium', icon: 'sentiment_neutral' },
+    high: { badge: 'risk-high', icon: 'sentiment_dissatisfied' },
+  }[(riskLevel as RiskLevel)] || { badge: 'risk-good', icon: 'sentiment_very_satisfied' };
 
   return (
     <main className="flex-grow w-full max-w-[1000px] mx-auto px-container-padding py-8 sm:py-12 text-on-surface">
@@ -120,7 +139,7 @@ export default function LearningPathPage() {
             <span className="material-symbols-outlined text-sm">route</span>
             Stage {stageNumber} Adaptive Curriculum
           </div>
-          <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-on-surface">Your Reading Learning Path</h1>
+          <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-primary">Your Reading Learning Path</h1>
           <p className="font-body text-base text-on-surface-variant mt-1">A day-by-day plan tailored to your reading assessment context</p>
           <div className="mt-3">
             <DexAvatar state={dexState} caption={dexCaption} />
@@ -131,7 +150,7 @@ export default function LearningPathPage() {
           <button
             onClick={handleGenerate}
             disabled={generating}
-            className="h-12 px-6 rounded-2xl bg-surface-container-high text-on-surface font-display text-xs font-bold uppercase tracking-wider transition-all hover:bg-surface-container-highest active:scale-95 disabled:opacity-60 cursor-pointer"
+            className="h-12 px-6 rounded-xl bg-surface-container-high text-on-surface font-display text-xs font-bold uppercase tracking-wider transition-all hover:bg-surface-container-highest active:scale-95 disabled:opacity-60 cursor-pointer"
           >
             {generating ? 'Regenerating…' : `Re-Analyze & Update Stage ${stageNumber}`}
           </button>
@@ -139,24 +158,22 @@ export default function LearningPathPage() {
       </div>
 
       {/* Daily Practice Commitment Card */}
-      <div className="glass-card rounded-3xl p-6 border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent mb-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="stat-card stat-card-hover p-6 border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent mb-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4" style={{ borderLeftColor: 'var(--color-secondary)' }}>
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-600 flex items-center justify-center shrink-0">
             <span className="material-symbols-outlined text-2xl">menu_book</span>
           </div>
           <div>
-            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-900 font-display text-[10px] font-bold uppercase tracking-wider">
-              Student Core Rule
-            </span>
+            <span className="badge-cat cat-sub">Student Core Rule</span>
             <h3 className="font-display text-lg font-bold text-on-surface mt-1">Daily Story Practice Commitment</h3>
-            <p className="font-body text-sm text-on-surface-variant max-w-2xl mt-0.5">
+            <p className="font-body text-sm text-on-surface-variant max-w-2xl mt-0.5 student-text">
               You must practice reading every single day — even if you cannot finish a whole story, reading even a small part or a few phrases of a story daily will continuously improve your skills!
             </p>
           </div>
         </div>
         <Link
           to="/stories"
-          className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-display text-xs font-bold uppercase tracking-wider transition-all shadow-sm shrink-0 flex items-center gap-1.5"
+          className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-display text-xs font-bold uppercase tracking-wider transition-all shadow-sm shrink-0 flex items-center gap-1.5"
         >
           <span className="material-symbols-outlined text-base">auto_stories</span>
           Practice Story
@@ -164,10 +181,10 @@ export default function LearningPathPage() {
       </div>
 
       {errorMsg && (
-        <div className="mb-6 p-4 rounded-2xl bg-red-500/10 border-2 border-red-500/30 text-red-900 font-body text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="stat-card stat-card-hover p-4 rounded-2xl border-l-4 border-red-500 text-red-800 font-body text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6" style={{ borderLeftColor: 'var(--risk-high-border)' }}>
           <div>
             <p className="font-display font-bold text-base">Generation Error</p>
-            <p className="mt-0.5">{errorMsg}</p>
+            <p className="mt-0.5 student-text">{errorMsg}</p>
           </div>
           <button
             onClick={handleGenerate}
@@ -181,15 +198,13 @@ export default function LearningPathPage() {
 
       {/* Graduation Banner when 100% completed */}
       {isCompleted && (
-        <div className="glass-card rounded-3xl p-8 sm:p-10 border border-emerald-500/50 bg-emerald-500/10 mb-8 shadow-xl text-center flex flex-col items-center">
+        <div className="stat-card stat-card-hover p-8 sm:p-10 border border-emerald-500/50 bg-emerald-500/10 mb-8 shadow-xl text-center flex flex-col items-center" style={{ borderLeftColor: 'var(--risk-excellent-border)' }}>
           <div className="w-16 h-16 rounded-2xl bg-emerald-600 text-white flex items-center justify-center mb-3 shadow-inner">
             <span className="material-symbols-outlined text-4xl">workspace_premium</span>
           </div>
-          <span className="px-3 py-1 rounded-full bg-emerald-200 text-emerald-900 font-display text-xs font-bold uppercase tracking-wider mb-2">
-            🏆 Stage {stageNumber} Curriculum Mastered! (+500 Bonus XP Awarded)
-          </span>
+          <span className="badge-cat cat-omi">🏆 Stage {stageNumber} Curriculum Mastered! (+500 Bonus XP Awarded)</span>
           <h2 className="font-display text-3xl font-extrabold text-on-surface mb-2">Congratulations! Stage {stageNumber} Finished!</h2>
-          <p className="font-body text-base text-on-surface-variant max-w-xl mb-6 leading-relaxed">
+          <p className="font-body text-base text-on-surface-variant max-w-xl mb-6 leading-relaxed student-text">
             You completed all 20 interactive days of Stage {stageNumber}. Decodex has analyzed your newest reading speed and error reduction rates to adapt your next level!
           </p>
           <button
@@ -205,15 +220,13 @@ export default function LearningPathPage() {
 
       {/* Gating Screen if under 2 sessions */}
       {!canGenerate && !hasPath && (
-        <div className="glass-card rounded-3xl p-8 sm:p-12 border border-amber-500/30 text-center flex flex-col items-center justify-center shadow-lg bg-amber-500/5">
+        <div className="stat-card stat-card-hover p-8 sm:p-12 border border-amber-500/30 text-center flex flex-col items-center justify-center shadow-lg bg-amber-500/5" style={{ borderLeftColor: 'var(--color-secondary)' }}>
           <div className="w-20 h-20 mb-4 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center shadow-inner">
             <span className="material-symbols-outlined text-5xl" style={{ fontVariationSettings: "'FILL' 1" }}>assignment_late</span>
           </div>
-          <span className="px-3 py-1 rounded-full bg-amber-200/60 text-amber-900 font-display text-xs font-bold uppercase tracking-wider mb-2">
-            Assessment Required ({currentSessions} / {requiredSessions} Completed)
-          </span>
+          <span className="badge-cat cat-pac">Assessment Required ({currentSessions} / {requiredSessions} Completed)</span>
           <h3 className="font-display text-2xl font-bold text-on-surface mb-2">Complete Reading Assessments First</h3>
-          <p className="font-body text-base text-on-surface-variant max-w-lg mb-6 leading-relaxed">
+          <p className="font-body text-base text-on-surface-variant max-w-lg mb-6 leading-relaxed student-text">
             To build a truly personalized day-by-day plan, Decodex needs at least {requiredSessions} reading assessment sessions to analyze your specific speech, speed, and error patterns.
           </p>
           <button
@@ -228,15 +241,13 @@ export default function LearningPathPage() {
 
       {/* Ready to generate initial plan */}
       {canGenerate && !hasPath && (
-        <div className="glass-card rounded-3xl p-12 border border-white/80 text-center flex flex-col items-center justify-center">
+        <div className="stat-card stat-card-hover p-12 border border-white/80 text-center flex flex-col items-center justify-center" style={{ borderLeftColor: 'var(--color-primary)' }}>
           <div className="w-20 h-20 mb-4 rounded-2xl bg-primary-container/20 text-primary flex items-center justify-center shadow-inner">
             <span className="material-symbols-outlined text-5xl" style={{ fontVariationSettings: "'FILL' 1" }}>map</span>
           </div>
-          <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-display text-xs font-bold uppercase tracking-wider mb-2">
-             Context Ready ({currentSessions} Reading Sessions Analyzed)
-          </span>
+          <span className="badge-cat cat-omi">Context Ready ({currentSessions} Reading Sessions Analyzed)</span>
           <h3 className="font-display text-2xl font-bold text-on-surface mb-2">Generate Your Stage {stageNumber} Plan</h3>
-          <p className="font-body text-base text-on-surface-variant max-w-md mb-6">
+          <p className="font-body text-base text-on-surface-variant max-w-md mb-6 student-text">
             Click below to construct your custom 4-week, 20-day Orton-Gillingham intervention roadmap based on your reading assessment results.
           </p>
           <button
@@ -245,7 +256,7 @@ export default function LearningPathPage() {
             className="h-14 px-8 rounded-2xl bg-primary text-on-primary font-display text-base font-bold uppercase tracking-wider transition-all shadow-lg hover:bg-primary-container hover:text-on-primary-container active:scale-95 disabled:opacity-60 cursor-pointer flex items-center gap-2"
           >
             <span className="material-symbols-outlined">{generating ? 'hourglass_top' : 'auto_awesome'}</span>
-            {generating ? 'Constructing Plan…' : `Generate Stage ${stageNumber} Plan`}
+            {generating ? 'Constructing Plan…' : `Generate Stage {stageNumber} Plan`}
           </button>
         </div>
       )}
@@ -253,24 +264,21 @@ export default function LearningPathPage() {
       {/* Active Day-by-Day Learning Path */}
       {hasPath && !isCompleted && (
         <div className="space-y-8">
-          <div className="glass-card rounded-3xl p-6 sm:p-8 border border-white/80 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="stat-card stat-card-hover p-6 sm:p-8 border border-white/80 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6" style={{ borderLeftColor: 'var(--color-primary)' }}>
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-2">
-                <span className="px-3 py-1 rounded-full bg-primary-container/20 text-primary font-display text-xs font-bold uppercase tracking-wider">
-                  Stage {stageNumber} • Week {learningPath.currentWeek} of {learningPath.totalWeeks}
-                </span>
-                <span className="px-3 py-1 rounded-full bg-indigo-100 text-indigo-800 font-display text-xs font-bold uppercase tracking-wider border border-indigo-200">
-                  {trackMode.toUpperCase()}
-                </span>
-                <span className={`px-3 py-1 rounded-full font-display text-xs font-bold uppercase tracking-wider border ${riskBadgeStyle}`}>
+                <span className="badge-cat cat-sub">Stage {stageNumber} • Week {learningPath.currentWeek} of {learningPath.totalWeeks}</span>
+                <span className="badge-cat cat-bld">{trackMode.toUpperCase()}</span>
+                <span className={`badge-risk ${riskConfig.badge}`}>
+                  <span className="material-symbols-outlined text-sm mr-1">{riskConfig.icon}</span>
                   {riskLevel.toUpperCase()} RISK INTENSITY
                 </span>
               </div>
               <h2 className="font-display text-2xl font-bold text-on-surface">{learningPath.title}</h2>
-              <p className="font-body text-sm text-on-surface-variant mt-2 max-w-2xl">{learningPath.planSummary}</p>
+              <p className="font-body text-sm text-on-surface-variant mt-2 max-w-2xl student-text">{learningPath.planSummary}</p>
             </div>
-            <div className="w-full md:w-48 bg-surface-container-low p-4 rounded-2xl border border-surface-container-highest flex flex-col items-center text-center shrink-0">
-              <span className="font-display text-3xl font-extrabold text-primary">
+            <div className="w-full md:w-48 stat-card p-4 border border-surface-container-highest flex flex-col items-center text-center shrink-0" style={{ background: 'var(--color-muted)' }}>
+              <span className="font-display text-3xl font-extrabold text-primary teacher-mono">
                 {Math.round(
                   (learningPath.weeks.flatMap((w: any) => w.days || []).filter((d: any) => d.completed).length /
                     Math.max(1, learningPath.weeks.flatMap((w: any) => w.days || []).length)) * 100
@@ -284,7 +292,7 @@ export default function LearningPathPage() {
             {learningPath.weeks.map((week: any) => (
               <div
                 key={week.id || week.weekNumber}
-                className={`glass-card rounded-3xl p-6 sm:p-8 border transition-all ${
+                className={`stat-card stat-card-hover p-6 sm:p-8 rounded-3xl transition-all ${
                   week.completed
                     ? 'border-emerald-500/40 bg-emerald-50/20'
                     : week.weekNumber === learningPath.currentWeek
@@ -307,7 +315,7 @@ export default function LearningPathPage() {
                     </div>
                     <div>
                       <h3 className="font-display text-xl font-bold text-on-surface">{week.focusArea}</h3>
-                      <p className="font-body text-xs text-on-surface-variant">{week.description}</p>
+                      <p className="font-body text-xs text-on-surface-variant student-text">{week.description}</p>
                     </div>
                   </div>
                 </div>
@@ -318,8 +326,8 @@ export default function LearningPathPage() {
                       key={day.dayNumber}
                       className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
                         day.completed
-                          ? 'bg-emerald-100/40 border-emerald-300'
-                          : 'bg-white/50 border-surface-container-highest hover:bg-white/80 shadow-sm'
+                          ? 'bg-emerald-50 border-emerald-200'
+                          : 'bg-surface-container-lowest border-surface-container-highest hover:bg-white/80 shadow-sm'
                       }`}
                     >
                       <div>
@@ -329,10 +337,10 @@ export default function LearningPathPage() {
                           }`}>
                             Day {day.dayNumber}
                           </span>
-                          <span className="font-body text-[9px] text-outline">~{day.estimatedMinutes}m</span>
+                          <span className="font-body text-[9px] text-outline student-text">~{day.estimatedMinutes}m</span>
                         </div>
                         <h4 className="font-display text-xs font-bold text-on-surface mb-1 line-clamp-2">{day.title}</h4>
-                        <p className="font-body text-[10px] text-on-surface-variant leading-relaxed line-clamp-3 mb-3">{day.description}</p>
+                        <p className="font-body text-[10px] text-on-surface-variant leading-relaxed line-clamp-3 mb-3 student-text">{day.description}</p>
                       </div>
 
                       <div className="space-y-2 pt-2 border-t border-surface-container-highest">
@@ -353,7 +361,7 @@ export default function LearningPathPage() {
                             Complete (+25 XP)
                           </button>
                         ) : (
-                          <span className="w-full py-1 block text-center font-display text-[10px] font-bold uppercase text-emerald-800 bg-emerald-100 rounded-xl">
+                          <span className="w-full py-1 block text-center font-display text-[10px] font-bold uppercase text-emerald-800 bg-emerald-50 rounded-xl">
                             ✓ Done (+25 XP)
                           </span>
                         )}
@@ -653,12 +661,10 @@ function InteractiveActivityModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-md p-4">
-      <div className="w-full max-w-xl rounded-3xl glass-card border border-white/80 p-8 shadow-2xl bg-white/95 text-on-surface">
+      <div className="w-full max-w-xl rounded-3xl stat-card border border-white/80 p-8 shadow-2xl bg-white/95 text-on-surface">
         <div className="flex items-center justify-between gap-4 mb-6 pb-4 border-b border-surface-container-highest">
           <div>
-            <span className="px-3 py-1 rounded-full bg-primary-container/20 text-primary font-display text-[10px] font-bold uppercase tracking-wider">
-              {activity.title} • Infinite Generator
-            </span>
+            <span className="badge-cat cat-sub">{activity.title} • Infinite Generator</span>
             <h2 className="font-display text-xl font-bold text-on-surface mt-1">Multisensory Orton-Gillingham Exercise</h2>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl hover:bg-surface-container-high text-on-surface-variant cursor-pointer">
@@ -682,7 +688,7 @@ function InteractiveActivityModal({
               </button>
             </div>
 
-            <div className="p-6 rounded-2xl bg-surface-container-low border border-surface-container-high text-center mb-6">
+            <div className="stat-card p-6 rounded-2xl border border-surface-container-high text-center mb-6" style={{ background: 'var(--color-muted)' }}>
               <span className="font-display text-xs font-bold text-primary uppercase tracking-widest block mb-2">{currentQ.target}</span>
               <p className="font-display text-xl font-bold text-on-surface mb-2">{currentQ.question}</p>
             </div>
@@ -700,7 +706,7 @@ function InteractiveActivityModal({
                           ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
                           : 'bg-red-600 text-white border-red-600 shadow-md'
                         : selectedOption !== null && option === currentQ.correct
-                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                         : 'bg-white hover:bg-primary-container/10 border-surface-container-highest text-on-surface'
                     }`}
                   >
@@ -730,13 +736,13 @@ function InteractiveActivityModal({
                 </button>
 
                 {spokenText && (
-                  <p className="font-body text-xs text-on-surface-variant">
+                  <p className="font-body text-xs text-on-surface-variant student-text">
                     Voice Analysis Result: <strong className="font-semibold text-on-surface">"{spokenText}"</strong>
                   </p>
                 )}
 
                 {voiceError && (
-                  <div className="p-3 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-800 font-body text-xs leading-relaxed">
+                  <div className="stat-card p-3 rounded-2xl border-l-4 border-red-500 text-red-800 font-body text-xs leading-relaxed" style={{ borderLeftColor: 'var(--risk-high-border)' }}>
                     <span className="font-bold block mb-1">❌ Speech Mismatch</span>
                     {voiceError}
                   </div>
@@ -745,7 +751,7 @@ function InteractiveActivityModal({
             )}
 
             <div className="flex justify-between items-center pt-4 border-t border-surface-container-highest">
-              <span className="font-body text-xs text-on-surface-variant">
+              <span className="font-body text-xs text-on-surface-variant student-text">
                 {!canProceed ? '⚠️ Master current question to continue' : '✓ Ready for next step!'}
               </span>
               <button
@@ -761,8 +767,8 @@ function InteractiveActivityModal({
           <div className="text-center py-6">
             <span className="material-symbols-outlined text-6xl text-emerald-600 mb-2">military_tech</span>
             <h3 className="font-display text-2xl font-extrabold text-on-surface mb-2">Voice Exercise Complete!</h3>
-            <p className="font-body text-base text-on-surface-variant mb-6">
-              You scored <strong className="text-primary font-bold">{score} of {questions.length}</strong> and earned <strong className="text-primary font-bold">+25 XP</strong> for your daily plan!
+            <p className="font-body text-base text-on-surface-variant mb-6 student-text">
+              You scored <strong className="text-primary font-bold teacher-mono">{score} of {questions.length}</strong> and earned <strong className="text-primary font-bold">+25 XP</strong> for your daily plan!
             </p>
             <button
               onClick={onClose}

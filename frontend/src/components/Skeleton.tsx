@@ -15,7 +15,7 @@ export function Skeleton({ className = '' }: SkeletonProps) {
         repeat: Infinity,
         ease: "easeInOut"
       }}
-      className={`bg-surface-variant/50 rounded-xl ${className}`}
+      className={`stat-card bg-surface-container-high/50 rounded-xl ${className}`}
     />
   );
 }
@@ -30,5 +30,24 @@ export function SkeletonText({ lines = 3, className = '' }: { lines?: number, cl
         />
       ))}
     </div>
+  );
+}
+
+export function SkeletonCard({ className = '' }: { className?: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0.5 }}
+      animate={{ opacity: [0.5, 1, 0.5] }}
+      transition={{
+        duration: 1.5,
+        repeat: Infinity,
+        ease: "easeInOut"
+      }}
+      className={`stat-card stat-card-hover bg-surface-container-high/50 rounded-2xl p-6 ${className}`}
+    >
+      <div className="h-8 w-1/3 bg-surface-container-high rounded-lg mb-4" />
+      <div className="h-4 w-full bg-surface-container-high rounded-lg mb-2" />
+      <div className="h-4 w-3/4 bg-surface-container-high rounded-lg" />
+    </motion.div>
   );
 }

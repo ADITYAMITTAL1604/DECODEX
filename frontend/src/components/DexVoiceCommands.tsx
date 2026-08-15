@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import DexAvatar from './DexAvatar';
 import {
   type SpeechRecognition,
   matchIntent,
@@ -96,7 +97,7 @@ export default function DexVoiceCommands() {
     <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2">
       {(isListening || lastMatched) && (
         <div
-          className={`px-3 py-1.5 rounded-full text-xs font-display uppercase tracking-[0.08em] transition-all duration-200 ${
+          className={`stat-card stat-card-hover px-3 py-1.5 rounded-full text-xs font-display uppercase tracking-[0.08em] transition-all duration-200 ${
             isListening
               ? 'bg-primary/10 text-primary border border-primary/30 animate-pulse'
               : lastMatched?.startsWith('No match')
@@ -108,7 +109,7 @@ export default function DexVoiceCommands() {
         >
           {isListening ? (
             <>
-              <span className="material-symbols-outlined text-sm align-middle mr-1">mic</span>
+              <DexAvatar state="listening" size="sm" showCaptionBubble={false} className="inline-block mr-1" />
               Listening…
             </>
           ) : lastMatched ? (
@@ -127,14 +128,12 @@ export default function DexVoiceCommands() {
         className={`flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg text-on-surface font-body text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
           isListening
             ? 'bg-error text-on-error hover:shadow-xl animate-pulse ring-2 ring-error/50'
-            : 'bg-white/95 backdrop-blur-md border border-secondary/30 hover:bg-secondary/10 hover:shadow-xl'
+            : 'stat-card stat-card-hover border border-secondary/30 hover:bg-secondary/10 hover:shadow-xl'
         }`}
         aria-label={isListening ? 'Stop listening' : 'Dex, mujhe help chahiye'}
         title={isListening ? 'Stop listening' : 'Dex, mujhe help chahiye'}
       >
-        <span className="text-2xl" aria-hidden="true">
-          {isListening ? '🛑' : '🎤'}
-        </span>
+        <DexAvatar state={isListening ? 'listening' : 'idle'} size="sm" showCaptionBubble={false} className="inline-block" />
         <span className="hidden sm:inline font-display text-xs uppercase tracking-[0.08em]">
           {isListening ? 'Stop' : 'Dex, help'}
         </span>

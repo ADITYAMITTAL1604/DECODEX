@@ -4,9 +4,10 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { apiFetch } from '../lib/api';
 import decodexLogo from '../assets/decodex-logo.png';
+import DexAvatar from '../components/DexAvatar';
 
 type AccountType = 'student' | 'parent';
-const fieldControlClass = 'h-14 w-full glass-input rounded-2xl px-4 font-body text-lg text-on-surface outline-none transition-all focus:outline-none';
+const fieldControlClass = 'h-14 w-full glass-input rounded-2xl px-4 font-body text-lg text-on-surface outline-none transition-all focus:outline-none student-text';
 
 export default function Register() {
   const [accountType, setAccountType] = useState<AccountType>('student');
@@ -34,10 +35,10 @@ export default function Register() {
       const endpoint = accountType === 'parent' ? '/auth/register/parent' : '/auth/register';
       const body = accountType === 'parent'
         ? {
-          email: formData.email,
-          password: formData.password,
-          display_name: formData.display_name,
-        }
+            email: formData.email,
+            password: formData.password,
+            display_name: formData.display_name,
+          }
         : formData;
 
       await apiFetch(endpoint, { method: 'POST', body: JSON.stringify(body) });
@@ -51,17 +52,20 @@ export default function Register() {
 
   return (
     <div className="min-h-[calc(100vh-80px)] bg-transparent px-container-padding py-8 flex items-center justify-center text-on-surface">
+      {/* Animated background blobs for student feel */}
+      <div className="absolute inset-0 pointer-events-none opacity-20" style={{ backgroundImage: 'radial-gradient(#2563EB 1.5px, transparent 1.5px)', backgroundSize: '32px 32px' }}></div>
+      
       <motion.main 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="mx-auto w-full max-w-[480px] glass-card rounded-3xl p-8 sm:p-10 shadow-[0_20px_50px_rgba(0,100,116,0.08)]"
+        className="mx-auto w-full max-w-[480px] stat-card stat-card-hover rounded-3xl p-8 sm:p-10 shadow-[0_20px_50px_rgba(37,99,235,0.08)] relative z-10"
       >
         <div className="mb-6 text-center flex flex-col items-center">
           <img alt="Decodex Logo" className="w-24 h-24 object-contain mb-2 drop-shadow-sm" src={decodexLogo} />
           <p className="font-display text-xs font-bold uppercase tracking-[0.12em] text-secondary">Decodex Account</p>
           <h1 className="mt-1 font-display text-3xl font-extrabold text-primary">Create Your Account</h1>
-          <p className="mt-1 font-body text-sm text-on-surface-variant">Choose the account that fits how you use Decodex.</p>
+          <p className="mt-1 font-body text-sm text-on-surface-variant student-text">Choose the account that fits how you use Decodex.</p>
         </div>
 
         <div className="mb-6 grid grid-cols-2 rounded-2xl bg-surface-container/60 p-1.5 backdrop-blur-md" role="tablist" aria-label="Account type">
@@ -150,7 +154,7 @@ export default function Register() {
               required
               className="mt-1 h-5 w-5 rounded border-2 border-surface-variant text-primary focus:ring-primary cursor-pointer shrink-0"
             />
-            <label htmlFor="agree-terms" className="font-body text-xs text-on-surface-variant leading-relaxed">
+            <label htmlFor="agree-terms" className="font-body text-xs text-on-surface-variant leading-relaxed student-text">
               I agree to the{' '}
               <Link to="/terms" target="_blank" className="text-primary font-bold hover:underline">
                 Terms of Service
@@ -166,13 +170,20 @@ export default function Register() {
             whileHover={!submitting ? { scale: 1.02 } : {}} 
             whileTap={!submitting ? { scale: 0.98 } : {}}
             disabled={submitting} 
-            className="mt-2 h-14 rounded-2xl bg-primary font-display text-lg font-bold text-on-primary transition-colors duration-200 hover:bg-on-primary-fixed-variant disabled:cursor-not-allowed disabled:opacity-60 shadow-lg shadow-primary/20 cursor-pointer"
+            className="mt-2 h-14 rounded-2xl btn-clay font-display text-lg font-bold disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
           >
             {submitting ? 'Creating account…' : `Create ${accountType} Account`}
           </motion.button>
         </form>
 
-        <p className="mt-7 text-center font-body text-base text-on-surface-variant">
+        {/* Dex encouragement for student registration */}
+        {accountType === 'student' && (
+          <div className="mt-6 stat-card p-4 bg-gradient-to-br from-primary/5 to-secondary/5 rounded-2xl border border-primary/10">
+            <DexAvatar state="idle" size="sm" showCaptionBubble={true} caption="Welcome to Decodex! Let's start your reading adventure! 🌟" />
+          </div>
+        )}
+
+        <p className="mt-7 text-center font-body text-base text-on-surface-variant student-text">
           Already have an account? <Link to="/login" className="font-bold text-primary underline decoration-2 underline-offset-4">Log in</Link>
         </p>
       </motion.main>
@@ -185,7 +196,7 @@ function Field({ children, hint, id, label }: { children: ReactNode; hint?: stri
     <div className="flex flex-col gap-2">
       <label htmlFor={id} className="font-display text-xs font-bold uppercase tracking-[0.08em] text-on-surface-variant">{label}</label>
       {children}
-      {hint ? <p className="font-body text-xs text-on-surface-variant leading-normal">{hint}</p> : null}
+      {hint ? <p className="font-body text-xs text-on-surface-variant leading-normal student-text">{hint}</p> : null}
     </div>
   );
 }

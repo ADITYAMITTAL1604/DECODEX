@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Target, ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
+import DexAvatar from './DexAvatar';
 
 interface Drill {
   id: string;
@@ -25,15 +26,17 @@ export default function DrillCard({ drill }: Props) {
     ? (function() { try { return JSON.parse(drill.content); } catch { return {}; } })() 
     : (drill.content || {});
 
-  const getCategoryName = (cat: string) => {
-    const map: Record<string, string> = {
-      'REV': 'Letter / Word Reversals',
-      'SUB': 'Word Substitutions',
-      'BLD': 'Phoneme Blending',
-      'OMI': 'Omitted Words',
-      'INS': 'Inserted Words',
+  const getCategoryMeta = (cat: string) => {
+    const meta: Record<string, { label: string; icon: string; style: string }> = {
+      'REV': { label: 'Letter / Word Reversals', icon: 'swap_horiz', style: 'cat-rev' },
+      'SUB': { label: 'Word Substitutions', icon: 'find_replace', style: 'cat-sub' },
+      'BLD': { label: 'Phoneme Blending', icon: 'blend', style: 'cat-bld' },
+      'OMI': { label: 'Omitted Words', icon: 'playlist_remove', style: 'cat-omi' },
+      'INS': { label: 'Inserted Words', icon: 'playlist_add', style: 'cat-ins' },
+      'PAC': { label: 'Pacing / Self-Correction', icon: 'pace', style: 'cat-pac' },
+      'UNC': { label: 'Uncertain', icon: 'help', style: 'cat-unc' },
     };
-    return map[cat] || cat;
+    return meta[cat] || { label: cat, icon: 'neurology', style: 'cat-unc' };
   };
 
   const rawWordsList: any[] = Array.isArray(content.words) ? content.words : [];
@@ -46,7 +49,7 @@ export default function DrillCard({ drill }: Props) {
   const targetSessionId = drill.session_id || routeSessionId;
 
   return (
-    <div className="glass-card rounded-[28px] border border-white/80 shadow-sm p-6 flex flex-col gap-5 bg-surface-container-lowest">
+    <div className="stat-card stat-card-hover p-6 flex flex-col gap-5 bg-surface-container-lowest" style={{ borderRadius: '1.75rem', borderLeftColor: 'var(--color-primary)' }}>
       <div className="flex items-center gap-3">
         <div className="w-12 h-12 rounded-2xl bg-primary-container/20 text-primary flex items-center justify-center shrink-0 shadow-inner">
           <Target className="w-6 h-6" />
@@ -56,34 +59,37 @@ export default function DrillCard({ drill }: Props) {
           <h3 className="font-display text-lg font-bold text-on-surface">{drill.drill_type || 'Pronunciation Clinic'}</h3>
         </div>
       </div>
-      
-      <p className="font-body text-sm text-on-surface-variant leading-relaxed">
-        Based on your reading, AI extracted the exact words you mispronounced (<strong className="text-on-surface font-semibold">{getCategoryName(drill.target_category)}</strong>).
-      </p>
-      
-      <div className="bg-surface-container-low/60 rounded-2xl p-5 border border-surface-container-highest flex flex-col items-center gap-4 text-center">
+       
+      {(() => { const catMeta = getCategoryMeta(drill.target_category); return (
+        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border badge-cat ${catMeta.style}`}>
+          <span className="material-symbols-outlined text-sm">{catMeta.icon}</span>
+          {catMeta.label}
+        </div>
+      ); })()}
+
+      <div className="stat-card p-5 border border-surface-container-highest flex flex-col items-center gap-4 text-center" style={{ background: 'var(--color-muted)' }}>
         <p className="font-body text-xs font-bold uppercase tracking-wider text-on-surface-variant">Words to practice from your audio:</p>
-        
+
         <div className="flex flex-wrap items-center justify-center gap-2">
           {displayWords.map((word, idx) => (
-            <span key={idx} className="px-3.5 py-1.5 bg-white text-primary font-display font-bold text-base rounded-xl shadow-xs border border-surface-variant">
+            <span key={idx} className="px-3.5 py-1.5 bg-white text-primary font-display font-bold text-base rounded-xl shadow-xs border border-surface-variant student-text">
               {word}
             </span>
           ))}
         </div>
 
         {drill.completed ? (
-          <div className="flex items-center gap-2 px-5 py-2.5 bg-emerald-100 text-emerald-800 rounded-full font-display text-sm font-bold shadow-sm">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            Drill Completed! Great Job!
+          <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-display text-xs font-bold border badge-risk risk-excellent">
+            <CheckCircle2 className="w-4 h-4" />
+            Practice Completed! Great Job!
           </div>
         ) : (
-          <button 
+          <button
             onClick={() => navigate(`/sessions/${targetSessionId}/practice`)}
-            className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-primary text-on-primary rounded-2xl font-display text-sm font-bold hover:bg-primary-container hover:text-on-primary-container active:scale-95 transition-all shadow-md cursor-pointer mt-1"
+            className="w-full flex items-center justify-center gap-2 px-6 py-3.5 btn-clay font-display text-sm font-bold cursor-pointer mt-1"
           >
             <Sparkles className="w-4 h-4" />
-            Start Interactive Practice Clinic <ArrowRight className="w-4 h-4" />
+            Start Practice Clinic <ArrowRight className="w-4 h-4" />
           </button>
         )}
       </div>

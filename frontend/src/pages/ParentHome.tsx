@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiFetch } from '../lib/api';
 import { Skeleton } from '../components/Skeleton';
+import { HealthScoreGauge } from '../components/HealthScoreGauge';
+import DexAvatar from '../components/DexAvatar';
 
 interface LinkedChild {
   id: string;
@@ -33,6 +35,12 @@ interface ChildProgress {
   strengthAreas: string[];
   recommendations: string[];
 }
+
+const riskBadgeMap: Record<string, string> = {
+  low: 'risk-good',
+  medium: 'risk-medium',
+  high: 'risk-high',
+};
 
 export default function ParentHome() {
   const [children, setChildren] = useState<LinkedChild[]>([]);
@@ -87,10 +95,6 @@ export default function ParentHome() {
     setError('');
     setResendingId(studentId);
     try {
-      // POST /consent/approve was removed (security bypass — no DOB check).
-      // Use POST /consent/request to send the parent an email with a
-      // time-limited link; they must enter the student's date of birth to
-      // complete consent (/consent/:token/confirm).
       await apiFetch('/consent/request', {
         method: 'POST',
         body: JSON.stringify({ student_id: studentId }),
@@ -143,12 +147,6 @@ export default function ParentHome() {
     }
   };
 
-  const riskBadgeMap: Record<string, string> = {
-    low: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-    medium: 'bg-amber-100 text-amber-800 border-amber-300',
-    high: 'bg-red-100 text-red-800 border-red-300',
-  };
-
   const containerVariants = {
     hidden: { opacity: 0 },
     show: {
@@ -165,14 +163,13 @@ export default function ParentHome() {
   if (loading) {
     return (
       <main className="mx-auto w-full max-w-[960px] px-container-padding py-8 sm:py-12">
-        <Skeleton className="h-32 w-full mb-8" />
-        <Skeleton className="h-10 w-48 mb-6" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
-          <Skeleton className="h-40 w-full" />
-          <Skeleton className="h-40 w-full" />
-          <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-48 w-full mb-8" />
+        <Skeleton className="h-10 w-64 mb-6" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+          <Skeleton className="h-56 w-full" />
+          <Skeleton className="h-56 w-full" />
         </div>
-        <Skeleton className="h-32 w-full mb-8" />
+        <Skeleton className="h-48 w-full mb-8" />
       </main>
     );
   }
@@ -185,10 +182,10 @@ export default function ParentHome() {
       className="mx-auto w-full max-w-[960px] px-container-padding py-8 sm:py-12 text-on-surface"
     >
       {/* Header */}
-      <motion.section variants={itemVariants} className="mb-8 rounded-3xl glass-card border border-white/80 p-7 sm:p-9 shadow-sm relative overflow-hidden">
+      <motion.section variants={itemVariants} className="mb-8 stat-card stat-card-hover rounded-3xl p-7 sm:p-9 shadow-sm relative overflow-hidden" style={{ borderLeftColor: 'var(--color-secondary)' }}>
         <p className="font-display text-xs font-bold uppercase tracking-[0.12em] text-secondary">Parent Portal</p>
         <h1 className="mt-2 font-display text-3xl sm:text-4xl font-extrabold text-primary">Child Reading & Screening Dashboard</h1>
-        <p className="mt-2 max-w-2xl font-body text-base text-on-surface-variant leading-relaxed">
+        <p className="mt-2 max-w-2xl font-body text-base text-on-surface-variant leading-relaxed student-text">
           Monitor your child's reading health score, preliminary dyslexia risk screening, practice sessions, and manage recording consent.
         </p>
       </motion.section>
@@ -200,10 +197,17 @@ export default function ParentHome() {
             <button
               key={child.id}
               onClick={() => setSelectedChildId(child.id)}
-              className={`px-5 py-2.5 rounded-2xl font-display text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                selectedChildId === child.id ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container-low text-on-surface-variant'
+              className={`px-5 py-2.5 rounded-2xl font-display text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                selectedChildId === child.id 
+                  ? 'bg-primary text-on-primary shadow-sm' 
+                  : 'bg-surface-container-low text-on-surface-variant hover:border-primary/30 hover:bg-white/80 border border-transparent'
               }`}
             >
+              {child.consent_granted ? (
+                <span className="w-2 h-2 rounded-full bg-emerald-500" title="Consent granted" />
+              ) : (
+                <span className="w-2 h-2 rounded-full bg-amber-500" title="Consent pending" />
+              )}
               {child.display_name}
             </button>
           ))}
@@ -212,7 +216,7 @@ export default function ParentHome() {
 
       {/* Preliminary Dyslexia Risk Screening Report */}
       {screening && (
-        <motion.section variants={itemVariants} className="mb-8 glass-card rounded-3xl p-6 sm:p-8 border border-white/80 shadow-md">
+        <motion.section variants={itemVariants} className="mb-8 stat-card stat-card-hover rounded-3xl p-6 sm:p-8 shadow-md" style={{ borderLeftColor: screening.risk === 'low' ? 'var(--risk-good-border)' : screening.risk === 'medium' ? 'var(--risk-medium-border)' : 'var(--risk-high-border)' }}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-surface-container-highest">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-secondary-container/20 flex items-center justify-center text-secondary shadow-inner">
@@ -220,10 +224,11 @@ export default function ParentHome() {
               </div>
               <div>
                 <h2 className="font-display text-xl font-bold text-on-surface">Preliminary Dyslexia Risk Screening Report</h2>
-                <p className="font-body text-xs text-on-surface-variant">Based on {screening.sessionsAnalyzed} reading sessions</p>
+                <p className="font-body text-xs text-on-surface-variant student-text">Based on {screening.sessionsAnalyzed} reading sessions</p>
               </div>
             </div>
-            <span className={`inline-block px-4 py-1.5 rounded-full font-display text-xs font-bold uppercase tracking-wider border ${riskBadgeMap[screening.risk] || ''}`}>
+            <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full font-display text-xs font-bold uppercase tracking-wider border badge-risk ${riskBadgeMap[screening.risk] || ''}`}>
+              <span className={`w-2 h-2 rounded-full ${screening.risk === 'low' ? 'bg-emerald-500' : screening.risk === 'medium' ? 'bg-amber-500' : 'bg-red-500'}`} />
               {screening.risk.toUpperCase()} RISK INDICATOR ({screening.confidence}% Confidence)
             </span>
           </div>
@@ -234,7 +239,7 @@ export default function ParentHome() {
               <h3 className="font-display text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2">Identified Speech & Error Patterns</h3>
               <ul className="space-y-2">
                 {screening.indicators.map((ind, i) => (
-                  <li key={i} className="font-body text-xs text-on-surface flex items-start gap-2 p-2.5 rounded-xl bg-white/40 border border-surface-container-highest">
+                  <li key={i} className="font-body text-xs text-on-surface flex items-start gap-2 p-2.5 rounded-xl bg-white/40 border border-surface-container-highest student-text">
                     <span className="material-symbols-outlined text-amber-600 text-sm mt-0.5 shrink-0">warning</span>
                     {ind}
                   </li>
@@ -246,7 +251,7 @@ export default function ParentHome() {
               <h3 className="font-display text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2">Required Parent Actions</h3>
               <ul className="space-y-2">
                 {childProgress?.recommendations.map((rec, i) => (
-                  <li key={i} className="font-body text-xs text-on-surface flex items-start gap-2 p-2.5 rounded-xl bg-primary-container/10 border border-primary-container/20">
+                  <li key={i} className="font-body text-xs text-on-surface flex items-start gap-2 p-2.5 rounded-xl bg-primary-container/10 border border-primary-container/20 student-text">
                     <span className="material-symbols-outlined text-primary text-sm mt-0.5 shrink-0">check_circle</span>
                     {rec}
                   </li>
@@ -256,7 +261,7 @@ export default function ParentHome() {
           </div>
 
           {/* Disclaimer */}
-          <p className="font-body text-[11px] text-on-surface-variant/80 bg-surface-container-low p-3 rounded-xl border border-surface-container-high leading-relaxed">
+          <p className="font-body text-[11px] text-on-surface-variant/80 bg-surface-container-low p-3 rounded-xl border border-surface-container-high leading-relaxed student-text">
             <strong className="font-semibold text-on-surface">Educational Disclaimer:</strong> {screening.disclaimer}
           </p>
         </motion.section>
@@ -266,27 +271,28 @@ export default function ParentHome() {
       {childProgress && (
         <motion.div variants={itemVariants} className="space-y-6 mb-10">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Health Score Box */}
-            <div className="glass-card rounded-3xl p-6 border border-white/80 flex flex-col items-center text-center shadow-sm">
-              <p className="font-display text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2">Reading Health Score</p>
+            {/* Health Score Box — with gauge */}
+            <div className="stat-card stat-card-hover p-6 border border-white/80 flex flex-col items-center text-center shadow-sm relative overflow-hidden" style={{ borderLeftColor: 'var(--color-primary)' }}>
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent" />
+              <p className="font-display text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-2 relative z-10">Reading Health Score</p>
               {childProgress.healthScore ? (
-                <div>
-                  <p className="font-display text-5xl font-extrabold text-primary mb-1">{childProgress.healthScore.score}</p>
-                  <span className="inline-block px-3 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                <div className="relative z-10">
+                  <HealthScoreGauge score={childProgress.healthScore.score} riskLevel={childProgress.healthScore.riskLevel} />
+                  <span className="inline-block px-3 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider badge-risk risk-good mt-3">
                     {childProgress.healthScore.riskLevel}
                   </span>
                 </div>
               ) : (
-                <p className="font-body text-sm text-on-surface-variant py-4">No health score computed yet</p>
+                <p className="font-body text-sm text-on-surface-variant py-4 relative z-10 student-text">No health score computed yet</p>
               )}
             </div>
 
             {/* Strengths */}
-            <div className="glass-card rounded-3xl p-6 border border-white/80 shadow-sm flex flex-col justify-between">
+            <div className="stat-card stat-card-hover p-6 border border-white/80 shadow-sm flex flex-col justify-between" style={{ borderLeftColor: 'var(--risk-excellent-border)' }}>
               <p className="font-display text-[10px] font-bold uppercase tracking-widest text-emerald-700 mb-2">Strength Areas</p>
               <ul className="space-y-1.5 flex-grow">
                 {childProgress.strengthAreas.map((area, i) => (
-                  <li key={i} className="font-body text-xs text-on-surface flex items-center gap-2">
+                  <li key={i} className="font-body text-xs text-on-surface flex items-center gap-2 student-text">
                     <span className="material-symbols-outlined text-emerald-600 text-sm">check_circle</span>
                     {area}
                   </li>
@@ -295,11 +301,11 @@ export default function ParentHome() {
             </div>
 
             {/* Parent Action Steps */}
-            <div className="glass-card rounded-3xl p-6 border border-white/80 shadow-sm flex flex-col justify-between">
+            <div className="stat-card stat-card-hover p-6 border border-white/80 shadow-sm flex flex-col justify-between" style={{ borderLeftColor: 'var(--color-secondary)' }}>
               <p className="font-display text-[10px] font-bold uppercase tracking-widest text-secondary mb-2">Recommended Parent Actions</p>
               <ul className="space-y-1.5 flex-grow">
                 {childProgress.recommendations.map((rec, i) => (
-                  <li key={i} className="font-body text-xs text-on-surface flex items-center gap-2">
+                  <li key={i} className="font-body text-xs text-on-surface flex items-center gap-2 student-text">
                     <span className="material-symbols-outlined text-secondary text-sm">lightbulb</span>
                     {rec}
                   </li>
@@ -310,23 +316,23 @@ export default function ParentHome() {
 
           {/* Recent Sessions */}
           {childProgress.recentSessions?.length > 0 && (
-            <div className="glass-card rounded-3xl p-6 border border-white/80 shadow-sm">
+            <div className="stat-card stat-card-hover p-6 border border-white/80 shadow-sm">
               <h3 className="font-display text-lg font-bold text-on-surface mb-3">Recent Reading Sessions</h3>
               <div className="space-y-2">
                 {childProgress.recentSessions.slice(0, 5).map((s: any) => (
                   <Link
                     key={s.id}
                     to={`/parent/children/${selectedChildId}/sessions/${s.id}`}
-                    className="p-3 rounded-2xl bg-white/40 border border-surface-container-highest flex items-center justify-between hover:bg-primary-container/10 hover:border-primary/20 transition-all group"
+                    className="stat-card-hover p-3 rounded-2xl bg-white/40 border border-surface-container-highest flex items-center justify-between transition-all group"
                   >
                     <div>
                       <p className="font-display text-sm font-bold text-on-surface group-hover:text-primary transition-colors">{s.passage_title || 'Reading Session'}</p>
-                      <p className="font-body text-xs text-on-surface-variant">{new Date(s.started_at).toLocaleDateString()}</p>
+                      <p className="font-body text-xs text-on-surface-variant student-text">{new Date(s.started_at).toLocaleDateString()}</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-right">
-                        <p className="font-display text-sm font-bold text-primary">{s.words_per_minute != null ? Math.round(s.words_per_minute) : '—'} WPM</p>
-                        <p className="font-body text-xs text-on-surface-variant">
+                        <p className="font-display text-sm font-bold text-primary teacher-mono">{s.words_per_minute != null ? Math.round(s.words_per_minute) : '—'} WPM</p>
+                        <p className="font-body text-xs text-on-surface-variant student-text">
                           {s.error_rate != null ? `${100 - Math.round(s.error_rate * 100)}% accuracy` : ''}
                         </p>
                       </div>
@@ -341,9 +347,9 @@ export default function ParentHome() {
       )}
 
       {/* Link Child Form */}
-      <motion.section variants={itemVariants} className="rounded-3xl glass-card border border-white/80 p-6 sm:p-8 shadow-sm mb-8">
+      <motion.section variants={itemVariants} className="stat-card stat-card-hover rounded-3xl p-6 sm:p-8 shadow-sm mb-8" style={{ borderLeftColor: 'var(--color-primary)' }}>
         <h2 className="font-display text-2xl font-bold text-on-surface">Link a Child Account</h2>
-        <p className="mt-1 font-body text-on-surface-variant text-sm">Enter the invite code shown in your child’s Decodex dashboard.</p>
+        <p className="mt-1 font-body text-on-surface-variant text-sm student-text">Enter the invite code shown in your child's Decodex dashboard.</p>
         <form onSubmit={linkChild} className="mt-4 flex flex-col gap-3 sm:flex-row">
           <input
             value={inviteCode}
@@ -362,13 +368,13 @@ export default function ParentHome() {
       </motion.section>
 
       {error ? (
-        <div role="alert" className="mb-6 rounded-2xl bg-red-50 p-4 font-body text-sm text-red-800 border border-red-200">
+        <div role="alert" className="mb-6 rounded-2xl bg-red-50 p-4 font-body text-sm text-red-800 border border-red-200 student-text">
           {error}
         </div>
       ) : null}
 
       {notice ? (
-        <div className="mb-6 p-4 rounded-2xl bg-primary-container/20 text-primary font-body text-sm flex items-center justify-between">
+        <div className="mb-6 p-4 rounded-2xl bg-primary-container/20 text-primary font-body text-sm flex items-center justify-between student-text">
           <span>{notice.message}</span>
         </div>
       ) : null}
@@ -380,19 +386,22 @@ export default function ParentHome() {
           {children.map((child) => {
             const isGranted = child.consent_granted;
             return (
-              <article key={child.id} className="rounded-2xl glass-card border border-white/80 p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h3 className="font-display text-lg font-bold text-on-surface">{child.display_name}</h3>
-                  <p className="font-body text-xs text-on-surface-variant">
-                    {child.grade_level ? `Grade ${child.grade_level}` : 'Grade not set'} • Consent: {isGranted ? 'Confirmed' : 'Pending'}
-                  </p>
+              <article key={child.id} className="stat-card stat-card-hover p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-shadow">
+                <div className="flex items-center gap-3">
+                  <span className={`w-3 h-3 rounded-full flex-shrink-0 ${isGranted ? 'bg-emerald-500' : 'bg-amber-500'}`} title={isGranted ? 'Consent confirmed' : 'Consent pending'} />
+                  <div>
+                    <h3 className="font-display text-lg font-bold text-on-surface">{child.display_name}</h3>
+                    <p className="font-body text-xs text-on-surface-variant student-text">
+                      {child.grade_level ? `Grade ${child.grade_level}` : 'Grade not set'} • {isGranted ? 'Consent confirmed' : 'Consent pending'}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   {!isGranted && (
                     <button
                       onClick={() => void requestConsentEmail(child.id, child.display_name)}
                       disabled={resendingId === child.id}
-                      className="rounded-xl bg-primary px-4 py-2 font-display text-xs font-bold uppercase tracking-wider text-on-primary cursor-pointer"
+                      className="rounded-xl bg-primary px-4 py-2 font-display text-xs font-bold uppercase tracking-wider text-on-primary cursor-pointer hover:bg-primary-container hover:text-on-primary-container transition-colors"
                     >
                       {resendingId === child.id ? 'Sending…' : 'Send Consent Email'}
                     </button>
@@ -400,7 +409,7 @@ export default function ParentHome() {
                   {isGranted && (
                     <button
                       onClick={() => setPendingWithdrawal(child)}
-                      className="rounded-xl border border-red-400 px-4 py-2 font-display text-xs font-bold uppercase tracking-wider text-red-700 hover:bg-red-50 cursor-pointer"
+                      className="rounded-xl border border-red-400 px-4 py-2 font-display text-xs font-bold uppercase tracking-wider text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
                     >
                       Withdraw Consent
                     </button>
@@ -425,10 +434,10 @@ export default function ParentHome() {
               initial={{ scale: 0.95, opacity: 0 }} 
               animate={{ scale: 1, opacity: 1 }} 
               exit={{ scale: 0.95, opacity: 0 }} 
-              className="w-full max-w-lg rounded-3xl glass-card border border-white/80 p-7 shadow-2xl bg-white/95"
+              className="w-full max-w-lg rounded-3xl stat-card p-7 shadow-2xl bg-white/95"
             >
             <h2 className="font-display text-2xl font-bold text-on-surface">Withdraw consent?</h2>
-            <p className="mt-3 font-body text-sm text-on-surface-variant leading-relaxed">
+            <p className="mt-3 font-body text-sm text-on-surface-variant leading-relaxed student-text">
               This disables recording for <strong className="text-on-surface font-semibold">{pendingWithdrawal.display_name}</strong> immediately.
             </p>
             <div className="mt-6 flex justify-end gap-3">

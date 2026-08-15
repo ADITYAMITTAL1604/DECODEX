@@ -11,5 +11,8 @@
     "skills:list": "npx --yes skills list --json",
     "skills:sync:npm": "npx --yes skills experimental_sync --agent codex cursor -y",
     "skills:update": "npx --yes skills update --project -y"
+  },
+  "dependencies": {
+    "autoskills": "^0.3.6"
   }
 }

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import DexAvatar from './DexAvatar';
 
 interface AudioRecorderProps {
   onRecordingComplete: (blob: Blob) => void;
@@ -106,20 +107,22 @@ export default function AudioRecorder({ onRecordingComplete, disabled = false, d
 
   return (
     <div className="flex flex-col items-center gap-4 mt-8 relative w-full max-w-md">
-      {error && <div className="text-error font-body text-sm mb-4">{error}</div>}
+      {error && <div className="stat-card p-4 rounded-xl border-l-4 border-red-500 text-red-800 font-body text-sm student-text">{error}</div>}
       
       {disabled ? (
-        <div className="w-full rounded-2xl bg-secondary-fixed p-6 text-center text-on-secondary-fixed">
-          <span className="material-symbols-outlined text-4xl" aria-hidden="true">mic_off</span>
-          <h3 className="mt-2 font-display text-xl font-bold">Recording is unavailable</h3>
-          <p className="mt-2 font-body">{disabledMessage || 'Recording is locked until a parent confirms consent.'}</p>
+        <div className="stat-card stat-card-hover w-full rounded-2xl p-6 text-center" style={{ borderLeftColor: 'var(--color-secondary)' }}>
+          <span className="material-symbols-outlined text-4xl text-secondary mb-2">mic_off</span>
+          <h3 className="font-display text-xl font-bold text-on-surface mt-2">Recording is unavailable</h3>
+          <p className="mt-2 font-body student-text">{disabledMessage || 'Recording is locked until a parent confirms consent.'}</p>
+          <DexAvatar state="concerned" size="sm" showCaptionBubble={true} caption="We'll be ready when you are!" className="mt-4" />
         </div>
       ) : !isRecording ? (
         <button 
           onClick={startRecording}
-          className="relative z-10 w-24 h-24 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-xl hover:bg-primary-container transition-all hover:scale-105 active:scale-95 group focus:outline-none focus:ring-4 focus:ring-primary-fixed focus:ring-offset-4"
+          className="relative z-10 w-24 h-24 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-xl hover:bg-primary-container transition-all hover:scale-105 active:scale-95 group focus:outline-none focus:ring-4 focus:ring-primary/30 focus:ring-offset-4"
         >
           <span className="material-symbols-outlined text-5xl" style={{fontVariationSettings: "'FILL' 1"}}>mic</span>
+          <DexAvatar state="idle" size="sm" showCaptionBubble={true} caption="Ready to record! Press the mic button to start." className="absolute -bottom-6 left-1/2 -translate-x-1/2" />
         </button>
       ) : (
         <>
@@ -140,13 +143,14 @@ export default function AudioRecorder({ onRecordingComplete, disabled = false, d
             >
               <span className="material-symbols-outlined text-5xl animate-pulse" style={{fontVariationSettings: "'FILL' 1"}}>mic</span>
             </button>
+            <DexAvatar state="speaking" size="sm" showCaptionBubble={true} caption="Great reading! Keep going!" className="absolute -bottom-6 left-1/2 -translate-x-1/2" />
           </div>
 
           {/* Dynamic Voice Clarity Indicator Meter */}
           <div className="flex flex-col items-center gap-2 mt-2">
             <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-container-high/80 border border-primary/20 backdrop-blur-md shadow-sm">
               <span className={`w-2.5 h-2.5 rounded-full ${audioLevel > 8 ? 'bg-emerald-500 animate-ping' : 'bg-amber-400'}`}></span>
-              <span className="font-display text-xs font-bold uppercase tracking-[0.08em] text-on-surface">
+              <span className="font-display text-xs font-bold uppercase tracking-[0.08em] text-on-surface student-text">
                 {clarityStatus}
               </span>
             </div>

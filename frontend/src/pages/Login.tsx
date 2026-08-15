@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../lib/api';
 import decodexLogo from '../assets/decodex-logo.png';
+import DexAvatar from '../components/DexAvatar';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -30,18 +31,21 @@ export default function Login() {
   };
 
   return (
-    <div className="bg-transparent min-h-[calc(100vh-80px)] flex items-center justify-center p-container-padding relative overflow-hidden text-on-surface">
-      <div className="absolute inset-0 pointer-events-none opacity-20" style={{ backgroundImage: 'radial-gradient(#006474 1.5px, transparent 1.5px)', backgroundSize: '32px 32px' }}></div>
+    <div className="min-h-[calc(100vh-80px)] flex items-center justify-center p-container-padding relative overflow-hidden text-on-surface">
+      {/* Animated background for student theme feel */}
+      <div className="absolute inset-0 pointer-events-none opacity-20" style={{ backgroundImage: 'radial-gradient(#2563EB 1.5px, transparent 1.5px)', backgroundSize: '32px 32px' }}></div>
+      
       <motion.main 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="w-full max-w-[440px] glass-card rounded-3xl p-8 sm:p-10 relative z-10 shadow-[0_20px_50px_rgba(0,100,116,0.08)] flex flex-col gap-6"
+        className="w-full max-w-[440px] stat-card stat-card-hover rounded-3xl p-8 sm:p-10 relative z-10 shadow-[0_20px_50px_rgba(37,99,235,0.08)] flex flex-col gap-6"
       >
         <div className="flex flex-col items-center justify-center text-center">
           <img alt="Decodex Logo" className="w-28 h-28 object-contain mb-2 drop-shadow-md" src={decodexLogo} />
           <h1 className="font-display text-2xl font-extrabold text-primary mb-1">Welcome Back to Decodex</h1>
-          <p className="font-body text-sm text-secondary font-medium">Understand how every child reads</p>
+          <p className="font-body text-sm text-secondary font-medium student-text">Understand how every child reads</p>
+          <DexAvatar state="idle" size="sm" showCaptionBubble={false} className="mt-4" />
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5 mt-2">
@@ -56,7 +60,7 @@ export default function Login() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full h-14 pl-12 pr-4 glass-input rounded-2xl font-body text-lg text-on-surface placeholder-outline-variant focus:outline-none"
+                className="w-full h-14 pl-12 pr-4 glass-input rounded-2xl font-body text-lg text-on-surface placeholder-outline-variant focus:outline-none student-text"
                 placeholder="teacher@decodex.com"
                 required
               />
@@ -74,7 +78,7 @@ export default function Login() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full h-14 pl-12 pr-4 glass-input rounded-2xl font-body text-lg text-on-surface placeholder-outline-variant focus:outline-none"
+                className="w-full h-14 pl-12 pr-4 glass-input rounded-2xl font-body text-lg text-on-surface placeholder-outline-variant focus:outline-none student-text"
                 placeholder="••••••••"
                 required
               />
@@ -85,7 +89,7 @@ export default function Login() {
             whileHover={{ scale: 1.02 }} 
             whileTap={{ scale: 0.98 }}
             type="submit" 
-            className="w-full h-[56px] mt-4 bg-primary hover:bg-on-primary-fixed-variant text-on-primary font-display font-bold text-lg rounded-2xl transition-colors duration-200 flex items-center justify-center gap-2 shadow-lg shadow-primary/20 cursor-pointer"
+            className="w-full h-[56px] mt-4 btn-clay flex items-center justify-center gap-2 text-lg uppercase tracking-wider cursor-pointer"
           >
             Log In
             <span className="material-symbols-outlined">arrow_forward</span>
@@ -93,13 +97,13 @@ export default function Login() {
         </form>
 
         <div className="mt-2 text-center space-y-2">
-          <p className="font-body text-base text-on-surface-variant">
+          <p className="font-body text-base text-on-surface-variant student-text">
             Don't have an account?{' '}
             <Link to="/register" className="text-primary font-bold hover:text-on-primary-fixed-variant underline decoration-2 underline-offset-4 transition-colors">
               Register
             </Link>
           </p>
-          <p className="font-body text-xs text-on-surface-variant">
+          <p className="font-body text-xs text-on-surface-variant student-text">
             <Link to="/terms" className="hover:text-primary underline">Terms of Service</Link>
             {' · '}
             <Link to="/privacy" className="hover:text-primary underline">Privacy Policy</Link>
