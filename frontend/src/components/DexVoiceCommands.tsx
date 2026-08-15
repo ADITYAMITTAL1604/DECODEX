@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import DexAvatar from './DexAvatar';
 import {
   type SpeechRecognition,
   matchIntent,
@@ -97,24 +96,24 @@ export default function DexVoiceCommands() {
     <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2">
       {(isListening || lastMatched) && (
         <div
-          className={`stat-card stat-card-hover px-3 py-1.5 rounded-full text-xs font-display uppercase tracking-[0.08em] transition-all duration-200 ${
+          className={`glass-card px-3 py-1.5 rounded-full text-xs font-display uppercase tracking-[0.08em] transition-all duration-200 flex items-center gap-1.5 ${
             isListening
               ? 'bg-primary/10 text-primary border border-primary/30 animate-pulse'
               : lastMatched?.startsWith('No match')
               ? 'bg-error/10 text-error border border-error/30'
-              : 'bg-emerald/10 text-emerald border border-emerald/30'
+              : 'bg-emerald-50 text-emerald-700 border border-emerald-300'
           }`}
           role="status"
           aria-live="polite"
         >
           {isListening ? (
             <>
-              <DexAvatar state="listening" size="sm" showCaptionBubble={false} className="inline-block mr-1" />
+              <span className="material-symbols-outlined text-sm">mic</span>
               Listening…
             </>
           ) : lastMatched ? (
             <>
-              <span className="material-symbols-outlined text-sm align-middle mr-1">
+              <span className="material-symbols-outlined text-sm">
                 {lastMatched.startsWith('No match') ? 'mic_off' : 'check_circle'}
               </span>
               {lastMatched}
@@ -128,12 +127,14 @@ export default function DexVoiceCommands() {
         className={`flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg text-on-surface font-body text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
           isListening
             ? 'bg-error text-on-error hover:shadow-xl animate-pulse ring-2 ring-error/50'
-            : 'stat-card stat-card-hover border border-secondary/30 hover:bg-secondary/10 hover:shadow-xl'
+            : 'glass-card border border-secondary/30 hover:bg-secondary/10 hover:shadow-xl'
         }`}
         aria-label={isListening ? 'Stop listening' : 'Dex, mujhe help chahiye'}
         title={isListening ? 'Stop listening' : 'Dex, mujhe help chahiye'}
       >
-        <DexAvatar state={isListening ? 'listening' : 'idle'} size="sm" showCaptionBubble={false} className="inline-block" />
+        <span className="material-symbols-outlined text-xl" style={{fontVariationSettings: "'FILL' 1"}}>
+          {isListening ? 'mic' : 'assistant'}
+        </span>
         <span className="hidden sm:inline font-display text-xs uppercase tracking-[0.08em]">
           {isListening ? 'Stop' : 'Dex, help'}
         </span>

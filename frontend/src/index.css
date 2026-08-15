@@ -123,6 +123,15 @@
     border-radius: 9999px;
     font-weight: 700;
     transition: transform 0.15s, box-shadow 0.15s;
+    /* Fallback for pages without data-theme (login, register) */
+    background-color: var(--color-primary);
+    color: var(--color-on-primary);
+    box-shadow: 0 2px 8px rgba(0, 100, 116, 0.18);
+  }
+
+  .btn-clay:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0, 100, 116, 0.22);
   }
 
   [data-theme="student"] .btn-clay {
@@ -214,13 +223,18 @@
     box-shadow: 0 8px 32px 0 rgba(45, 41, 38, 0.06), inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
     border-radius: 1rem;
     padding: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
 
-  .stat-card:hover {
+  /* Opt-in horizontal flex layout for stat cards (dashboard metrics etc.) */
+  .stat-card-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  /* Opt-in hover lift effect for interactive stat cards */
+  .stat-card-hover:hover {
     transform: translateY(-2px);
     box-shadow: 0 12px 40px 0 rgba(45, 41, 38, 0.1), inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
   }
@@ -288,7 +302,9 @@
     line-height: 1.7;
   }
 
-  .student-text {
+  /* student-text only activates under the student theme — prevents
+     unauthenticated pages (login, register) from getting giant text */
+  [data-theme="student"] .student-text {
     font-family: var(--font-body);
     font-size: clamp(1.125rem, 2vw, 1.5rem);
     line-height: 1.7;
