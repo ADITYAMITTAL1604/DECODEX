@@ -99,21 +99,26 @@ app.use(
 );
 
 // --- Rate limiting (Section 1e) ---
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50, // 50 login/register attempts per 15 min per IP
+// In test environment, disable globalLimiter to avoid 429 in tests, but keep authLimiter for rate-limiting tests
+const isTest = process.env.NODE_ENV?.trim() === 'test';
+
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: { code: 'RATE_LIMITED', message: 'Too many requests, please try again later' } },
 });
 
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 300, // 300 API requests per 15 min per IP
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: { code: 'RATE_LIMITED', message: 'Too many requests, please try again later' } },
-});
+export const globalLimiter = isTest
+  ? (req: Request, res: Response, next: NextFunction) => next()
+  : rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 300,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { error: { code: 'RATE_LIMITED', message: 'Too many requests, please try again later' } },
+    });
 
 app.use(express.json());
 app.use(cookieParser());

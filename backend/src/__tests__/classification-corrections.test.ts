@@ -18,17 +18,18 @@ describe('POST /api/v1/sessions/:id/classifications/:errorIndex/feedback', () =>
 
   beforeEach(() => {
     vi.clearAllMocks();
-    // Fully reset mockQuery to clear any mockResolvedValueOnce queues
-    mockQuery.mockReset();
-    // Default: cache miss (no cached classification)
+    // Reset all cache mocks
     mockedGetCache.mockResolvedValue(null);
     mockedSetCache.mockResolvedValue(undefined);
     mockedDeleteCache.mockResolvedValue(undefined);
+    // Reset mockQuery completely to clear any previous implementations/queues
+    mockQuery.mockReset();
+    mockQuery.mockResolvedValue({ rows: [] });
   });
 
-  function setupFeedbackMocks(classificationRow, correctionRow) {
+  function setupFeedbackMocks(classificationRow: any, correctionRow: any) {
     let callCount = 0;
-    mockQuery.mockImplementation(async (sql) => {
+    mockQuery.mockImplementation(async (sql: string) => {
       callCount++;
       if (callCount === 1) {
         // First call: fetch classification
@@ -42,22 +43,17 @@ describe('POST /api/v1/sessions/:id/classifications/:errorIndex/feedback', () =>
   }
 
   it('should allow teacher to submit correction', async () => {
-    // Mock fetching the classification (for cache key computation)
-    mockQuery
-      .mockResolvedValueOnce({
-        rows: [{ source_word: 'saw', spoken_word: 'was' }],
-      })
-      // Mock inserting the correction
-      .mockResolvedValueOnce({
-        rows: [{
-          id: 'correction-id',
-          error_id: 'error-id',
-          teacher_id: TEST_USERS.teacher.id,
-          original_category: 'SUB',
-          corrected_category: 'REV',
-          created_at: new Date().toISOString(),
-        }],
-      });
+    setupFeedbackMocks(
+      { source_word: 'saw', spoken_word: 'was' },
+      {
+        id: 'correction-id',
+        error_id: 'error-id',
+        teacher_id: TEST_USERS.teacher.id,
+        original_category: 'SUB',
+        corrected_category: 'REV',
+        created_at: new Date().toISOString(),
+      }
+    );
 
     await request(app)
       .post(`/api/v1/sessions/${sessionId}/classifications/${errorIndex}/feedback`)
@@ -90,7 +86,7 @@ describe('POST /api/v1/sessions/:id/classifications/:errorIndex/feedback', () =>
   });
 
   it('should return 404 when classification not found', async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [] });
+    setupFeedbackMocks(null, null);
 
     const res = await request(app)
       .post(`/api/v1/sessions/${sessionId}/classifications/${errorIndex}/feedback`)
@@ -102,20 +98,17 @@ describe('POST /api/v1/sessions/:id/classifications/:errorIndex/feedback', () =>
   });
 
   it('should invalidate classification cache when correction is submitted (omission)', async () => {
-    mockQuery
-      .mockResolvedValueOnce({
-        rows: [{ source_word: 'the', spoken_word: null }],
-      })
-      .mockResolvedValueOnce({
-        rows: [{
-          id: 'correction-id',
-          error_id: 'error-id',
-          teacher_id: TEST_USERS.teacher.id,
-          original_category: 'SUB',
-          corrected_category: 'OMI',
-          created_at: new Date().toISOString(),
-        }],
-      });
+    setupFeedbackMocks(
+      { source_word: 'the', spoken_word: null },
+      {
+        id: 'correction-id',
+        error_id: 'error-id',
+        teacher_id: TEST_USERS.teacher.id,
+        original_category: 'SUB',
+        corrected_category: 'OMI',
+        created_at: new Date().toISOString(),
+      }
+    );
 
     await request(app)
       .post(`/api/v1/sessions/${sessionId}/classifications/${errorIndex}/feedback`)
@@ -126,20 +119,17 @@ describe('POST /api/v1/sessions/:id/classifications/:errorIndex/feedback', () =>
   });
 
   it('should invalidate classification cache when correction is submitted (insertion)', async () => {
-    mockQuery
-      .mockResolvedValueOnce({
-        rows: [{ source_word: null, spoken_word: 'extra' }],
-      })
-      .mockResolvedValueOnce({
-        rows: [{
-          id: 'correction-id',
-          error_id: 'error-id',
-          teacher_id: TEST_USERS.teacher.id,
-          original_category: 'SUB',
-          corrected_category: 'INS',
-          created_at: new Date().toISOString(),
-        }],
-      });
+    setupFeedbackMocks(
+      { source_word: null, spoken_word: 'extra' },
+      {
+        id: 'correction-id',
+        error_id: 'error-id',
+        teacher_id: TEST_USERS.teacher.id,
+        original_category: 'SUB',
+        corrected_category: 'INS',
+        created_at: new Date().toISOString(),
+      }
+    );
 
     await request(app)
       .post(`/api/v1/sessions/${sessionId}/classifications/${errorIndex}/feedback`)
@@ -150,20 +140,17 @@ describe('POST /api/v1/sessions/:id/classifications/:errorIndex/feedback', () =>
   });
 
   it('should normalize case and trim whitespace when computing cache key', async () => {
-    mockQuery
-      .mockResolvedValueOnce({
-        rows: [{ source_word: '  Saw  ', spoken_word: '  WAS  ' }],
-      })
-      .mockResolvedValueOnce({
-        rows: [{
-          id: 'correction-id',
-          error_id: 'error-id',
-          teacher_id: TEST_USERS.teacher.id,
-          original_category: 'SUB',
-          corrected_category: 'REV',
-          created_at: new Date().toISOString(),
-        }],
-      });
+    setupFeedbackMocks(
+      { source_word: '  Saw  ', spoken_word: '  WAS  ' },
+      {
+        id: 'correction-id',
+        error_id: 'error-id',
+        teacher_id: TEST_USERS.teacher.id,
+        original_category: 'SUB',
+        corrected_category: 'REV',
+        created_at: new Date().toISOString(),
+      }
+    );
 
     await request(app)
       .post(`/api/v1/sessions/${sessionId}/classifications/${errorIndex}/feedback`)

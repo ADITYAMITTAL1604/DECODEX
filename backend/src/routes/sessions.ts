@@ -41,20 +41,18 @@ function decrementUserConnection(userId: string): number {
 // Rate limiter for SSE connection attempts: 5 new connections per minute per user.
 // Uses authenticated user ID as the rate limit key (falls back to IP for unauthenticated, though this endpoint requires auth).
 const sseLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 5, // 5 SSE connection attempts per minute per user
+  windowMs: 60 * 1000,
+  max: 5,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req: AuthRequest) => req.user?.id || ipKeyGenerator(req.ip || 'unknown'),
   message: { error: { code: 'RATE_LIMITED', message: 'Too many SSE connection attempts, please try again later' } },
 });
 
-router.use(sseLimiter);
-
 export const getSSEClient = (sessionId: string) => {
   const res = sseClients.get(sessionId);
   if (!res) return null;
-  
+
   return {
     sendEvent: (event: string, data: any) => {
       res.write(`event: ${event}\n`);
@@ -63,7 +61,20 @@ export const getSSEClient = (sessionId: string) => {
   };
 };
 
-// POST /api/v1/sessions
+// Apply SSE rate limiter only to SSE endpoints
+router.get('/stream', authenticate, sseLimiter, async (req: AuthRequest, res) => {
+  const sessionId = req.query.sessionId as string;
+  if (!sessionId) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'sessionId query parameter required' } });
+  }
+  const client = getSSEClient(sessionId);
+  if (!client) {
+    return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'SSE client not found' } });
+  }
+  // The actual SSE handling is done in the status/stream endpoint
+  // This endpoint is kept for compatibility
+  res.status(400).json({ error: { code: 'INVALID_ENDPOINT', message: 'Use /:id/status/stream for session streaming' } });
+});
 router.post('/', authenticate, async (req: AuthRequest, res) => {
   const { passage_id } = req.body;
   const student_id = req.user?.id;
@@ -189,7 +200,7 @@ router.post('/:id/audio', authenticate, requireConsent, upload.single('audio'), 
 
 // GET /api/v1/sessions/:id/status/stream
 // SECURITY: Ownership check — students can only stream their own sessions.
-router.get('/:id/status/stream', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id/status/stream', authenticate, sseLimiter, async (req: AuthRequest, res) => {
   const { id } = req.params;
   const requesterId = req.user?.id;
   const requesterRole = req.user?.role;
