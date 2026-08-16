@@ -8,6 +8,24 @@ export interface StudentAccessRequester {
 export async function teacherHasStudentAccess(teacherId: string, studentId: string): Promise<boolean> {
   const result = await query(
     `SELECT 1
+     FROM teacher_student_links tsl
+     JOIN users t ON t.id = tsl.teacher_id
+     JOIN users s ON s.id = tsl.student_id
+     WHERE tsl.teacher_id = $1
+       AND tsl.student_id = $2
+       AND t.role = 'teacher'
+       AND s.role = 'student'
+       AND t.deleted_at IS NULL
+       AND s.deleted_at IS NULL`,
+    [teacherId, studentId]
+  );
+
+  if (result.rows.length > 0) {
+    return true;
+  }
+
+  const fallbackResult = await query(
+    `SELECT 1
      FROM users t
      JOIN users s ON t.school_id = s.school_id
      WHERE t.id = $1
@@ -20,7 +38,16 @@ export async function teacherHasStudentAccess(teacherId: string, studentId: stri
     [teacherId, studentId]
   );
 
-  return result.rows.length > 0;
+  if (fallbackResult.rows.length > 0) {
+    console.warn(
+      `[ACCESS FALLBACK] Teacher ${teacherId} accessed student ${studentId} via school_id fallback. ` +
+      `No explicit teacher_student_links relationship exists. ` +
+      `This fallback will be removed in a future release.`
+    );
+    return true;
+  }
+
+  return false;
 }
 
 export async function parentHasStudentAccess(parentId: string, studentId: string): Promise<boolean> {

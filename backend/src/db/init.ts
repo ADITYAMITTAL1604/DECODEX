@@ -157,6 +157,14 @@ async function applySchemaMigrationsAndSeed(client: Queryable) {
       console.log('Migration V11 applied successfully (idempotent).');
     }
 
+    // Apply V12 Migration (Teacher-Student Links for explicit access control)
+    const migrationV12Path = path.join(__dirname, 'migration_v12.sql');
+    if (fs.existsSync(migrationV12Path)) {
+      const migration = fs.readFileSync(migrationV12Path, 'utf-8');
+      await client.query(migration);
+      console.log('Migration V12 applied successfully (idempotent).');
+    }
+
     const usersCheck = await client.query('SELECT count(*) FROM users');
     const userCount = parseInt(usersCheck.rows[0].count);
     if (shouldSeedDemoData(userCount)) {

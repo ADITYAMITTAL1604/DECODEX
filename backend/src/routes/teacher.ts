@@ -64,12 +64,9 @@ router.get('/students', authenticate, requireTeacher, async (req: AuthRequest, r
         AND (
           $1 = 'admin'
           OR EXISTS (
-            SELECT 1 FROM users t
-            WHERE t.id = $2
-              AND t.role = 'teacher'
-              AND t.school_id IS NOT NULL
-              AND t.school_id = u.school_id
-              AND t.deleted_at IS NULL
+            SELECT 1 FROM teacher_student_links tsl
+            WHERE tsl.teacher_id = $2
+              AND tsl.student_id = u.id
           )
         )
       GROUP BY u.id, hs.score, hs.risk_level, hs.computed_at, ep_latest.rev_count, ep_latest.sub_count, ep_latest.omi_count, ep_latest.ins_count, ep_latest.bld_count, ep_latest.pac_count, ep_latest.uncertain_count, lp.status, lp.current_week
@@ -77,6 +74,14 @@ router.get('/students', authenticate, requireTeacher, async (req: AuthRequest, r
       `,
       [req.user?.role, req.user?.id]
     );
+
+    // Safety net: warn if teacher has zero linked students
+    if (req.user?.role === 'teacher' && result.rows.length === 0) {
+      console.warn(
+        `[EMPTY ROSTER] Teacher ${req.user?.id} has no students linked via teacher_student_links. ` +
+        `Dashboard will appear empty. Admin should assign students or teacher should create assignments.`
+      );
+    }
 
     res.json({ students: result.rows });
   } catch (error) {
@@ -112,12 +117,9 @@ router.get('/students/:id/trends', authenticate, requireTeacher, async (req: Aut
          AND (
            $2 = 'admin'
            OR EXISTS (
-             SELECT 1 FROM users t
-             WHERE t.id = $3
-               AND t.role = 'teacher'
-               AND t.school_id IS NOT NULL
-               AND t.school_id = u.school_id
-               AND t.deleted_at IS NULL
+             SELECT 1 FROM teacher_student_links tsl
+             WHERE tsl.teacher_id = $3
+               AND tsl.student_id = u.id
            )
          )
        ORDER BY rs.started_at ASC

@@ -30,7 +30,9 @@ describe('Copilot Teacher-Student Scope Check', () => {
     it('should deny a teacher without school relationship', async () => {
       const teacherToken = generateTestToken(TEST_USERS.teacher);
 
-      // School scope check returns no rows — teacher is not at the same school
+      // First query: teacher_student_links returns no rows (no explicit link)
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      // Second query: school_id fallback returns no rows (no school relationship)
       mockQuery.mockResolvedValueOnce({ rows: [] });
 
       const res = await request(app)
@@ -45,7 +47,9 @@ describe('Copilot Teacher-Student Scope Check', () => {
     it('should allow a teacher with school relationship', async () => {
       const teacherToken = generateTestToken(TEST_USERS.teacher);
 
-      // School scope check returns a matching row
+      // First query: teacher_student_links returns no rows (no explicit link)
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      // Second query: school_id fallback returns a matching row (school relationship exists)
       mockQuery.mockResolvedValueOnce({ rows: [{ '?column?': 1 }] });
 
       // Mock all subsequent DB calls for generateStrategy
@@ -91,7 +95,9 @@ describe('Copilot Teacher-Student Scope Check', () => {
     it('should deny a teacher without school relationship', async () => {
       const teacherToken = generateTestToken(TEST_USERS.teacher);
 
-      // School scope check returns no rows
+      // First query: teacher_student_links returns no rows (no explicit link)
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      // Second query: school_id fallback returns no rows (no school relationship)
       mockQuery.mockResolvedValueOnce({ rows: [] });
 
       const res = await request(app)

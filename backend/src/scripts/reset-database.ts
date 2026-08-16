@@ -44,6 +44,7 @@ function getTableList(): string[] {
     // Deepest children first
     'failed_jobs',                   // references reading_sessions (SET NULL) (v8)
     'consent_verification_attempts', // references users (CASCADE) (v7)
+    'teacher_student_links',         // references users (CASCADE) (v12)
     'behavioral_metrics',            // references reading_sessions (CASCADE), users (CASCADE) (v2)
     'copilot_sessions',              // references users (CASCADE) (v2)
     'iep_documents',                 // references users (CASCADE) (v2)

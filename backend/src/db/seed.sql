@@ -350,3 +350,38 @@ VALUES (
   2
 )
 ON CONFLICT (id) DO NOTHING;
+
+-- ---------------------------------------------------------------------------
+-- 8. Minimal Teacher Activity for teacher@decodex.com (V12 backfill signal)
+--    Creates 1 assignment assigned to both students in the demo school,
+--    so teacher_student_links backfill finds 2 real relationships.
+-- ---------------------------------------------------------------------------
+
+-- Create assignment by teacher for both demo students
+WITH teacher AS (
+  SELECT id FROM users WHERE email = 'teacher@decodex.com' AND deleted_at IS NULL
+),
+student_aarav AS (
+  SELECT id FROM users WHERE email = 'student@decodex.com' AND deleted_at IS NULL
+),
+student_sam AS (
+  SELECT id FROM users WHERE email = 'demostudent@decodex.com' AND deleted_at IS NULL
+),
+passage AS (
+  SELECT id FROM passages WHERE title = 'The Cat in the Tree' LIMIT 1
+),
+new_assignment AS (
+  INSERT INTO assignments (teacher_id, title, instructions, passage_id, scope, status)
+  SELECT teacher.id, 'Demo Assignment: The Cat in the Tree', 'Read and practice this passage', passage.id, 'selected', 'active'
+  FROM teacher, passage
+  RETURNING id
+)
+INSERT INTO assignment_students (assignment_id, student_id, status)
+SELECT new_assignment.id, student.id, 'assigned'
+FROM new_assignment
+JOIN student_aarav student ON true
+UNION ALL
+SELECT new_assignment.id, student.id, 'assigned'
+FROM new_assignment
+JOIN student_sam student ON true
+ON CONFLICT (assignment_id, student_id) DO NOTHING;

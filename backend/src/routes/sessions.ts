@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import fs from 'fs';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { query } from '../db';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { requireConsent } from '../middleware/consent';
@@ -16,6 +17,39 @@ const router = Router();
 // Note: This is suitable for single-process deployments. For horizontal scaling,
 // replace with a Redis pub/sub layer and sticky sessions.
 const sseClients = new Map<string, Response>();
+
+// Track open connections per user to enforce per-user concurrent connection limit.
+const userConnectionCounts = new Map<string, number>();
+const MAX_CONNECTIONS_PER_USER = 3;
+
+function incrementUserConnection(userId: string): number {
+  const count = (userConnectionCounts.get(userId) || 0) + 1;
+  userConnectionCounts.set(userId, count);
+  return count;
+}
+
+function decrementUserConnection(userId: string): number {
+  const count = (userConnectionCounts.get(userId) || 1) - 1;
+  if (count <= 0) {
+    userConnectionCounts.delete(userId);
+    return 0;
+  }
+  userConnectionCounts.set(userId, count);
+  return count;
+}
+
+// Rate limiter for SSE connection attempts: 5 new connections per minute per user.
+// Uses authenticated user ID as the rate limit key (falls back to IP for unauthenticated, though this endpoint requires auth).
+const sseLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 5, // 5 SSE connection attempts per minute per user
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req: AuthRequest) => req.user?.id || ipKeyGenerator(req.ip || 'unknown'),
+  message: { error: { code: 'RATE_LIMITED', message: 'Too many SSE connection attempts, please try again later' } },
+});
+
+router.use(sseLimiter);
 
 export const getSSEClient = (sessionId: string) => {
   const res = sseClients.get(sessionId);
@@ -160,6 +194,14 @@ router.get('/:id/status/stream', authenticate, async (req: AuthRequest, res) => 
   const requesterId = req.user?.id;
   const requesterRole = req.user?.role;
 
+  // Per-user concurrent connection limit (defense-in-depth beyond rate limiter)
+  if (requesterId && incrementUserConnection(requesterId) > MAX_CONNECTIONS_PER_USER) {
+    decrementUserConnection(requesterId);
+    return res.status(429).json({
+      error: { code: 'RATE_LIMITED', message: `Too many concurrent SSE connections (max ${MAX_CONNECTIONS_PER_USER} per user)` }
+    });
+  }
+
   try {
     // Verify session exists and check ownership
     const sessionRes = await query(
@@ -168,11 +210,13 @@ router.get('/:id/status/stream', authenticate, async (req: AuthRequest, res) => 
     );
 
     if (sessionRes.rows.length === 0) {
+      if (requesterId) decrementUserConnection(requesterId);
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Session not found' } });
     }
 
     // IDOR guard: student can only stream their own session
     if (requesterRole === 'student' && sessionRes.rows[0].student_id !== requesterId) {
+      if (requesterId) decrementUserConnection(requesterId);
       return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } });
     }
 
@@ -189,9 +233,11 @@ router.get('/:id/status/stream', authenticate, async (req: AuthRequest, res) => 
     // Handle client disconnect
     req.on('close', () => {
       sseClients.delete(id as string);
+      if (requesterId) decrementUserConnection(requesterId);
     });
   } catch (error) {
     console.error('Error setting up SSE stream:', error);
+    if (requesterId) decrementUserConnection(requesterId);
     res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to establish stream' } });
   }
 });
@@ -283,10 +329,22 @@ router.get('/:id/audio', authenticate, async (req: AuthRequest, res) => {
         return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'No linked child found' } });
       }
     } else if (requesterRole === 'teacher') {
-      const teacherRes = await query('SELECT school_id FROM users WHERE id = $1', [requesterId]);
-      const teacherSchoolId = teacherRes.rows[0]?.school_id;
-      if (!teacherSchoolId || teacherSchoolId !== session.student_school_id) {
-        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied: different school' } });
+      const linkRes = await query(
+        `SELECT 1 FROM teacher_student_links
+         WHERE teacher_id = $1 AND student_id = $2`,
+        [requesterId, session.student_id]
+      );
+      if (linkRes.rows.length === 0) {
+        // Fallback to school_id with warning (transition period)
+        const teacherRes = await query('SELECT school_id FROM users WHERE id = $1', [requesterId]);
+        const teacherSchoolId = teacherRes.rows[0]?.school_id;
+        if (!teacherSchoolId || teacherSchoolId !== session.student_school_id) {
+          return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied: no explicit teacher-student link' } });
+        }
+        console.warn(
+          `[ACCESS FALLBACK] Teacher ${requesterId} accessed student ${session.student_id} audio via school_id fallback. ` +
+          `No explicit teacher_student_links relationship exists.`
+        );
       }
     }
     // Admin bypasses all checks
@@ -318,7 +376,8 @@ router.get('/:id/audio', authenticate, async (req: AuthRequest, res) => {
 
 // GET /api/v1/sessions/:id/results
 // SECURITY: Ownership check — students can only access their own sessions.
-// Teachers and admins can access any student's session for review.
+// Teachers can only access sessions for their linked students.
+// Admins bypass all checks.
 router.get('/:id/results', authenticate, async (req: AuthRequest, res) => {
   const { id } = req.params;
   const requesterId = req.user?.id;
@@ -344,6 +403,29 @@ router.get('/:id/results', authenticate, async (req: AuthRequest, res) => {
     // IDOR guard: student can only read their own session
     if (requesterRole === 'student' && session.student_id !== requesterId) {
       return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied' } });
+    }
+
+    // Teacher can only access sessions for their linked students
+    if (requesterRole === 'teacher') {
+      const linkRes = await query(
+        `SELECT 1 FROM teacher_student_links
+         WHERE teacher_id = $1 AND student_id = $2`,
+        [requesterId, session.student_id]
+      );
+      if (linkRes.rows.length === 0) {
+        // Fallback to school_id with warning (transition period)
+        const teacherRes = await query('SELECT school_id FROM users WHERE id = $1', [requesterId]);
+        const teacherSchoolId = teacherRes.rows[0]?.school_id;
+        const studentRes = await query('SELECT school_id FROM users WHERE id = $1', [session.student_id]);
+        const studentSchoolId = studentRes.rows[0]?.school_id;
+        if (!teacherSchoolId || teacherSchoolId !== studentSchoolId) {
+          return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Access denied: no explicit teacher-student link' } });
+        }
+        console.warn(
+          `[ACCESS FALLBACK] Teacher ${requesterId} accessed student ${session.student_id} results via school_id fallback. ` +
+          `No explicit teacher_student_links relationship exists.`
+        );
+      }
     }
 
     // Get detailed classifications

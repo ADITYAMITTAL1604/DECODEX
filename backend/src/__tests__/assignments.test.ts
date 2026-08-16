@@ -45,6 +45,9 @@ describe('Teacher assignments', () => {
   it('does not let a teacher assign a student outside their access scope', async () => {
     mockQuery
       .mockResolvedValueOnce({ rows: [{ id: passageId }] })
+      // First query: teacher_student_links returns no rows
+      .mockResolvedValueOnce({ rows: [] })
+      // Second query: school_id fallback returns no rows
       .mockResolvedValueOnce({ rows: [] });
 
     const response = await request(app)

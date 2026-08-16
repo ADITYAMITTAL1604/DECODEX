@@ -93,17 +93,21 @@ async function getVisibleStudentIds(req: AuthRequest, requestedIds: string[] | n
        AND (
          $1 = 'admin'
          OR EXISTS (
-           SELECT 1 FROM users t
-           WHERE t.id = $2
-             AND t.role = 'teacher'
-             AND t.school_id IS NOT NULL
-             AND t.school_id = u.school_id
-             AND t.deleted_at IS NULL
+           SELECT 1 FROM teacher_student_links tsl
+           WHERE tsl.teacher_id = $2
+             AND tsl.student_id = u.id
          )
        )
      ORDER BY u.display_name ASC`,
     [req.user?.role, req.user?.id]
   );
+
+  // Safety net: warn if teacher has zero linked students
+  if (req.user?.role === 'teacher' && roster.rows.length === 0) {
+    console.warn(
+      `[EMPTY ROSTER] Teacher ${req.user?.id} has no students linked via teacher_student_links for assignment creation.`
+    );
+  }
 
   return roster.rows.map((row: any) => row.id);
 }

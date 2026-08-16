@@ -61,26 +61,37 @@ const PORT = process.env.PORT || 3000;
 app.set('trust proxy', 1);
 app.use(helmet());
 
+const isProd = process.env.NODE_ENV === 'production';
+
+// Build explicit allowlist — no wildcards.
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  'http://localhost:5173',
-  'http://localhost:3000',
+  // Dev-only explicit ports (Vite default = 5173). Add others here if needed.
+  ...(isProd ? [] : ['http://localhost:5173', 'http://127.0.0.1:5173']),
 ].filter(Boolean) as string[];
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (
-        !origin ||
-        allowedOrigins.includes(origin) ||
-        origin.endsWith('.vercel.app') ||
-        /^https?:\/\/localhost(:\d+)?$/.test(origin) ||
-        /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(origin)
-      ) {
-        callback(null, true);
+      // Allow non-browser clients (curl, mobile apps, SSR) with no Origin header.
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // In production, reject anything not in the explicit allowlist.
+      // In development, allow ANY origin with a warning — this is intentional for
+      // local developer machines where tools (Storybook, Playwright, random ports)
+      // may need access. This is NOT a bug; production strictly enforces the allowlist.
+      if (isProd) {
+        console.error('CORS blocked origin (production):', origin);
+        return callback(new Error('Not allowed by CORS'));
       } else {
-        console.error('CORS blocked origin:', origin);
-        callback(new Error('Not allowed by CORS'));
+        console.warn('CORS allowing unlisted origin (development):', origin);
+        return callback(null, true);
       }
     },
     credentials: true,

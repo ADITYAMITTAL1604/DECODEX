@@ -60,12 +60,9 @@ function getStudentScopeSql(
   return {
     sql: `
       AND EXISTS (
-        SELECT 1 FROM users t
-        WHERE t.id = $${startParamIndex}
-          AND t.role = 'teacher'
-          AND t.school_id IS NOT NULL
-          AND t.school_id = ${studentAlias}.school_id
-          AND t.deleted_at IS NULL
+        SELECT 1 FROM teacher_student_links tsl
+        WHERE tsl.teacher_id = $${startParamIndex}
+          AND tsl.student_id = ${studentAlias}.id
       )`,
     params: [requester.id],
   };

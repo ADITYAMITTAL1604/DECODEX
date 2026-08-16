@@ -15,9 +15,9 @@ export interface AuthRequest extends Request {
 }
 
 export const authenticate = (req: AuthRequest, res: Response, next: NextFunction) => {
-  // Read token from httpOnly cookie (primary) or query param (SSE fallback)
-  const queryToken = typeof req.query.token === 'string' ? req.query.token : null;
-  const token = req.cookies.token || queryToken;
+  // Read token from httpOnly cookie only.
+  // EventSource with { withCredentials: true } sends cookies for same-origin requests.
+  const token = req.cookies.token;
 
   if (!token) {
     return res.status(401).json({
