@@ -2,7 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { requireConsent } from '../middleware/consent';
-import { upload } from '../middleware/upload';
+import { upload, validateUploadedAudioFile } from '../middleware/upload';
 import { gradeSpokenAnswer, type DexLanguage } from '../services/dexTutor';
 import { transcribeAudio } from '../services/openai';
 import { query } from '../db';
@@ -80,12 +80,15 @@ router.post('/transcribe', authenticate, requireConsent, dexLimiter, upload.sing
   const studentPreferredLanguage = (req.user as any)?.preferredLanguage as DexLanguage || 'en';
 
   try {
+    // Validate magic bytes after file is written to disk
+    await validateUploadedAudioFile(file.path);
+    
     const transcript = await transcribeAudio(file.path, undefined, studentPreferredLanguage);
     res.json({ transcript });
   } catch (err) {
     console.error('Transcription route error:', err);
     res.status(500).json({
-      error: { code: 'INTERNAL_ERROR', message: 'Failed to transcribe audio' },
+      error: { code: 'INTERNAL_ERROR', message: err instanceof Error ? err.message : 'Failed to transcribe audio' },
     });
   } finally {
     // Clean up temp file — never persist raw audio (privacy requirement)

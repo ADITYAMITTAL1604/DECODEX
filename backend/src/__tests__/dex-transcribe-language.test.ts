@@ -13,15 +13,6 @@ vi.mock('../services/openai', () => ({
   transcribeAudio: vi.fn().mockResolvedValue('transcribed text'),
 }));
 
-// Mock fs for file cleanup
-vi.mock('fs', async (importOriginal) => {
-  const actual = await importOriginal();
-  return {
-    ...actual,
-    unlinkSync: vi.fn(),
-  };
-});
-
 const mockedTranscribeAudio = vi.mocked(transcribeAudio);
 
 describe('Dex Transcribe Language Wiring', () => {
@@ -45,7 +36,7 @@ describe('Dex Transcribe Language Wiring', () => {
     const res = await request(app)
       .post('/api/v1/dex/transcribe')
       .set('Cookie', `token=${hiToken}`)
-      .attach('audio', Buffer.from('fake-audio-data'), 'test.webm');
+      .attach('audio', Buffer.from([0x1A, 0x45, 0xDF, 0xA3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), 'test.webm');
 
     expect(res.status).toBe(200);
     expect(res.body.transcript).toBe('transcribed text');
@@ -70,7 +61,7 @@ describe('Dex Transcribe Language Wiring', () => {
     const res = await request(app)
       .post('/api/v1/dex/transcribe')
       .set('Cookie', `token=${enToken}`)
-      .attach('audio', Buffer.from('fake-audio-data'), 'test.webm');
+      .attach('audio', Buffer.from([0x1A, 0x45, 0xDF, 0xA3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), 'test.webm');
 
     expect(res.status).toBe(200);
     expect(res.body.transcript).toBe('transcribed text');
@@ -83,7 +74,7 @@ describe('Dex Transcribe Language Wiring', () => {
     );
   });
 
-  it('should use "en" when student preferredLanguage is explicitly "en" on JWT', async () => {
+it('should use "en" when student preferredLanguage is explicitly "en" on JWT', async () => {
     const enToken = generateTestToken({ ...TEST_USERS.studentA, preferredLanguage: 'en' });
 
     // Mock consent check (requireConsent middleware)
@@ -94,7 +85,7 @@ describe('Dex Transcribe Language Wiring', () => {
     const res = await request(app)
       .post('/api/v1/dex/transcribe')
       .set('Cookie', `token=${enToken}`)
-      .attach('audio', Buffer.from('fake-audio-data'), 'test.webm');
+      .attach('audio', Buffer.from([0x1A, 0x45, 0xDF, 0xA3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), 'test.webm');
 
     expect(res.status).toBe(200);
     expect(res.body.transcript).toBe('transcribed text');

@@ -4,7 +4,7 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { query } from '../db';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { requireConsent } from '../middleware/consent';
-import { upload } from '../middleware/upload';
+import { upload, validateUploadedAudioFile } from '../middleware/upload';
 import { audioQueue } from '../queue';
 import { processAudioJob } from '../queue/worker';
 import { getCache, deleteCache } from '../services/cache';
@@ -111,6 +111,8 @@ router.post('/:id/audio', authenticate, requireConsent, upload.single('audio'), 
   }
 
   try {
+    // Validate magic bytes after file is written to disk
+    await validateUploadedAudioFile(file.path);
     // Verify the session belongs to the requesting student
     const sessionRes = await query(
       `SELECT rs.student_id, p.content FROM reading_sessions rs
